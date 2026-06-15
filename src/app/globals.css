@@ -62,7 +62,7 @@
 }
 
 .arcane-grid {
-  background-size: 50px 50px;
+  background-size: 25px 25px;
   background-image: 
     linear-gradient(to right, hsl(var(--border) / 0.1) 1px, transparent 1px),
     linear-gradient(to bottom, hsl(var(--border) / 0.1) 1px, transparent 1px);

@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState, useRef, useEffect, useMemo } from 'react'
@@ -139,10 +138,10 @@ export function TreeCanvas({
       let x = Math.round(dragNodeInitialPos.x + dx);
       let y = Math.round(dragNodeInitialPos.y + dy);
 
-      // Snapping logic
+      // Snapping logic (25x25 grid)
       if (e.ctrlKey || e.metaKey) {
-        x = Math.round(x / 50) * 50;
-        y = Math.round(y / 50) * 50;
+        x = Math.round(x / 25) * 25;
+        y = Math.round(y / 25) * 25;
       }
 
       setDraggingNodePos({ x, y });
