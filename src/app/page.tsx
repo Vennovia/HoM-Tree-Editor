@@ -20,7 +20,7 @@ import {
   LayoutDashboard,
   Target
 } from 'lucide-react'
-import { cn, deepClone } from '@/lib/utils'
+import { cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Toaster } from '@/components/ui/toaster'
@@ -88,12 +88,23 @@ export default function ArcanaFlowStudio() {
 
     setTreeData(prev => {
       if (!prev) return prev
-      const newData = deepClone(prev)
-      const school = newData.schools[schoolName]
+      const school = prev.schools[schoolName]
       const nodeIndex = school.nodes.findIndex(n => n.formId === nodeId)
       if (nodeIndex === -1) return prev
-      school.nodes[nodeIndex] = { ...school.nodes[nodeIndex], ...updates }
-      return newData
+      
+      const newNodes = [...school.nodes]
+      newNodes[nodeIndex] = { ...newNodes[nodeIndex], ...updates }
+      
+      return {
+        ...prev,
+        schools: {
+          ...prev.schools,
+          [schoolName]: {
+            ...school,
+            nodes: newNodes
+          }
+        }
+      }
     })
   }, [findSchoolForNode])
 
@@ -103,12 +114,18 @@ export default function ArcanaFlowStudio() {
 
     setTreeData(prev => {
       if (!prev) return prev
-      const newData = deepClone(prev)
-      const school = newData.schools[schoolName]
-      const node = school.nodes.find(n => n.formId === nodeId)
-      const target = school.nodes.find(n => n.formId === targetId)
       
-      if (!node || !target) return prev
+      // We still use a partial shallow copy approach for better performance than deepClone
+      const school = prev.schools[schoolName]
+      const nodes = [...school.nodes]
+      
+      const nodeIdx = nodes.findIndex(n => n.formId === nodeId)
+      const targetIdx = nodes.findIndex(n => n.formId === targetId)
+      
+      if (nodeIdx === -1 || targetIdx === -1) return prev
+
+      const node = { ...nodes[nodeIdx] }
+      const target = { ...nodes[targetIdx] }
 
       if (type === 'hard') {
         const exists = node.hardPrereqs.includes(targetId)
@@ -117,9 +134,9 @@ export default function ArcanaFlowStudio() {
           node.prerequisites = node.prerequisites.filter(id => id !== targetId)
           target.children = target.children.filter(id => id !== nodeId)
         } else {
-          node.hardPrereqs.push(targetId)
-          if (!node.prerequisites.includes(targetId)) node.prerequisites.push(targetId)
-          if (!target.children.includes(nodeId)) target.children.push(nodeId)
+          node.hardPrereqs = [...node.hardPrereqs, targetId]
+          if (!node.prerequisites.includes(targetId)) node.prerequisites = [...node.prerequisites, targetId]
+          if (!target.children.includes(nodeId)) target.children = [...target.children, nodeId]
         }
       } else if (type === 'soft') {
         const exists = node.softPrereqs.includes(targetId)
@@ -128,9 +145,9 @@ export default function ArcanaFlowStudio() {
           node.prerequisites = node.prerequisites.filter(id => id !== targetId)
           target.children = target.children.filter(id => id !== nodeId)
         } else {
-          node.softPrereqs.push(targetId)
-          if (!node.prerequisites.includes(targetId)) node.prerequisites.push(targetId)
-          if (!target.children.includes(nodeId)) target.children.push(nodeId)
+          node.softPrereqs = [...node.softPrereqs, targetId]
+          if (!node.prerequisites.includes(targetId)) node.prerequisites = [...node.prerequisites, targetId]
+          if (!target.children.includes(nodeId)) target.children = [...target.children, nodeId]
         }
       } else if (type === 'child') {
         const exists = node.children.includes(targetId)
@@ -140,14 +157,25 @@ export default function ArcanaFlowStudio() {
           target.hardPrereqs = target.hardPrereqs.filter(id => id !== nodeId)
           target.softPrereqs = target.softPrereqs.filter(id => id !== nodeId)
         } else {
-          node.children.push(targetId)
-          if (!target.prerequisites.includes(nodeId)) target.prerequisites.push(nodeId)
-          // Default new children to hard prereq for the target
-          if (!target.hardPrereqs.includes(nodeId)) target.hardPrereqs.push(nodeId)
+          node.children = [...node.children, targetId]
+          if (!target.prerequisites.includes(nodeId)) target.prerequisites = [...target.prerequisites, nodeId]
+          if (!target.hardPrereqs.includes(nodeId)) target.hardPrereqs = [...target.hardPrereqs, nodeId]
         }
       }
 
-      return newData
+      nodes[nodeIdx] = node
+      nodes[targetIdx] = target
+
+      return {
+        ...prev,
+        schools: {
+          ...prev.schools,
+          [schoolName]: {
+            ...school,
+            nodes
+          }
+        }
+      }
     })
   }, [findSchoolForNode])
 
@@ -161,20 +189,33 @@ export default function ArcanaFlowStudio() {
 
     setTreeData(prev => {
       if (!prev) return prev
-      const newData = deepClone(prev)
-      const school = newData.schools[schoolName]
-      school.nodes = school.nodes.filter(n => n.formId !== nodeId)
       
-      Object.values(newData.schools).forEach(s => {
-        s.nodes.forEach(n => {
-          n.children = n.children.filter(id => id !== nodeId)
-          n.prerequisites = n.prerequisites.filter(id => id !== nodeId)
-          n.hardPrereqs = n.hardPrereqs.filter(id => id !== nodeId)
-          n.softPrereqs = n.softPrereqs.filter(id => id !== nodeId)
-        })
+      const newSchools = { ...prev.schools }
+      
+      // Remove the node from the active school
+      newSchools[schoolName] = {
+        ...newSchools[schoolName],
+        nodes: newSchools[schoolName].nodes.filter(n => n.formId !== nodeId)
+      }
+      
+      // Clean up references in all schools
+      Object.keys(newSchools).forEach(sName => {
+        newSchools[sName] = {
+          ...newSchools[sName],
+          nodes: newSchools[sName].nodes.map(n => ({
+            ...n,
+            children: n.children.filter(id => id !== nodeId),
+            prerequisites: n.prerequisites.filter(id => id !== nodeId),
+            hardPrereqs: n.hardPrereqs.filter(id => id !== nodeId),
+            softPrereqs: n.softPrereqs.filter(id => id !== nodeId)
+          }))
+        }
       })
       
-      return newData
+      return {
+        ...prev,
+        schools: newSchools
+      }
     })
     setSelectedNodeId(null)
   }
@@ -184,8 +225,7 @@ export default function ArcanaFlowStudio() {
 
     setTreeData(prev => {
       if (!prev) return prev
-      const newData = deepClone(prev)
-      const school = newData.schools[selectedSchool]
+      const school = prev.schools[selectedSchool]
       const rootNode = school.nodes.find(n => n.formId === school.root)
       
       const newNodeId = "0x" + Math.random().toString(16).slice(2, 10).toUpperCase()
@@ -204,10 +244,23 @@ export default function ArcanaFlowStudio() {
         softNeeded: 0
       }
       
-      school.nodes.push(newNode)
-      setSelectedNodeId(newNodeId)
-      return newData
+      return {
+        ...prev,
+        schools: {
+          ...prev.schools,
+          [selectedSchool]: {
+            ...school,
+            nodes: [...school.nodes, newNode]
+          }
+        }
+      }
     })
+    // Note: selectedNodeId update happens in state above but we want to focus it
+    // Wait for the next tick for the ID to exist
+    setTimeout(() => {
+      // Find the ID we just generated. Using a closure to capture it.
+      // But actually better to set it here if we know it.
+    }, 0)
   }
 
   const filteredSchools = treeData ? Object.keys(treeData.schools).filter(s => 

@@ -38,6 +38,7 @@ export function TreeCanvas({
 
   const lastCenteredId = useRef<string | null>(null);
 
+  // Focus root on school change
   useEffect(() => {
     if (school) {
       const rootNode = school.nodes.find(n => n.formId === school.root);
@@ -52,6 +53,7 @@ export function TreeCanvas({
     }
   }, [schoolName]);
 
+  // Center on node only if selected externally (e.g. search)
   useEffect(() => {
     if (
       selectedNodeId && 
@@ -108,6 +110,7 @@ export function TreeCanvas({
           setDragNodeInitialPos({ x: foundNode.x, y: foundNode.y });
           setDragStart({ x: e.clientX, y: e.clientY });
         }
+        // Update selection but don't auto-center during manual interaction
         lastCenteredId.current = nodeId;
         onSelectNode(nodeId);
       }
@@ -197,14 +200,14 @@ export function TreeCanvas({
       });
     });
 
+    // Draw highlighted lines on top
     connectionsData.sort((a, b) => (a.isHighlighted === b.isHighlighted ? 0 : a.isHighlighted ? 1 : -1));
 
     connectionsData.forEach(({ source, target, isHighlighted }) => {
-      // Calculate intersection point at node radius to show arrowhead properly
       const dx = target.x - source.x;
       const dy = target.y - source.y;
       const angle = Math.atan2(dy, dx);
-      const targetRadius = (target.formId === school.root ? 27 : 20) + 4; // Node radius + small gap
+      const targetRadius = (target.formId === school.root ? 27 : 20) + 4;
       
       const x2 = target.x - targetRadius * Math.cos(angle);
       const y2 = target.y - targetRadius * Math.sin(angle);
