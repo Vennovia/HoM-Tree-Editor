@@ -35,7 +35,6 @@ export function TreeCanvas({
   const [linkingSourceId, setLinkingSourceId] = useState<string | null>(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
 
-  // Center camera when school changes
   useEffect(() => {
     if (school) {
       const rootNode = school.nodes.find(n => n.formId === school.root);
@@ -179,9 +178,9 @@ export function TreeCanvas({
                 x2={childNode.x}
                 y2={childNode.y}
                 stroke="hsl(var(--primary))"
-                strokeWidth="2"
-                strokeOpacity="0.5"
-                className="transition-all duration-300 group-hover/line:stroke-destructive group-hover/line:stroke-opacity-100 group-hover/line:stroke-[3px]"
+                strokeWidth="1.5"
+                strokeOpacity="0.4"
+                className="transition-all duration-300 group-hover/line:stroke-destructive group-hover/line:stroke-opacity-100 group-hover/line:stroke-[2px]"
               />
             </g>
           );
@@ -202,31 +201,31 @@ export function TreeCanvas({
           key={node.formId}
           data-node-id={node.formId}
           className={cn(
-            "spell-node absolute flex items-center justify-center p-3 rounded-full border-2 bg-card cursor-grab hover:scale-110 pointer-events-auto arcane-glow select-none group transition-transform duration-200 ease-out",
+            "spell-node absolute flex items-center justify-center p-1.5 rounded-full border bg-card cursor-grab hover:scale-110 pointer-events-auto arcane-glow select-none group transition-transform duration-200 ease-out",
             dragMode === 'node' && "transition-none",
-            selectedNodeId === node.formId ? "node-selected ring-2 ring-accent ring-offset-2 ring-offset-background z-20" : "border-primary/50",
-            isRoot && "border-accent shadow-[0_0_20px_hsl(var(--accent))] z-10",
-            linkingSourceId === node.formId && "ring-4 ring-accent ring-offset-4 animate-pulse z-30",
+            selectedNodeId === node.formId ? "node-selected ring-2 ring-accent ring-offset-1 ring-offset-background z-20" : "border-primary/40",
+            isRoot && "border-accent shadow-[0_0_15px_hsl(var(--accent))] z-10",
+            linkingSourceId === node.formId && "ring-2 ring-accent ring-offset-2 animate-pulse z-30",
             dragNodeId === node.formId && "cursor-grabbing scale-110 opacity-80 z-40",
-            isMatch && "node-pulse ring-4 ring-yellow-400 border-yellow-400 z-50 scale-125 shadow-[0_0_30px_hsl(48_100%_50%)]"
+            isMatch && "node-pulse ring-2 ring-yellow-400 border-yellow-400 z-50 scale-125 shadow-[0_0_20px_hsl(48_100%_50%)]"
           )}
           style={{ 
             left: node.x, 
             top: node.y, 
             transform: 'translate(-50%, -50%)',
-            width: isRoot ? 80 : 60,
-            height: isRoot ? 80 : 60,
+            width: isRoot ? 54 : 40,
+            height: isRoot ? 54 : 40,
           }}
         >
           <span className={cn(
-            "text-center font-bold truncate leading-tight w-full px-1 group-hover:whitespace-normal group-hover:bg-card/90 group-hover:p-1 group-hover:rounded",
-            isRoot ? "text-xs" : "text-[10px]"
+            "text-center font-bold truncate leading-tight w-full px-0.5 pointer-events-none group-hover:whitespace-normal group-hover:bg-card/95 group-hover:absolute group-hover:z-50 group-hover:p-1 group-hover:rounded group-hover:border group-hover:border-border",
+            isRoot ? "text-[9px]" : "text-[8px]"
           )}>
             {node.name}
           </span>
           <div 
             className={cn(
-              "absolute -top-1 -right-1 w-3 h-3 rounded-full border border-background",
+              "absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border border-background shadow-sm",
               node.skillLevel === 'Master' ? "bg-yellow-500" :
               node.skillLevel === 'Expert' ? "bg-purple-500" :
               node.skillLevel === 'Adept' ? "bg-blue-500" :
@@ -252,8 +251,8 @@ export function TreeCanvas({
         x2={mousePos.x}
         y2={mousePos.y}
         stroke="hsl(var(--accent))"
-        strokeWidth="3"
-        strokeDasharray="5,5"
+        strokeWidth="2"
+        strokeDasharray="4,4"
         className="animate-pulse"
       />
     );
@@ -304,9 +303,6 @@ export function TreeCanvas({
           </p>
           <p className="text-[10px] text-foreground flex items-center gap-2">
             <span className="bg-secondary px-1.5 py-0.5 rounded text-[8px] font-mono border border-border">Shift + Drag</span> Link Nodes
-          </p>
-          <p className="text-[10px] text-foreground flex items-center gap-2">
-            <span className="bg-secondary px-1.5 py-0.5 rounded text-[8px] font-mono border border-border">Click Link</span> Delete Connection
           </p>
         </div>
       </div>
