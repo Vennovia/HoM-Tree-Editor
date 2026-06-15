@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState, useRef, useEffect, useMemo } from 'react'
@@ -11,6 +12,7 @@ interface TreeCanvasProps {
   onSelectNode: (nodeId: string) => void;
   onNodeMove: (nodeId: string, updates: Partial<SpellNode>) => void;
   onLinkNodes: (sourceId: string, targetId: string) => void;
+  searchQuery?: string;
 }
 
 export function TreeCanvas({ 
@@ -19,22 +21,21 @@ export function TreeCanvas({
   selectedNodeId, 
   onSelectNode, 
   onNodeMove,
-  onLinkNodes 
+  onLinkNodes,
+  searchQuery = ''
 }: TreeCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [transform, setTransform] = useState({ x: 0, y: 0, scale: 0.5 });
   
-  // States for different types of dragging
   const [dragMode, setDragMode] = useState<'canvas' | 'node' | 'linking' | null>(null);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [dragNodeId, setDragNodeId] = useState<string | null>(null);
   const [dragNodeInitialPos, setDragNodeInitialPos] = useState({ x: 0, y: 0 });
   
-  // State for linking mode (Shift + Drag)
   const [linkingSourceId, setLinkingSourceId] = useState<string | null>(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
 
-  // Center camera when school changes
+  // Center camera ONLY when school changes
   useEffect(() => {
     const rootNode = school.nodes.find(n => n.formId === school.root);
     if (rootNode) {
@@ -154,7 +155,6 @@ export function TreeCanvas({
         if (childNode) {
           lines.push(
             <g key={`${node.formId}-${childId}`} className="group/line cursor-pointer">
-              {/* Invisible wider stroke for easier clicking */}
               <line
                 x1={node.x}
                 y1={node.y}
@@ -234,39 +234,47 @@ export function TreeCanvas({
           {activeLinkingLine}
         </svg>
 
-        {school.nodes.map(node => (
-          <div
-            key={node.formId}
-            data-node-id={node.formId}
-            className={cn(
-              "spell-node absolute flex items-center justify-center p-3 rounded-full border-2 bg-card cursor-grab hover:scale-110 pointer-events-auto arcane-glow select-none group",
-              selectedNodeId === node.formId ? "node-selected ring-2 ring-accent ring-offset-2 ring-offset-background z-20" : "border-primary/50",
-              node.isRoot && "border-accent shadow-[0_0_10px_hsl(var(--accent))]",
-              linkingSourceId === node.formId && "ring-4 ring-accent ring-offset-4 animate-pulse z-30",
-              dragNodeId === node.formId && "cursor-grabbing scale-110 opacity-80 z-40"
-            )}
-            style={{ 
-              left: node.x, 
-              top: node.y, 
-              transform: 'translate(-50%, -50%)',
-              width: node.isRoot ? 80 : 60,
-              height: node.isRoot ? 80 : 60,
-            }}
-          >
-            <span className="text-[10px] text-center font-bold truncate leading-tight w-full px-1 group-hover:whitespace-normal group-hover:bg-card/90 group-hover:p-1 group-hover:rounded">
-              {node.name}
-            </span>
-            <div 
+        {school.nodes.map(node => {
+          const isMatch = searchQuery.length > 1 && (
+            node.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+            node.formId.toLowerCase().includes(searchQuery.toLowerCase())
+          );
+
+          return (
+            <div
+              key={node.formId}
+              data-node-id={node.formId}
               className={cn(
-                "absolute -top-1 -right-1 w-3 h-3 rounded-full border border-background",
-                node.skillLevel === 'Master' ? "bg-yellow-500" :
-                node.skillLevel === 'Expert' ? "bg-purple-500" :
-                node.skillLevel === 'Adept' ? "bg-blue-500" :
-                node.skillLevel === 'Apprentice' ? "bg-green-500" : "bg-gray-500"
-              )} 
-            />
-          </div>
-        ))}
+                "spell-node absolute flex items-center justify-center p-3 rounded-full border-2 bg-card cursor-grab hover:scale-110 pointer-events-auto arcane-glow select-none group",
+                selectedNodeId === node.formId ? "node-selected ring-2 ring-accent ring-offset-2 ring-offset-background z-20" : "border-primary/50",
+                node.isRoot && "border-accent shadow-[0_0_10px_hsl(var(--accent))]",
+                linkingSourceId === node.formId && "ring-4 ring-accent ring-offset-4 animate-pulse z-30",
+                dragNodeId === node.formId && "cursor-grabbing scale-110 opacity-80 z-40",
+                isMatch && "node-pulse ring-4 ring-yellow-400 border-yellow-400 z-50 scale-125 shadow-[0_0_30px_hsl(48_100%_50%)]"
+              )}
+              style={{ 
+                left: node.x, 
+                top: node.y, 
+                transform: 'translate(-50%, -50%)',
+                width: node.isRoot ? 80 : 60,
+                height: node.isRoot ? 80 : 60,
+              }}
+            >
+              <span className="text-[10px] text-center font-bold truncate leading-tight w-full px-1 group-hover:whitespace-normal group-hover:bg-card/90 group-hover:p-1 group-hover:rounded">
+                {node.name}
+              </span>
+              <div 
+                className={cn(
+                  "absolute -top-1 -right-1 w-3 h-3 rounded-full border border-background",
+                  node.skillLevel === 'Master' ? "bg-yellow-500" :
+                  node.skillLevel === 'Expert' ? "bg-purple-500" :
+                  node.skillLevel === 'Adept' ? "bg-blue-500" :
+                  node.skillLevel === 'Apprentice' ? "bg-green-500" : "bg-gray-500"
+                )} 
+              />
+            </div>
+          );
+        })}
       </div>
 
       <div className="absolute bottom-4 left-4 flex flex-col gap-1 p-3 bg-card/80 border border-border rounded-lg backdrop-blur-sm pointer-events-none">
@@ -294,12 +302,6 @@ export function TreeCanvas({
             <span className="bg-secondary px-1.5 py-0.5 rounded text-[8px] font-mono border border-border">Wheel</span> Zoom
           </p>
         </div>
-        {linkingSourceId && (
-          <div className="mt-2 pt-2 border-t border-accent/20 bg-accent/5 p-2 rounded animate-pulse">
-            <p className="text-[10px] text-accent font-bold">Linking Active</p>
-            <p className="text-[9px] text-accent/70">Drop on target node to connect</p>
-          </div>
-        )}
       </div>
     </div>
   )
