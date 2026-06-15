@@ -1,11 +1,11 @@
 {
   "name": "HoM Tree Editor",
   "short_name": "HoM Editor",
-  "description": "Arcane Spell Tree Structure Editor",
+  "description": "Master your spell structures with visual editing.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#1a1425",
-  "theme_color": "#1a1425",
+  "theme_color": "#2255ff",
   "icons": [
     {
       "src": "https://picsum.photos/seed/magic/192/192",
