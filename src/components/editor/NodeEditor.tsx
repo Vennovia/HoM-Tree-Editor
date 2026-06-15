@@ -8,21 +8,23 @@ import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
-import { Sparkles, Trash2, Link as LinkIcon, Lock, Unlock, MapPin } from 'lucide-react'
+import { Sparkles, Trash2, Link as LinkIcon, Lock, Unlock, MapPin, X, Plus } from 'lucide-react'
 import { suggestSpellNodeDetails } from '@/ai/flows/suggest-spell-node-details-flow'
-import { generateSpellLore } from '@/ai/flows/generate-spell-lore-flow'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Switch } from '@/components/ui/switch'
+import { cn } from '@/lib/utils'
 
 interface NodeEditorProps {
   schoolName: string;
   school: SpellSchool;
   node: SpellNode;
   onUpdate: (nodeId: string, updates: Partial<SpellNode>) => void;
+  onToggleRelationship: (nodeId: string, targetId: string, type: 'hard' | 'soft' | 'child') => void;
   onDelete: (nodeId: string) => void;
+  onSelectNode: (nodeId: string) => void;
 }
 
-export function NodeEditor({ schoolName, school, node, onUpdate, onDelete }: NodeEditorProps) {
+export function NodeEditor({ schoolName, school, node, onUpdate, onToggleRelationship, onDelete, onSelectNode }: NodeEditorProps) {
   const [isAiLoading, setIsAiLoading] = useState(false)
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -61,6 +63,39 @@ export function NodeEditor({ schoolName, school, node, onUpdate, onDelete }: Nod
       setIsAiLoading(false)
     }
   }
+
+  const renderRelationList = (ids: string[], type: 'hard' | 'soft' | 'child') => {
+    if (ids.length === 0) return <p className="text-[10px] text-muted-foreground italic">None</p>
+
+    return (
+      <div className="flex flex-wrap gap-1.5 mt-2">
+        {ids.map(id => {
+          const targetNode = school.nodes.find(n => n.formId === id)
+          return (
+            <div 
+              key={id} 
+              className="flex items-center gap-1.5 pl-2 pr-1 py-1 bg-secondary/50 rounded-md border border-border group"
+            >
+              <button 
+                onClick={() => onSelectNode(id)}
+                className="text-[10px] font-medium hover:text-accent transition-colors text-left"
+              >
+                {targetNode?.name || id}
+              </button>
+              <button 
+                onClick={() => onToggleRelationship(node.formId, id, type)}
+                className="p-0.5 hover:bg-destructive/20 rounded text-muted-foreground hover:text-destructive transition-colors"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </div>
+          )
+        })}
+      </div>
+    )
+  }
+
+  const availableNodes = school.nodes.filter(n => n.formId !== node.formId)
 
   return (
     <div className="flex flex-col h-full bg-card">
@@ -178,32 +213,76 @@ export function NodeEditor({ schoolName, school, node, onUpdate, onDelete }: Nod
           <Separator className="bg-border" />
 
           {/* Logic & Requirements */}
-          <div className="space-y-4">
+          <div className="space-y-6">
             <h3 className="text-sm font-semibold flex items-center gap-2">
               <LinkIcon className="w-4 h-4 text-accent" />
               Logic & Requirements
             </h3>
-            <div className="space-y-2">
-              <Label className="text-xs text-muted-foreground">Soft Needed (Count)</Label>
-              <Input type="number" name="softNeeded" value={node.softNeeded} onChange={handleChange} className="bg-background border-border" />
+
+            {/* Hard Prereqs */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <Label className="text-[10px] uppercase text-muted-foreground tracking-widest font-bold">Hard Prerequisites</Label>
+                <Select onValueChange={(val) => onToggleRelationship(node.formId, val, 'hard')}>
+                  <SelectTrigger className="w-32 h-7 text-[9px] bg-secondary/50">
+                    <SelectValue placeholder="Add Prereq" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableNodes.map(n => (
+                      <SelectItem key={n.formId} value={n.formId}>{n.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              {renderRelationList(node.hardPrereqs || [], 'hard')}
             </div>
-            
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Prerequisites ({node.prerequisites.length})</Label>
-              <div className="flex flex-wrap gap-1">
-                {node.prerequisites.map(p => (
-                  <span key={p} className="text-[9px] px-2 py-1 bg-secondary rounded border border-border font-mono">{p}</span>
-                ))}
+
+            {/* Soft Prereqs */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <Label className="text-[10px] uppercase text-muted-foreground tracking-widest font-bold">Soft Prerequisites</Label>
+                <Select onValueChange={(val) => onToggleRelationship(node.formId, val, 'soft')}>
+                  <SelectTrigger className="w-32 h-7 text-[9px] bg-secondary/50">
+                    <SelectValue placeholder="Add Prereq" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableNodes.map(n => (
+                      <SelectItem key={n.formId} value={n.formId}>{n.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Label className="text-[10px] text-muted-foreground shrink-0">Required Count:</Label>
+                  <Input 
+                    type="number" 
+                    name="softNeeded" 
+                    value={node.softNeeded} 
+                    onChange={handleChange} 
+                    className="h-6 w-16 text-[10px] bg-background" 
+                  />
+                </div>
+                {renderRelationList(node.softPrereqs || [], 'soft')}
               </div>
             </div>
 
-            <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">Children ({node.children.length})</Label>
-              <div className="flex flex-wrap gap-1">
-                {node.children.map(c => (
-                  <span key={c} className="text-[9px] px-2 py-1 bg-secondary rounded border border-border font-mono">{c}</span>
-                ))}
+            {/* Children */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <Label className="text-[10px] uppercase text-muted-foreground tracking-widest font-bold">Children (Unlocks)</Label>
+                <Select onValueChange={(val) => onToggleRelationship(node.formId, val, 'child')}>
+                  <SelectTrigger className="w-32 h-7 text-[9px] bg-secondary/50">
+                    <SelectValue placeholder="Add Child" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableNodes.map(n => (
+                      <SelectItem key={n.formId} value={n.formId}>{n.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
+              {renderRelationList(node.children || [], 'child')}
             </div>
           </div>
 

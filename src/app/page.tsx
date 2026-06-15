@@ -97,41 +97,62 @@ export default function ArcanaFlowStudio() {
     })
   }, [findSchoolForNode])
 
-  const handleLinkNodes = (sourceId: string, targetId: string) => {
-    const sourceSchool = findSchoolForNode(sourceId)
-    const targetSchool = findSchoolForNode(targetId)
-
-    if (!sourceSchool || !targetSchool || sourceSchool !== targetSchool || sourceId === targetId) {
-      if (sourceSchool && targetSchool && sourceSchool !== targetSchool) {
-        toast({
-          variant: "destructive",
-          title: "Arcane Dissonance",
-          description: "Cannot link spells between different schools."
-        })
-      }
-      return
-    }
+  const handleToggleRelationship = useCallback((nodeId: string, targetId: string, type: 'hard' | 'soft' | 'child') => {
+    const schoolName = findSchoolForNode(nodeId)
+    if (!schoolName) return
 
     setTreeData(prev => {
-      const newData = deepClone(prev!)
-      const school = newData.schools[sourceSchool]
-      const sNode = school.nodes.find(n => n.formId === sourceId)
-      const tNode = school.nodes.find(n => n.formId === targetId)
+      if (!prev) return prev
+      const newData = deepClone(prev)
+      const school = newData.schools[schoolName]
+      const node = school.nodes.find(n => n.formId === nodeId)
+      const target = school.nodes.find(n => n.formId === targetId)
       
-      if (!sNode || !tNode) return prev
+      if (!node || !target) return prev
 
-      const isAlreadyLinked = sNode.children.includes(targetId)
-      if (isAlreadyLinked) {
-        sNode.children = sNode.children.filter(id => id !== targetId)
-        tNode.prerequisites = tNode.prerequisites.filter(id => id !== sourceId)
-        tNode.hardPrereqs = tNode.hardPrereqs.filter(id => id !== sourceId)
-      } else {
-        sNode.children.push(targetId)
-        tNode.prerequisites.push(sourceId)
-        tNode.hardPrereqs.push(sourceId)
+      if (type === 'hard') {
+        const exists = node.hardPrereqs.includes(targetId)
+        if (exists) {
+          node.hardPrereqs = node.hardPrereqs.filter(id => id !== targetId)
+          node.prerequisites = node.prerequisites.filter(id => id !== targetId)
+          target.children = target.children.filter(id => id !== nodeId)
+        } else {
+          node.hardPrereqs.push(targetId)
+          if (!node.prerequisites.includes(targetId)) node.prerequisites.push(targetId)
+          if (!target.children.includes(nodeId)) target.children.push(nodeId)
+        }
+      } else if (type === 'soft') {
+        const exists = node.softPrereqs.includes(targetId)
+        if (exists) {
+          node.softPrereqs = node.softPrereqs.filter(id => id !== targetId)
+          node.prerequisites = node.prerequisites.filter(id => id !== targetId)
+          target.children = target.children.filter(id => id !== nodeId)
+        } else {
+          node.softPrereqs.push(targetId)
+          if (!node.prerequisites.includes(targetId)) node.prerequisites.push(targetId)
+          if (!target.children.includes(nodeId)) target.children.push(nodeId)
+        }
+      } else if (type === 'child') {
+        const exists = node.children.includes(targetId)
+        if (exists) {
+          node.children = node.children.filter(id => id !== targetId)
+          target.prerequisites = target.prerequisites.filter(id => id !== nodeId)
+          target.hardPrereqs = target.hardPrereqs.filter(id => id !== nodeId)
+          target.softPrereqs = target.softPrereqs.filter(id => id !== nodeId)
+        } else {
+          node.children.push(targetId)
+          if (!target.prerequisites.includes(nodeId)) target.prerequisites.push(nodeId)
+          // Default new children to hard prereq for the target
+          if (!target.hardPrereqs.includes(nodeId)) target.hardPrereqs.push(nodeId)
+        }
       }
+
       return newData
     })
+  }, [findSchoolForNode])
+
+  const handleLinkNodes = (sourceId: string, targetId: string) => {
+    handleToggleRelationship(targetId, sourceId, 'hard')
   }
 
   const handleDeleteNode = (nodeId: string) => {
@@ -149,6 +170,7 @@ export default function ArcanaFlowStudio() {
           n.children = n.children.filter(id => id !== nodeId)
           n.prerequisites = n.prerequisites.filter(id => id !== nodeId)
           n.hardPrereqs = n.hardPrereqs.filter(id => id !== nodeId)
+          n.softPrereqs = n.softPrereqs.filter(id => id !== nodeId)
         })
       })
       
@@ -370,7 +392,9 @@ export default function ArcanaFlowStudio() {
             school={treeData!.schools[selectedNode.schoolName]}
             node={selectedNode.node}
             onUpdate={handleUpdateNode}
+            onToggleRelationship={handleToggleRelationship}
             onDelete={handleDeleteNode}
+            onSelectNode={setSelectedNodeId}
           />
         </aside>
       )}
