@@ -2,7 +2,7 @@
 "use client"
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
-import { SpellTreeData, SpellNode } from '@/types/spell-tree'
+import { SpellTreeData, SpellNode, SpellSchool } from '@/types/spell-tree'
 import { JSONImporter } from '@/components/editor/JSONImporter'
 import { TreeCanvas } from '@/components/canvas/TreeCanvas'
 import { GlobalGrimoireView } from '@/components/canvas/GlobalGrimoireView'
@@ -111,6 +111,22 @@ export default function ArcanaFlowStudio() {
       }
     })
   }, [findSchoolForNode])
+
+  const handleUpdateSchool = useCallback((schoolName: string, updates: Partial<SpellSchool>) => {
+    setTreeData(prev => {
+      if (!prev || !prev.schools[schoolName]) return prev
+      return {
+        ...prev,
+        schools: {
+          ...prev.schools,
+          [schoolName]: {
+            ...prev.schools[schoolName],
+            ...updates
+          }
+        }
+      }
+    })
+  }, [])
 
   const handleToggleRelationship = useCallback((nodeId: string, targetId: string, type: 'hard' | 'soft' | 'child') => {
     const schoolName = findSchoolForNode(nodeId)
@@ -373,7 +389,7 @@ export default function ArcanaFlowStudio() {
         )}
       </aside>
 
-      <main className="flex-1 flex flex-col min-w-0 bg-background relative overflow-hidden">
+      <main className="flex-1 flex flex-col min-0 bg-background relative overflow-hidden">
         <header className="h-16 border-b border-border flex items-center justify-between px-6 bg-card/30 backdrop-blur-sm relative z-20">
           <div className="flex items-center gap-6">
             <h2 className="font-bold">
@@ -455,6 +471,7 @@ export default function ArcanaFlowStudio() {
             school={treeData!.schools[selectedNode.schoolName]}
             node={selectedNode.node}
             onUpdate={handleUpdateNode}
+            onUpdateSchool={handleUpdateSchool}
             onToggleRelationship={handleToggleRelationship}
             onDelete={handleDeleteNode}
             onSelectNode={setSelectedNodeId}

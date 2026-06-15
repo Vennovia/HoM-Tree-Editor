@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
-import { Sparkles, Trash2, Link as LinkIcon, Lock, Unlock, MapPin, X, Plus } from 'lucide-react'
+import { Sparkles, Trash2, Link as LinkIcon, Lock, Unlock, MapPin, X, Star, StarOff } from 'lucide-react'
 import { suggestSpellNodeDetails } from '@/ai/flows/suggest-spell-node-details-flow'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Switch } from '@/components/ui/switch'
@@ -19,12 +19,22 @@ interface NodeEditorProps {
   school: SpellSchool;
   node: SpellNode;
   onUpdate: (nodeId: string, updates: Partial<SpellNode>) => void;
+  onUpdateSchool: (schoolName: string, updates: Partial<SpellSchool>) => void;
   onToggleRelationship: (nodeId: string, targetId: string, type: 'hard' | 'soft' | 'child') => void;
   onDelete: (nodeId: string) => void;
   onSelectNode: (nodeId: string) => void;
 }
 
-export function NodeEditor({ schoolName, school, node, onUpdate, onToggleRelationship, onDelete, onSelectNode }: NodeEditorProps) {
+export function NodeEditor({ 
+  schoolName, 
+  school, 
+  node, 
+  onUpdate, 
+  onUpdateSchool,
+  onToggleRelationship, 
+  onDelete, 
+  onSelectNode 
+}: NodeEditorProps) {
   const [isAiLoading, setIsAiLoading] = useState(false)
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -96,6 +106,7 @@ export function NodeEditor({ schoolName, school, node, onUpdate, onToggleRelatio
   }
 
   const availableNodes = school.nodes.filter(n => n.formId !== node.formId)
+  const isRootNode = school.root === node.formId
 
   return (
     <div className="flex flex-col h-full bg-card">
@@ -129,8 +140,20 @@ export function NodeEditor({ schoolName, school, node, onUpdate, onToggleRelatio
             </div>
           </div>
 
-          {/* Basic Info */}
+          {/* School Status */}
           <div className="space-y-4">
+            <div className="flex items-center justify-between p-3 bg-accent/5 rounded-lg border border-accent/20">
+              <div className="flex items-center gap-2">
+                {isRootNode ? <Star className="w-3.5 h-3.5 text-yellow-500 fill-yellow-500" /> : <StarOff className="w-3.5 h-3.5 text-muted-foreground" />}
+                <Label htmlFor="root-toggle" className="text-xs font-bold uppercase tracking-wider">School Root</Label>
+              </div>
+              <Switch 
+                id="root-toggle" 
+                checked={isRootNode} 
+                onCheckedChange={(checked) => onUpdateSchool(schoolName, { root: checked ? node.formId : "" })}
+              />
+            </div>
+
             <div className="flex items-center justify-between p-3 bg-secondary/30 rounded-lg border border-border">
               <div className="flex items-center gap-2">
                 {node.isLocked ? <Lock className="w-3.5 h-3.5 text-accent" /> : <Unlock className="w-3.5 h-3.5 text-muted-foreground" />}
@@ -142,7 +165,10 @@ export function NodeEditor({ schoolName, school, node, onUpdate, onToggleRelatio
                 onCheckedChange={(checked) => onUpdate(node.formId, { isLocked: checked })}
               />
             </div>
+          </div>
 
+          {/* Basic Info */}
+          <div className="space-y-4">
             <div className="space-y-2">
               <Label className="text-xs uppercase text-muted-foreground tracking-widest font-bold">Display Name</Label>
               <Input name="name" value={node.name} onChange={handleChange} className="bg-background border-border" />
