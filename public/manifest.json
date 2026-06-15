@@ -1,0 +1,21 @@
+{
+  "name": "HoM tree editor",
+  "short_name": "HoM Editor",
+  "description": "Visual editor for arcane spell trees.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1a1425",
+  "theme_color": "#1a1425",
+  "icons": [
+    {
+      "src": "https://picsum.photos/seed/magic/192/192",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://picsum.photos/seed/magic/512/512",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

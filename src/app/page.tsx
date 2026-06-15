@@ -19,7 +19,8 @@ import {
   Search,
   LayoutDashboard,
   Target,
-  Globe
+  Globe,
+  Save
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
@@ -32,6 +33,8 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 
+const STORAGE_KEY = 'hom-tree-editor-data'
+
 export default function HoMTreeEditor() {
   const { toast } = useToast()
   const [treeData, setTreeData] = useState<SpellTreeData | null>(null)
@@ -43,9 +46,26 @@ export default function HoMTreeEditor() {
   const [searchQuery, setSearchQuery] = useState('')
   const [nodeSearchQuery, setNodeSearchQuery] = useState('')
 
+  // Load from LocalStorage on mount
   useEffect(() => {
-    if (!treeData) {
+    const saved = localStorage.getItem(STORAGE_KEY)
+    if (saved) {
+      try {
+        setTreeData(JSON.parse(saved))
+        setIsImportOpen(false)
+      } catch (e) {
+        console.error("Failed to parse saved grimoire", e)
+        setIsImportOpen(true)
+      }
+    } else {
       setIsImportOpen(true)
+    }
+  }, [])
+
+  // Save to LocalStorage whenever treeData changes
+  useEffect(() => {
+    if (treeData) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(treeData))
     }
   }, [treeData])
 
@@ -325,9 +345,12 @@ export default function HoMTreeEditor() {
               <h1 className="font-bold text-lg">HoM tree editor</h1>
             </div>
           )}
-          <Button variant="ghost" size="icon" onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}>
+          <button 
+            className="p-2 hover:bg-secondary rounded-md transition-colors" 
+            onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+          >
             {isSidebarCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
-          </Button>
+          </button>
         </div>
 
         {!isSidebarCollapsed && (
@@ -428,11 +451,13 @@ export default function HoMTreeEditor() {
               </Popover>
             )}
           </div>
-          {selectedSchool && (
-            <Button size="sm" onClick={handleAddNode}>
-              <Plus className="w-4 h-4" /> Add Spell
-            </Button>
-          )}
+          <div className="flex items-center gap-2">
+            {selectedSchool && (
+              <Button size="sm" onClick={handleAddNode}>
+                <Plus className="w-4 h-4" /> Add Spell
+              </Button>
+            )}
+          </div>
         </header>
 
         <div className="flex-1 relative">

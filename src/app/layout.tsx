@@ -1,9 +1,23 @@
-import type {Metadata} from 'next';
+import type {Metadata, Viewport} from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
   title: 'HoM tree editor',
   description: 'Master your spell structures with visual editing.',
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'HoM Editor',
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: '#1a1425',
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
 };
 
 export default function RootLayout({
