@@ -13,6 +13,7 @@ interface TreeCanvasProps {
   onNodeMove: (nodeId: string, updates: Partial<SpellNode>, schoolName: string) => void;
   onLinkNodes: (sourceId: string, targetId: string) => void;
   searchQuery?: string;
+  showRadialGuides?: boolean;
 }
 
 export function TreeCanvas({ 
@@ -22,7 +23,8 @@ export function TreeCanvas({
   onSelectNode, 
   onNodeMove,
   onLinkNodes,
-  searchQuery = ''
+  searchQuery = '',
+  showRadialGuides = false
 }: TreeCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [transform, setTransform] = useState({ x: 0, y: 0, scale: 0.5 });
@@ -195,9 +197,10 @@ export function TreeCanvas({
   };
 
   const renderData = useMemo(() => {
-    if (!school) return { nodes: [], connections: [] };
+    if (!school) return { nodes: [], connections: [], radialGuides: [] };
     const nodes: React.ReactNode[] = [];
     const connections: React.ReactNode[] = [];
+    const radialGuides: React.ReactNode[] = [];
 
     const schoolRoots = school.roots || [];
     const prereqNodeIds = new Set<string>();
@@ -210,6 +213,24 @@ export function TreeCanvas({
         selectedNode.hardPrereqs?.forEach(id => prereqNodeIds.add(id));
         selectedNode.softPrereqs?.forEach(id => prereqNodeIds.add(id));
       }
+    }
+
+    if (showRadialGuides) {
+      // Use (0,0) as hub center for radial alignment guides
+      const radii = [100, 200, 300, 400, 500, 600, 700, 800, 1000, 1200, 1500];
+      radii.forEach(r => {
+        radialGuides.push(
+          <circle
+            key={`radial-${r}`}
+            cx={0} cy={0}
+            r={r}
+            fill="none"
+            stroke="hsl(var(--accent) / 0.15)"
+            strokeWidth="1.5"
+            strokeDasharray="8,8"
+          />
+        );
+      });
     }
 
     const connectionsData: Array<{ source: SpellNode, target: SpellNode, isHighlighted: boolean, isPrereqPath: boolean, isChildPath: boolean }> = [];
@@ -337,8 +358,8 @@ export function TreeCanvas({
       );
     });
 
-    return { nodes, connections };
-  }, [school, selectedNodeId, linkingSourceId, dragNodeId, dragMode, searchQuery, onLinkNodes, draggingNodePos]);
+    return { nodes, connections, radialGuides };
+  }, [school, selectedNodeId, linkingSourceId, dragNodeId, dragMode, searchQuery, showRadialGuides, onLinkNodes, draggingNodePos]);
 
   const activeLinkingLine = useMemo(() => {
     if (dragMode !== 'linking' || !linkingSourceId) return null;
@@ -422,6 +443,7 @@ export function TreeCanvas({
               <path d="M 0 0 L 10 5 L 0 10 z" fill="#22c55e" />
             </marker>
           </defs>
+          {renderData.radialGuides}
           {renderData.connections}
           {activeLinkingLine}
         </svg>

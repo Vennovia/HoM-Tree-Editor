@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
@@ -21,7 +20,7 @@ import {
   LayoutDashboard,
   Target,
   Globe,
-  Save
+  Compass
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
@@ -46,6 +45,7 @@ export default function HoMTreeEditor() {
   const [isGlobalView, setIsGlobalView] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [nodeSearchQuery, setNodeSearchQuery] = useState('')
+  const [showRadialGuides, setShowRadialGuides] = useState(false)
 
   // Robust migration function to handle multiple root sources
   const migrateGrimoireData = useCallback((data: any) => {
@@ -453,36 +453,47 @@ export default function HoMTreeEditor() {
             </h2>
 
             {(selectedSchool || isGlobalView) && (
-              <Popover open={nodeSearchResults.length > 0}>
-                <PopoverTrigger asChild>
-                  <div className="relative">
-                    <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-                    <Input 
-                      placeholder="Search spell..." 
-                      className="pl-8 h-8 w-48 text-xs rounded-full"
-                      value={nodeSearchQuery}
-                      onChange={(e) => setNodeSearchQuery(e.target.value)}
-                    />
-                  </div>
-                </PopoverTrigger>
-                <PopoverContent className="p-0 w-64" align="start">
-                  <div className="max-h-64 overflow-y-auto">
-                    {nodeSearchResults.map(n => (
-                      <button
-                        key={n.formId}
-                        onClick={() => { setSelectedNodeId(n.formId); setNodeSearchQuery(''); }}
-                        className="w-full flex items-center justify-between px-4 py-2 text-xs hover:bg-accent/10 border-b border-border"
-                      >
-                        <div className="flex flex-col items-start">
-                          <span className="font-bold">{n.name}</span>
-                          <span className="text-[9px] opacity-40">{n.formId}</span>
-                        </div>
-                        <Target className="w-3 h-3 text-accent" />
-                      </button>
-                    ))}
-                  </div>
-                </PopoverContent>
-              </Popover>
+              <>
+                <Popover open={nodeSearchResults.length > 0}>
+                  <PopoverTrigger asChild>
+                    <div className="relative">
+                      <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                      <Input 
+                        placeholder="Search spell..." 
+                        className="pl-8 h-8 w-48 text-xs rounded-full"
+                        value={nodeSearchQuery}
+                        onChange={(e) => setNodeSearchQuery(e.target.value)}
+                      />
+                    </div>
+                  </PopoverTrigger>
+                  <PopoverContent className="p-0 w-64" align="start">
+                    <div className="max-h-64 overflow-y-auto">
+                      {nodeSearchResults.map(n => (
+                        <button
+                          key={n.formId}
+                          onClick={() => { setSelectedNodeId(n.formId); setNodeSearchQuery(''); }}
+                          className="w-full flex items-center justify-between px-4 py-2 text-xs hover:bg-accent/10 border-b border-border"
+                        >
+                          <div className="flex flex-col items-start">
+                            <span className="font-bold">{n.name}</span>
+                            <span className="text-[9px] opacity-40">{n.formId}</span>
+                          </div>
+                          <Target className="w-3 h-3 text-accent" />
+                        </button>
+                      ))}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className={cn("gap-2 text-xs", showRadialGuides ? "text-accent bg-accent/10" : "text-muted-foreground")}
+                  onClick={() => setShowRadialGuides(!showRadialGuides)}
+                >
+                  <Compass className="w-4 h-4" /> {showRadialGuides ? "Radial On" : "Radial Off"}
+                </Button>
+              </>
             )}
           </div>
           <div className="flex items-center gap-2">
@@ -505,6 +516,7 @@ export default function HoMTreeEditor() {
                 onNodeMove={handleUpdateNode}
                 onLinkNodes={handleLinkNodes}
                 searchQuery={nodeSearchQuery}
+                showRadialGuides={showRadialGuides}
               />
             ) : isGlobalView ? (
               <GlobalGrimoireView 
@@ -514,6 +526,7 @@ export default function HoMTreeEditor() {
                 onNodeMove={handleUpdateNode}
                 onLinkNodes={handleLinkNodes}
                 searchQuery={nodeSearchQuery}
+                showRadialGuides={showRadialGuides}
               />
             ) : (
               <DashboardView data={treeData} onSelectSchool={setSelectedSchool} />

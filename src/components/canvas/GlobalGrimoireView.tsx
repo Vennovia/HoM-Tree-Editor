@@ -12,6 +12,7 @@ interface GlobalGrimoireViewProps {
   onNodeMove: (nodeId: string, updates: Partial<SpellNode>, schoolName: string) => void;
   onLinkNodes: (sourceId: string, targetId: string) => void;
   searchQuery?: string;
+  showRadialGuides?: boolean;
 }
 
 export function GlobalGrimoireView({ 
@@ -20,7 +21,8 @@ export function GlobalGrimoireView({
   onSelectNode, 
   onNodeMove,
   onLinkNodes,
-  searchQuery = ''
+  searchQuery = '',
+  showRadialGuides = false
 }: GlobalGrimoireViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [transform, setTransform] = useState({ x: 0, y: 0, scale: 0.25 });
@@ -174,6 +176,7 @@ export function GlobalGrimoireView({
     const nodes: React.ReactNode[] = [];
     const connections: React.ReactNode[] = [];
     const hubLines: React.ReactNode[] = [];
+    const radialGuides: React.ReactNode[] = [];
 
     const prereqNodeIds = new Set<string>();
     const childNodeIds = new Set<string>();
@@ -189,6 +192,23 @@ export function GlobalGrimoireView({
         selectedNode.hardPrereqs?.forEach(id => prereqNodeIds.add(id));
         selectedNode.softPrereqs?.forEach(id => prereqNodeIds.add(id));
       }
+    }
+
+    if (showRadialGuides) {
+      const radii = [100, 200, 300, 400, 500, 600, 700, 800, 1000, 1200, 1500];
+      radii.forEach(r => {
+        radialGuides.push(
+          <circle
+            key={`radial-${r}`}
+            cx={0} cy={0}
+            r={r}
+            fill="none"
+            stroke="hsl(var(--accent) / 0.15)"
+            strokeWidth="1.5"
+            strokeDasharray="8,8"
+          />
+        );
+      });
     }
 
     Object.entries(schools).forEach(([sName, school]) => {
@@ -307,8 +327,8 @@ export function GlobalGrimoireView({
       });
     });
 
-    return { nodes, connections, hubLines };
-  }, [schools, selectedNodeId, searchQuery, onSelectNode, dragNodeId, draggingNodePos, dragMode]);
+    return { nodes, connections, hubLines, radialGuides };
+  }, [schools, selectedNodeId, searchQuery, showRadialGuides, onSelectNode, dragNodeId, draggingNodePos, dragMode]);
 
   const activeLinkingLine = useMemo(() => {
     if (dragMode !== 'linking' || !linkingSourceId) return null;
@@ -361,6 +381,7 @@ export function GlobalGrimoireView({
             <marker id="arrow-child" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#f97316" /></marker>
             <marker id="arrow-prereq" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#22c55e" /></marker>
           </defs>
+          {renderContent.radialGuides}
           {renderContent.hubLines}
           {renderContent.connections}
           {activeLinkingLine}
