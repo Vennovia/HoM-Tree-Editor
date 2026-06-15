@@ -25,26 +25,38 @@ export function GlobalGrimoireView({
   searchQuery = ''
 }: GlobalGrimoireViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [transform, setTransform] = useState({ x: 0, y: 0, scale: 0.15 });
+  const [transform, setTransform] = useState({ x: 0, y: 0, scale: 0.25 });
   const [dragMode, setDragMode] = useState<'canvas' | null>(null);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
 
   // HUB_RADIUS is the distance from the center to the root nodes
-  const HUB_RADIUS = 600;
+  const HUB_RADIUS = 500;
+
+  // Define specific angles for the requested schools
+  // Angles in radians: 0 is Right, PI/2 is Down, PI is Left, 3PI/2 is Up
+  const SCHOOL_ANGLES: Record<string, number> = {
+    'Conjuration': 0,
+    'Restoration': Math.PI / 2,
+    'Alteration': Math.PI,
+    'Destruction': (3 * Math.PI) / 2,
+    'Illusion': (3 * Math.PI) / 4, // Bottom Left
+  };
 
   // Calculate global positions for all nodes across all schools
   const transformedData = useMemo(() => {
     const allNodes: TransformedNode[] = [];
     const schoolKeys = Object.keys(schools);
-    const totalSchools = schoolKeys.length;
 
     schoolKeys.forEach((sName, i) => {
       const school = schools[sName];
       const rootNode = school.nodes.find(n => n.formId === school.root);
       if (!rootNode) return;
 
-      // Calculate the angle for this school's "spoke"
-      const angle = (i * 2 * Math.PI) / totalSchools;
+      // Get angle from map or fallback to even distribution
+      const angle = SCHOOL_ANGLES[sName] !== undefined 
+        ? SCHOOL_ANGLES[sName] 
+        : (i * 2 * Math.PI) / schoolKeys.length;
+        
       const cosA = Math.cos(angle);
       const sinA = Math.sin(angle);
 
@@ -57,9 +69,8 @@ export function GlobalGrimoireView({
         const relX = node.x - rootNode.x;
         const relY = node.y - rootNode.y;
 
-        // Rotate the relative vector so it points "outward" 
-        // We assume the original layout flows generally in a consistent direction (e.g., +X or +Y)
-        // Rotating the coordinate space by 'angle' maps the school's internal axis to the radial axis
+        // Rotate the relative vector so it points "outward" from the Heart
+        // This transformation maps the school's local X axis to the radial outward axis
         const rotatedX = relX * cosA - relY * sinA;
         const rotatedY = relX * sinA + relY * cosA;
 
@@ -80,7 +91,7 @@ export function GlobalGrimoireView({
       setTransform({
         x: containerRef.current.clientWidth / 2,
         y: containerRef.current.clientHeight / 2,
-        scale: 0.2
+        scale: 0.25
       });
     }
   }, []);
@@ -110,7 +121,7 @@ export function GlobalGrimoireView({
   const handleWheel = (e: React.WheelEvent) => {
     e.preventDefault();
     const scaleFactor = e.deltaY > 0 ? 0.9 : 1.1;
-    const newScale = Math.min(Math.max(transform.scale * scaleFactor, 0.01), 2);
+    const newScale = Math.min(Math.max(transform.scale * scaleFactor, 0.05), 3);
     
     const rect = containerRef.current?.getBoundingClientRect();
     if (!rect) return;
@@ -134,7 +145,7 @@ export function GlobalGrimoireView({
     const hubLines: React.ReactNode[] = [];
     const labels: React.ReactNode[] = [];
 
-    // Group nodes by school for rendering connections easily
+    // Group nodes by school for rendering
     const nodesBySchool = transformedData.reduce((acc, node) => {
       if (!acc[node.schoolName]) acc[node.schoolName] = [];
       acc[node.schoolName].push(node);
@@ -194,9 +205,9 @@ export function GlobalGrimoireView({
             onClick={() => onSelectNode(node.formId)}
             className={cn(
               "spell-node absolute flex items-center justify-center rounded-full border bg-card/90 transition-all pointer-events-auto arcane-glow cursor-pointer",
-              selectedNodeId === node.formId ? "ring-4 ring-accent z-20" : "border-border hover:border-accent",
-              isRoot && "scale-125 border-accent bg-accent/20 z-10 shadow-[0_0_30px_hsl(var(--accent)/0.4)]",
-              isMatch && "ring-4 ring-yellow-400 scale-150 z-30 shadow-[0_0_40px_rgba(250,204,21,0.5)]"
+              selectedNodeId === node.formId ? "ring-4 ring-accent z-20 scale-110" : "border-border hover:border-accent hover:scale-105",
+              isRoot && "border-accent bg-accent/20 z-10 shadow-[0_0_40px_hsl(var(--accent)/0.5)] scale-125",
+              isMatch && "ring-4 ring-yellow-400 scale-150 z-30 shadow-[0_0_50px_rgba(250,204,21,0.6)]"
             )}
             style={{
               left: node.globalX,
@@ -216,17 +227,20 @@ export function GlobalGrimoireView({
         );
       });
 
-      // School Label (Positioned further out than the root)
-      const labelDist = HUB_RADIUS - 200;
-      const angle = (Object.keys(schools).indexOf(sName) * 2 * Math.PI) / Object.keys(schools).length;
+      // School Label
+      const schoolAngle = SCHOOL_ANGLES[sName] !== undefined 
+        ? SCHOOL_ANGLES[sName] 
+        : (Object.keys(schools).indexOf(sName) * 2 * Math.PI) / Object.keys(schools).length;
+        
+      const labelDist = HUB_RADIUS - 150;
       labels.push(
         <div 
           key={`label-${sName}`}
-          className="absolute text-5xl font-black text-accent/10 uppercase tracking-[0.4em] pointer-events-none select-none whitespace-nowrap"
+          className="absolute text-4xl font-black text-accent/10 uppercase tracking-[0.4em] pointer-events-none select-none whitespace-nowrap"
           style={{ 
-            left: Math.cos(angle) * labelDist, 
-            top: Math.sin(angle) * labelDist,
-            transform: `translate(-50%, -50%) rotate(${angle + Math.PI/2}rad)`
+            left: Math.cos(schoolAngle) * labelDist, 
+            top: Math.sin(schoolAngle) * labelDist,
+            transform: `translate(-50%, -50%) rotate(${schoolAngle + Math.PI/2}rad)`
           }}
         >
           {sName}
@@ -258,12 +272,12 @@ export function GlobalGrimoireView({
 
         {/* The Heart of Magic */}
         <div 
-          className="absolute w-80 h-80 rounded-full bg-background border-[16px] border-accent heart-glow flex items-center justify-center z-50 pointer-events-none"
+          className="absolute w-80 h-80 rounded-full bg-background border-[20px] border-accent heart-glow flex items-center justify-center z-50 pointer-events-none"
           style={{ left: 0, top: 0, transform: 'translate(-50%, -50%)' }}
         >
           <div className="text-center">
-            <div className="text-sm font-black tracking-[0.6em] text-accent uppercase animate-pulse mb-1">Heart of</div>
-            <div className="text-5xl font-black tracking-tighter text-foreground uppercase">Magic</div>
+            <div className="text-sm font-black tracking-[0.8em] text-accent uppercase animate-pulse mb-1 pl-[0.8em]">Heart of</div>
+            <div className="text-6xl font-black tracking-tighter text-foreground uppercase">Magic</div>
           </div>
         </div>
 
@@ -271,12 +285,12 @@ export function GlobalGrimoireView({
         {renderContent.nodes}
       </div>
       
-      <div className="absolute top-6 left-6 p-4 bg-card/60 backdrop-blur-md border border-border rounded-xl shadow-2xl">
+      <div className="absolute top-6 left-6 p-4 bg-card/60 backdrop-blur-md border border-border rounded-xl shadow-2xl pointer-events-none">
         <h2 className="text-sm font-bold uppercase tracking-widest text-accent">Arch-Grimoire Hub</h2>
-        <p className="text-[10px] text-muted-foreground mt-1">Converging {Object.keys(schools).length} magical lineages around the Heart.</p>
+        <p className="text-[10px] text-muted-foreground mt-1">Converging all magical lineages around the primordial Heart.</p>
         <div className="mt-3 space-y-1">
           <p className="text-[9px] text-muted-foreground flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-accent animate-pulse" /> Radiating structures are transformed for radial clarity.
+            <span className="w-2 h-2 rounded-full bg-accent animate-pulse" /> Each school radiates outward from its cardinal foundation.
           </p>
         </div>
       </div>
