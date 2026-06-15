@@ -117,9 +117,20 @@ export function GlobalGrimoireView({
       let x = Math.round(dragNodeInitialPos.x + dx);
       let y = Math.round(dragNodeInitialPos.y + dy);
 
+      // Adaptive Snapping
       if (e.ctrlKey || e.metaKey) {
-        x = Math.round(x / 25) * 25;
-        y = Math.round(y / 25) * 25;
+        if (showRadialGuides) {
+          // Snap to Rings
+          const r = Math.sqrt(x * x + y * y);
+          const rSnap = Math.round(r / 25) * 25;
+          const theta = Math.atan2(y, x);
+          x = Math.round(rSnap * Math.cos(theta));
+          y = Math.round(rSnap * Math.sin(theta));
+        } else {
+          // Snap to Square Grid
+          x = Math.round(x / 25) * 25;
+          y = Math.round(y / 25) * 25;
+        }
       }
       
       setDraggingNodePos({ x, y });
@@ -195,7 +206,6 @@ export function GlobalGrimoireView({
     }
 
     if (showRadialGuides) {
-      // Create circles at 25px intervals up to 5000px
       for (let r = 25; r <= 5000; r += 25) {
         const isMajor = r % 100 === 0;
         radialGuides.push(
@@ -374,7 +384,6 @@ export function GlobalGrimoireView({
         )}
         style={{ transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})` }}
       >
-        {/* Coordinate Grid System - hidden when radial guides are on */}
         {!showRadialGuides && (
           <div className="absolute inset-[-50000px] pointer-events-none arcane-grid" />
         )}
@@ -406,7 +415,7 @@ export function GlobalGrimoireView({
       
       <div className="absolute top-6 left-6 p-4 bg-card/60 backdrop-blur-md border border-border rounded-xl shadow-2xl pointer-events-none">
         <h2 className="text-sm font-bold uppercase tracking-widest text-accent">Arch-Grimoire Hub</h2>
-        <p className="text-[10px] text-muted-foreground mt-1">Convergence View: Edit any discipline from this focal point.</p>
+        <p className="text-[10px] text-muted-foreground mt-1">Convergence View: Snap to {showRadialGuides ? 'Rings' : 'Grid'} with Ctrl.</p>
         <div className="flex gap-2 mt-3">
           <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-[#22c55e]"></div><span className="text-[9px] text-muted-foreground">Prerequisites</span></div>
           <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-[#f97316]"></div><span className="text-[9px] text-muted-foreground">Unlocks</span></div>

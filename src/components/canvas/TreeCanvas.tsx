@@ -141,10 +141,20 @@ export function TreeCanvas({
       let x = Math.round(dragNodeInitialPos.x + dx);
       let y = Math.round(dragNodeInitialPos.y + dy);
 
-      // Snapping logic (25x25 grid)
+      // Adaptive Snapping
       if (e.ctrlKey || e.metaKey) {
-        x = Math.round(x / 25) * 25;
-        y = Math.round(y / 25) * 25;
+        if (showRadialGuides) {
+          // Snap to Rings
+          const r = Math.sqrt(x * x + y * y);
+          const rSnap = Math.round(r / 25) * 25;
+          const theta = Math.atan2(y, x);
+          x = Math.round(rSnap * Math.cos(theta));
+          y = Math.round(rSnap * Math.sin(theta));
+        } else {
+          // Snap to Square Grid
+          x = Math.round(x / 25) * 25;
+          y = Math.round(y / 25) * 25;
+        }
       }
 
       setDraggingNodePos({ x, y });
@@ -216,7 +226,6 @@ export function TreeCanvas({
     }
 
     if (showRadialGuides) {
-      // Create circles at 25px intervals up to 4000px
       for (let r = 25; r <= 4000; r += 25) {
         const isMajor = r % 100 === 0;
         radialGuides.push(
@@ -401,7 +410,6 @@ export function TreeCanvas({
         )}
         style={{ transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})` }}
       >
-        {/* Coordinate Grid System - hidden when radial guides are on */}
         {!showRadialGuides && (
           <div className="absolute inset-[-50000px] pointer-events-none arcane-grid" />
         )}
@@ -465,7 +473,7 @@ export function TreeCanvas({
             <span className="bg-secondary px-1.5 py-0.5 rounded text-[8px] font-mono border border-border">Drag</span> Move
           </p>
           <p className="text-[10px] text-foreground flex items-center gap-2">
-            <span className="bg-secondary px-1.5 py-0.5 rounded text-[8px] font-mono border border-border">Ctrl + Drag</span> Snap to Grid
+            <span className="bg-secondary px-1.5 py-0.5 rounded text-[8px] font-mono border border-border">Ctrl + Drag</span> Snap to {showRadialGuides ? 'Rings' : 'Grid'}
           </p>
           <p className="text-[10px] text-foreground flex items-center gap-2">
             <span className="bg-secondary px-1.5 py-0.5 rounded text-[8px] font-mono border border-border">Shift + Drag</span> Link
