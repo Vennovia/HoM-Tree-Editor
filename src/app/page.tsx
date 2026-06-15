@@ -5,6 +5,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { SpellTreeData, SpellNode } from '@/types/spell-tree'
 import { JSONImporter } from '@/components/editor/JSONImporter'
 import { TreeCanvas } from '@/components/canvas/TreeCanvas'
+import { GlobalGrimoireView } from '@/components/canvas/GlobalGrimoireView'
 import { NodeEditor } from '@/components/editor/NodeEditor'
 import { DashboardView } from '@/components/dashboard/DashboardView'
 import { Button } from '@/components/ui/button'
@@ -18,7 +19,8 @@ import {
   Database,
   Search,
   LayoutDashboard,
-  Target
+  Target,
+  Globe
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
@@ -38,6 +40,7 @@ export default function ArcanaFlowStudio() {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
   const [isImportOpen, setIsImportOpen] = useState(false)
+  const [isGlobalView, setIsGlobalView] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [nodeSearchQuery, setNodeSearchQuery] = useState('')
 
@@ -50,6 +53,7 @@ export default function ArcanaFlowStudio() {
   const handleImport = (data: SpellTreeData) => {
     setTreeData(data)
     setSelectedSchool(null) 
+    setIsGlobalView(false)
     toast({
       title: "Knowledge Absorbed",
       description: "Successfully imported arcane data structures."
@@ -115,7 +119,6 @@ export default function ArcanaFlowStudio() {
     setTreeData(prev => {
       if (!prev) return prev
       
-      // We still use a partial shallow copy approach for better performance than deepClone
       const school = prev.schools[schoolName]
       const nodes = [...school.nodes]
       
@@ -192,13 +195,11 @@ export default function ArcanaFlowStudio() {
       
       const newSchools = { ...prev.schools }
       
-      // Remove the node from the active school
       newSchools[schoolName] = {
         ...newSchools[schoolName],
         nodes: newSchools[schoolName].nodes.filter(n => n.formId !== nodeId)
       }
       
-      // Clean up references in all schools
       Object.keys(newSchools).forEach(sName => {
         newSchools[sName] = {
           ...newSchools[sName],
@@ -255,12 +256,6 @@ export default function ArcanaFlowStudio() {
         }
       }
     })
-    // Note: selectedNodeId update happens in state above but we want to focus it
-    // Wait for the next tick for the ID to exist
-    setTimeout(() => {
-      // Find the ID we just generated. Using a closure to capture it.
-      // But actually better to set it here if we know it.
-    }, 0)
   }
 
   const filteredSchools = treeData ? Object.keys(treeData.schools).filter(s => 
@@ -335,10 +330,16 @@ export default function ArcanaFlowStudio() {
 
               <div className="space-y-1">
                 <button
-                  onClick={() => { setSelectedSchool(null); setSelectedNodeId(null); }}
-                  className={cn("w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md transition-all", selectedSchool === null ? "bg-primary text-accent" : "text-muted-foreground hover:bg-secondary")}
+                  onClick={() => { setSelectedSchool(null); setSelectedNodeId(null); setIsGlobalView(false); }}
+                  className={cn("w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md transition-all", (!selectedSchool && !isGlobalView) ? "bg-primary text-accent" : "text-muted-foreground hover:bg-secondary")}
                 >
                   <LayoutDashboard className="w-3.5 h-3.5" /> Dashboard
+                </button>
+                <button
+                  onClick={() => { setSelectedSchool(null); setSelectedNodeId(null); setIsGlobalView(true); }}
+                  className={cn("w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md transition-all", isGlobalView ? "bg-primary text-accent" : "text-muted-foreground hover:bg-secondary")}
+                >
+                  <Globe className="w-3.5 h-3.5" /> Arch-Grimoire
                 </button>
               </div>
 
@@ -348,7 +349,7 @@ export default function ArcanaFlowStudio() {
                   {filteredSchools.map(school => (
                     <button
                       key={school}
-                      onClick={() => { setSelectedSchool(school); setSelectedNodeId(null); }}
+                      onClick={() => { setSelectedSchool(school); setSelectedNodeId(null); setIsGlobalView(false); }}
                       className={cn("w-full flex items-center justify-between px-3 py-2 text-sm rounded-md transition-all", selectedSchool === school ? "bg-primary text-accent" : "text-muted-foreground hover:bg-secondary")}
                     >
                       <div className="flex items-center gap-2">
@@ -376,10 +377,10 @@ export default function ArcanaFlowStudio() {
         <header className="h-16 border-b border-border flex items-center justify-between px-6 bg-card/30 backdrop-blur-sm relative z-20">
           <div className="flex items-center gap-6">
             <h2 className="font-bold">
-              {selectedSchool || "Dashboard"}
+              {selectedSchool || (isGlobalView ? "Arch-Grimoire Hub" : "Dashboard")}
             </h2>
 
-            {selectedSchool && (
+            {(selectedSchool || isGlobalView) && (
               <Popover open={nodeSearchResults.length > 0}>
                 <PopoverTrigger asChild>
                   <div className="relative">
@@ -429,6 +430,13 @@ export default function ArcanaFlowStudio() {
                 onSelectNode={setSelectedNodeId}
                 onNodeMove={handleUpdateNode}
                 onLinkNodes={handleLinkNodes}
+                searchQuery={nodeSearchQuery}
+              />
+            ) : isGlobalView ? (
+              <GlobalGrimoireView 
+                schools={treeData.schools}
+                selectedNodeId={selectedNodeId}
+                onSelectNode={setSelectedNodeId}
                 searchQuery={nodeSearchQuery}
               />
             ) : (

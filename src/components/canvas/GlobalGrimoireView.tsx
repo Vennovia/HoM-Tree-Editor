@@ -25,24 +25,22 @@ export function GlobalGrimoireView({
   searchQuery = ''
 }: GlobalGrimoireViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [transform, setTransform] = useState({ x: 0, y: 0, scale: 0.25 });
+  const [transform, setTransform] = useState({ x: 0, y: 0, scale: 0.3 });
   const [dragMode, setDragMode] = useState<'canvas' | null>(null);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
 
-  // HUB_RADIUS is the distance from the center to the root nodes
-  const HUB_RADIUS = 500;
+  // HUB_RADIUS is the distance from (0,0) to the starting (root) nodes
+  const HUB_RADIUS = 400;
 
-  // Define specific angles for the requested schools
-  // Angles in radians: 0 is Right, PI/2 is Down, PI is Left, 3PI/2 is Up
+  // Specific angles for schools as requested previously
   const SCHOOL_ANGLES: Record<string, number> = {
-    'Conjuration': 0,
-    'Restoration': Math.PI / 2,
-    'Alteration': Math.PI,
-    'Destruction': (3 * Math.PI) / 2,
-    'Illusion': (3 * Math.PI) / 4, // Bottom Left
+    'Conjuration': 0,             // Right
+    'Restoration': Math.PI / 2,   // Down
+    'Alteration': Math.PI,        // Left
+    'Destruction': (3 * Math.PI) / 2, // Up
+    'Illusion': (3 * Math.PI) / 4,    // Bottom Left
   };
 
-  // Calculate global positions for all nodes across all schools
   const transformedData = useMemo(() => {
     const allNodes: TransformedNode[] = [];
     const schoolKeys = Object.keys(schools);
@@ -52,7 +50,6 @@ export function GlobalGrimoireView({
       const rootNode = school.nodes.find(n => n.formId === school.root);
       if (!rootNode) return;
 
-      // Get angle from map or fallback to even distribution
       const angle = SCHOOL_ANGLES[sName] !== undefined 
         ? SCHOOL_ANGLES[sName] 
         : (i * 2 * Math.PI) / schoolKeys.length;
@@ -60,17 +57,16 @@ export function GlobalGrimoireView({
       const cosA = Math.cos(angle);
       const sinA = Math.sin(angle);
 
-      // Center of the school's starting point
+      // Root node position on the hub circle
       const targetRootX = cosA * HUB_RADIUS;
       const targetRootY = sinA * HUB_RADIUS;
 
       school.nodes.forEach(node => {
-        // Calculate relative position to the root in original coordinates
+        // Local relative position
         const relX = node.x - rootNode.x;
         const relY = node.y - rootNode.y;
 
-        // Rotate the relative vector so it points "outward" from the Heart
-        // This transformation maps the school's local X axis to the radial outward axis
+        // Rotate so trees "flow away" from center
         const rotatedX = relX * cosA - relY * sinA;
         const rotatedY = relX * sinA + relY * cosA;
 
@@ -91,16 +87,14 @@ export function GlobalGrimoireView({
       setTransform({
         x: containerRef.current.clientWidth / 2,
         y: containerRef.current.clientHeight / 2,
-        scale: 0.25
+        scale: 0.3
       });
     }
   }, []);
 
   const handleMouseDown = (e: React.MouseEvent) => {
-    if (e.button === 1 || (e.button === 0 && !e.shiftKey)) {
-      const target = e.target as HTMLElement;
-      if (target.closest('.spell-node')) return;
-
+    if (e.button === 0 || e.button === 1) {
+      if ((e.target as HTMLElement).closest('.spell-node')) return;
       setDragMode('canvas');
       setDragStart({ x: e.clientX - transform.x, y: e.clientY - transform.y });
     }
@@ -121,7 +115,7 @@ export function GlobalGrimoireView({
   const handleWheel = (e: React.WheelEvent) => {
     e.preventDefault();
     const scaleFactor = e.deltaY > 0 ? 0.9 : 1.1;
-    const newScale = Math.min(Math.max(transform.scale * scaleFactor, 0.05), 3);
+    const newScale = Math.min(Math.max(transform.scale * scaleFactor, 0.05), 2);
     
     const rect = containerRef.current?.getBoundingClientRect();
     if (!rect) return;
@@ -143,9 +137,7 @@ export function GlobalGrimoireView({
     const nodes: React.ReactNode[] = [];
     const connections: React.ReactNode[] = [];
     const hubLines: React.ReactNode[] = [];
-    const labels: React.ReactNode[] = [];
 
-    // Group nodes by school for rendering
     const nodesBySchool = transformedData.reduce((acc, node) => {
       if (!acc[node.schoolName]) acc[node.schoolName] = [];
       acc[node.schoolName].push(node);
@@ -153,50 +145,45 @@ export function GlobalGrimoireView({
     }, {} as Record<string, TransformedNode[]>);
 
     Object.entries(nodesBySchool).forEach(([sName, sNodes]) => {
-      const schoolRoot = sNodes.find(n => n.formId === schools[sName].root);
-      if (!schoolRoot) return;
+      const rootId = schools[sName].root;
+      const schoolRoot = sNodes.find(n => n.formId === rootId);
+      
+      if (schoolRoot) {
+        hubLines.push(
+          <line
+            key={`hub-${sName}`}
+            x1={0} y1={0}
+            x2={schoolRoot.globalX} y2={schoolRoot.globalY}
+            stroke="hsl(var(--accent))"
+            strokeWidth="4"
+            strokeOpacity="0.2"
+            strokeDasharray="8,8"
+            className="animate-pulse"
+          />
+        );
+      }
 
-      // Spectral line from Heart to Root
-      hubLines.push(
-        <line
-          key={`hub-${sName}`}
-          x1={0} y1={0}
-          x2={schoolRoot.globalX} y2={schoolRoot.globalY}
-          stroke="hsl(var(--accent))"
-          strokeWidth="6"
-          strokeOpacity="0.2"
-          strokeDasharray="15,15"
-          className="animate-pulse"
-        />
-      );
-
-      // Connections
       sNodes.forEach(node => {
         node.children.forEach(childId => {
           const childNode = sNodes.find(n => n.formId === childId);
           if (childNode) {
+            const isHighlighted = selectedNodeId === node.formId || selectedNodeId === childId;
             connections.push(
               <line
                 key={`${sName}-${node.formId}-${childId}`}
-                x1={node.globalX}
-                y1={node.globalY}
-                x2={childNode.globalX}
-                y2={childNode.globalY}
-                stroke="hsl(var(--primary))"
-                strokeWidth="2"
-                strokeOpacity="0.3"
+                x1={node.globalX} y1={node.globalY}
+                x2={childNode.globalX} y2={childNode.globalY}
+                stroke={isHighlighted ? "#f97316" : "hsl(var(--primary))"}
+                strokeWidth={isHighlighted ? "3" : "1.5"}
+                strokeOpacity={isHighlighted ? "0.8" : "0.3"}
               />
             );
           }
         });
-      });
 
-      // Nodes
-      sNodes.forEach(node => {
-        const isRoot = node.formId === schools[sName].root;
+        const isRoot = node.formId === rootId;
         const isMatch = searchQuery.length > 1 && (
-          node.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-          node.formId.toLowerCase().includes(searchQuery.toLowerCase())
+          node.name.toLowerCase().includes(searchQuery.toLowerCase())
         );
 
         nodes.push(
@@ -204,51 +191,31 @@ export function GlobalGrimoireView({
             key={`${sName}-${node.formId}`}
             onClick={() => onSelectNode(node.formId)}
             className={cn(
-              "spell-node absolute flex items-center justify-center rounded-full border bg-card/90 transition-all pointer-events-auto arcane-glow cursor-pointer",
-              selectedNodeId === node.formId ? "ring-4 ring-accent z-20 scale-110" : "border-border hover:border-accent hover:scale-105",
-              isRoot && "border-accent bg-accent/20 z-10 shadow-[0_0_40px_hsl(var(--accent)/0.5)] scale-125",
-              isMatch && "ring-4 ring-yellow-400 scale-150 z-30 shadow-[0_0_50px_rgba(250,204,21,0.6)]"
+              "spell-node absolute flex items-center justify-center rounded-full border bg-card/90 transition-all cursor-pointer pointer-events-auto",
+              selectedNodeId === node.formId ? "ring-4 ring-accent z-20 scale-110" : "border-border hover:border-accent",
+              isRoot && "border-accent bg-accent/10 scale-125 z-10 shadow-[0_0_20px_hsl(var(--accent)/0.3)]",
+              isMatch && "ring-4 ring-yellow-400 scale-150 z-30"
             )}
             style={{
               left: node.globalX,
               top: node.globalY,
-              width: isRoot ? 100 : 60,
-              height: isRoot ? 100 : 60,
+              width: isRoot ? 60 : 40,
+              height: isRoot ? 60 : 40,
               transform: 'translate(-50%, -50%)'
             }}
           >
             <span className={cn(
-              "font-bold text-center px-2 truncate leading-tight",
-              isRoot ? "text-xs" : "text-[10px]"
+              "font-bold text-center px-1 truncate leading-tight",
+              isRoot ? "text-[10px]" : "text-[8px]"
             )}>
               {node.name}
             </span>
           </div>
         );
       });
-
-      // School Label
-      const schoolAngle = SCHOOL_ANGLES[sName] !== undefined 
-        ? SCHOOL_ANGLES[sName] 
-        : (Object.keys(schools).indexOf(sName) * 2 * Math.PI) / Object.keys(schools).length;
-        
-      const labelDist = HUB_RADIUS - 150;
-      labels.push(
-        <div 
-          key={`label-${sName}`}
-          className="absolute text-4xl font-black text-accent/10 uppercase tracking-[0.4em] pointer-events-none select-none whitespace-nowrap"
-          style={{ 
-            left: Math.cos(schoolAngle) * labelDist, 
-            top: Math.sin(schoolAngle) * labelDist,
-            transform: `translate(-50%, -50%) rotate(${schoolAngle + Math.PI/2}rad)`
-          }}
-        >
-          {sName}
-        </div>
-      );
     });
 
-    return { nodes, connections, hubLines, labels };
+    return { nodes, connections, hubLines };
   }, [transformedData, schools, selectedNodeId, searchQuery, onSelectNode]);
 
   return (
@@ -270,29 +237,29 @@ export function GlobalGrimoireView({
           {renderContent.connections}
         </svg>
 
-        {/* The Heart of Magic */}
+        {/* Central Globe Hub (Radius 45 = Width/Height 90) */}
         <div 
-          className="absolute w-80 h-80 rounded-full bg-background border-[20px] border-accent heart-glow flex items-center justify-center z-50 pointer-events-none"
-          style={{ left: 0, top: 0, transform: 'translate(-50%, -50%)' }}
+          className="absolute rounded-full border-[10px] border-accent bg-background arcane-glow flex items-center justify-center z-50 pointer-events-none"
+          style={{ 
+            left: 0, 
+            top: 0, 
+            width: 90, 
+            height: 90, 
+            transform: 'translate(-50%, -50%)' 
+          }}
         >
           <div className="text-center">
-            <div className="text-sm font-black tracking-[0.8em] text-accent uppercase animate-pulse mb-1 pl-[0.8em]">Heart of</div>
-            <div className="text-6xl font-black tracking-tighter text-foreground uppercase">Magic</div>
+            <div className="text-[10px] font-black tracking-tighter text-accent uppercase animate-pulse">Core</div>
+            <div className="text-sm font-black text-foreground uppercase">Magic</div>
           </div>
         </div>
 
-        {renderContent.labels}
         {renderContent.nodes}
       </div>
       
       <div className="absolute top-6 left-6 p-4 bg-card/60 backdrop-blur-md border border-border rounded-xl shadow-2xl pointer-events-none">
-        <h2 className="text-sm font-bold uppercase tracking-widest text-accent">Arch-Grimoire Hub</h2>
-        <p className="text-[10px] text-muted-foreground mt-1">Converging all magical lineages around the primordial Heart.</p>
-        <div className="mt-3 space-y-1">
-          <p className="text-[9px] text-muted-foreground flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-accent animate-pulse" /> Each school radiates outward from its cardinal foundation.
-          </p>
-        </div>
+        <h2 className="text-sm font-bold uppercase tracking-widest text-accent">Primordial Hub</h2>
+        <p className="text-[10px] text-muted-foreground mt-1">Converging lineages of the five ancient schools.</p>
       </div>
     </div>
   )
