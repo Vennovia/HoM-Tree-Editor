@@ -198,31 +198,34 @@ export function TreeCanvas({
     const nodes: React.ReactNode[] = [];
     const connections: React.ReactNode[] = [];
 
-    const relatedNodeIds = new Set<string>();
+    const prereqNodeIds = new Set<string>();
+    const childNodeIds = new Set<string>();
     if (selectedNodeId) {
       const selectedNode = school.nodes.find(n => n.formId === selectedNodeId);
       if (selectedNode) {
-        selectedNode.children?.forEach(id => relatedNodeIds.add(id));
-        selectedNode.prerequisites?.forEach(id => relatedNodeIds.add(id));
-        selectedNode.hardPrereqs?.forEach(id => relatedNodeIds.add(id));
-        selectedNode.softPrereqs?.forEach(id => relatedNodeIds.add(id));
+        selectedNode.children?.forEach(id => childNodeIds.add(id));
+        selectedNode.prerequisites?.forEach(id => prereqNodeIds.add(id));
+        selectedNode.hardPrereqs?.forEach(id => prereqNodeIds.add(id));
+        selectedNode.softPrereqs?.forEach(id => prereqNodeIds.add(id));
       }
     }
 
-    const connectionsData: Array<{ source: SpellNode, target: SpellNode, isHighlighted: boolean }> = [];
+    const connectionsData: Array<{ source: SpellNode, target: SpellNode, isHighlighted: boolean, isPrereqPath: boolean, isChildPath: boolean }> = [];
     school.nodes.forEach(node => {
       (node.children || []).forEach(childId => {
         const childNode = school.nodes.find(n => n.formId === childId);
         if (childNode) {
-          const isHighlighted = selectedNodeId === node.formId || selectedNodeId === childId;
-          connectionsData.push({ source: node, target: childNode, isHighlighted });
+          const isChildPath = selectedNodeId === node.formId;
+          const isPrereqPath = selectedNodeId === childId;
+          const isHighlighted = isChildPath || isPrereqPath;
+          connectionsData.push({ source: node, target: childNode, isHighlighted, isPrereqPath, isChildPath });
         }
       });
     });
 
     connectionsData.sort((a, b) => (a.isHighlighted === b.isHighlighted ? 0 : a.isHighlighted ? 1 : -1));
 
-    connectionsData.forEach(({ source, target, isHighlighted }) => {
+    connectionsData.forEach(({ source, target, isHighlighted, isPrereqPath, isChildPath }) => {
       const sX = (dragNodeId === source.formId && draggingNodePos) ? draggingNodePos.x : source.x;
       const sY = (dragNodeId === source.formId && draggingNodePos) ? draggingNodePos.y : source.y;
       const tX = (dragNodeId === target.formId && draggingNodePos) ? draggingNodePos.x : target.x;
@@ -236,6 +239,9 @@ export function TreeCanvas({
       
       const x2 = tX - targetRadius * Math.cos(angle);
       const y2 = tY - targetRadius * Math.sin(angle);
+
+      const strokeColor = isPrereqPath ? "#22c55e" : (isChildPath ? "#f97316" : "hsl(var(--primary))");
+      const markerId = isPrereqPath ? "url(#arrow-prereq)" : (isChildPath ? "url(#arrow-child)" : "url(#arrow-default)");
 
       connections.push(
         <g key={`${source.formId}-${target.formId}`} className="group/line cursor-pointer">
@@ -253,10 +259,10 @@ export function TreeCanvas({
           <line
             x1={sX} y1={sY}
             x2={x2} y2={y2}
-            stroke={isHighlighted ? "#f97316" : "hsl(var(--primary))"}
+            stroke={strokeColor}
             strokeWidth={isHighlighted ? "2.5" : "1.5"}
             strokeOpacity={isHighlighted ? "0.9" : "0.4"}
-            markerEnd={isHighlighted ? "url(#arrow-highlighted)" : "url(#arrow-default)"}
+            markerEnd={markerId}
             className={cn(
               "transition-all duration-300",
               !isHighlighted && "group-hover/line:stroke-destructive group-hover/line:stroke-opacity-100 group-hover/line:stroke-[2px]",
@@ -275,7 +281,9 @@ export function TreeCanvas({
 
       const isRoot = node.formId === school.root;
       const isSelected = selectedNodeId === node.formId;
-      const isRelated = relatedNodeIds.has(node.formId);
+      const isPrereq = prereqNodeIds.has(node.formId);
+      const isChild = childNodeIds.has(node.formId);
+      
       const x = (dragNodeId === node.formId && draggingNodePos) ? draggingNodePos.x : node.x;
       const y = (dragNodeId === node.formId && draggingNodePos) ? draggingNodePos.y : node.y;
 
@@ -288,7 +296,8 @@ export function TreeCanvas({
             (dragMode === 'node' || draggingNodePos) && "transition-none",
             node.isLocked && "cursor-default hover:scale-100",
             isSelected ? "node-selected ring-2 ring-accent ring-offset-1 ring-offset-background z-30" : "border-primary/40",
-            isRelated && !isSelected && "border-[#f97316] ring-2 ring-[#f97316]/50 z-20 scale-105",
+            isPrereq && !isSelected && "border-[#22c55e] ring-2 ring-[#22c55e]/50 z-20 scale-105",
+            isChild && !isSelected && "border-[#f97316] ring-2 ring-[#f97316]/50 z-20 scale-105",
             isRoot && "border-accent shadow-[0_0_15px_hsl(var(--accent))] z-10",
             linkingSourceId === node.formId && "ring-2 ring-accent ring-offset-2 animate-pulse z-40",
             dragNodeId === node.formId && "cursor-grabbing scale-110 opacity-80 z-50",
@@ -389,7 +398,7 @@ export function TreeCanvas({
               <path d="M 0 0 L 10 5 L 0 10 z" fill="hsl(var(--primary))" fillOpacity="0.4" />
             </marker>
             <marker
-              id="arrow-highlighted"
+              id="arrow-child"
               viewBox="0 0 10 10"
               refX="8"
               refY="5"
@@ -398,6 +407,17 @@ export function TreeCanvas({
               orient="auto-start-reverse"
             >
               <path d="M 0 0 L 10 5 L 0 10 z" fill="#f97316" />
+            </marker>
+            <marker
+              id="arrow-prereq"
+              viewBox="0 0 10 10"
+              refX="8"
+              refY="5"
+              markerWidth="5"
+              markerHeight="5"
+              orient="auto-start-reverse"
+            >
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#22c55e" />
             </marker>
           </defs>
           {renderData.connections}

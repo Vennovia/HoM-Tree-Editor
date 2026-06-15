@@ -176,7 +176,8 @@ export function GlobalGrimoireView({
     const connections: React.ReactNode[] = [];
     const hubLines: React.ReactNode[] = [];
 
-    const relatedNodeIds = new Set<string>();
+    const prereqNodeIds = new Set<string>();
+    const childNodeIds = new Set<string>();
     if (selectedNodeId) {
       let selectedNode: SpellNode | undefined;
       for (const sName in schools) {
@@ -184,10 +185,10 @@ export function GlobalGrimoireView({
         if (selectedNode) break;
       }
       if (selectedNode) {
-        selectedNode.children?.forEach(id => relatedNodeIds.add(id));
-        selectedNode.prerequisites?.forEach(id => relatedNodeIds.add(id));
-        selectedNode.hardPrereqs?.forEach(id => relatedNodeIds.add(id));
-        selectedNode.softPrereqs?.forEach(id => relatedNodeIds.add(id));
+        selectedNode.children?.forEach(id => childNodeIds.add(id));
+        selectedNode.prerequisites?.forEach(id => prereqNodeIds.add(id));
+        selectedNode.hardPrereqs?.forEach(id => prereqNodeIds.add(id));
+        selectedNode.softPrereqs?.forEach(id => prereqNodeIds.add(id));
       }
     }
 
@@ -217,7 +218,9 @@ export function GlobalGrimoireView({
         (node.children || []).forEach(childId => {
           const childNode = school.nodes.find(n => n.formId === childId);
           if (childNode) {
-            const isHighlighted = selectedNodeId === node.formId || selectedNodeId === childId;
+            const isChildPath = selectedNodeId === node.formId;
+            const isPrereqPath = selectedNodeId === childId;
+            const isHighlighted = isChildPath || isPrereqPath;
             
             const nX = (dragNodeId === node.formId && draggingNodePos) ? draggingNodePos.x : node.x;
             const nY = (dragNodeId === node.formId && draggingNodePos) ? draggingNodePos.y : node.y;
@@ -233,15 +236,18 @@ export function GlobalGrimoireView({
             const x2 = cX - targetRadius * Math.cos(angle);
             const y2 = cY - targetRadius * Math.sin(angle);
 
+            const strokeColor = isPrereqPath ? "#22c55e" : (isChildPath ? "#f97316" : "hsl(var(--primary))");
+            const markerId = isPrereqPath ? "url(#arrow-prereq)" : (isChildPath ? "url(#arrow-child)" : "url(#arrow-default)");
+
             connections.push(
               <line
                 key={`${sName}-${node.formId}-${childId}`}
                 x1={nX} y1={nY}
                 x2={x2} y2={y2}
-                stroke={isHighlighted ? "#f97316" : "hsl(var(--primary))"}
+                stroke={strokeColor}
                 strokeWidth={isHighlighted ? "3" : "1"}
                 strokeOpacity={isHighlighted ? "0.8" : "0.2"}
-                markerEnd={isHighlighted ? "url(#arrow-highlighted)" : "url(#arrow-default)"}
+                markerEnd={markerId}
               />
             );
           }
@@ -249,7 +255,9 @@ export function GlobalGrimoireView({
 
         const isRoot = node.formId === rootId;
         const isSelected = selectedNodeId === node.formId;
-        const isRelated = relatedNodeIds.has(node.formId);
+        const isPrereq = prereqNodeIds.has(node.formId);
+        const isChild = childNodeIds.has(node.formId);
+        
         const isMatch = searchQuery.length > 1 && (
           node.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
           node.formId.toLowerCase().includes(searchQuery.toLowerCase())
@@ -267,7 +275,8 @@ export function GlobalGrimoireView({
               "spell-node absolute flex items-center justify-center rounded-full border bg-card/90 transition-all cursor-grab pointer-events-auto select-none",
               (dragMode === 'node' || draggingNodePos) && "transition-none",
               isSelected ? "node-selected ring-2 ring-accent z-30 scale-125" : "border-border hover:border-accent/60",
-              isRelated && !isSelected && "border-[#f97316] ring-2 ring-[#f97316]/50 z-20 scale-110",
+              isPrereq && !isSelected && "border-[#22c55e] ring-2 ring-[#22c55e]/50 z-20 scale-110",
+              isChild && !isSelected && "border-[#f97316] ring-2 ring-[#f97316]/50 z-20 scale-110",
               isRoot && "border-accent bg-accent/5 scale-125 z-10 shadow-[0_0_15px_hsl(var(--accent)/0.2)]",
               isMatch && "ring-4 ring-yellow-400 scale-150 z-40",
               dragNodeId === node.formId && "cursor-grabbing opacity-70 scale-110",
@@ -360,7 +369,7 @@ export function GlobalGrimoireView({
               <path d="M 0 0 L 10 5 L 0 10 z" fill="hsl(var(--primary))" fillOpacity="0.4" />
             </marker>
             <marker
-              id="arrow-highlighted"
+              id="arrow-child"
               viewBox="0 0 10 10"
               refX="8"
               refY="5"
@@ -369,6 +378,17 @@ export function GlobalGrimoireView({
               orient="auto-start-reverse"
             >
               <path d="M 0 0 L 10 5 L 0 10 z" fill="#f97316" />
+            </marker>
+            <marker
+              id="arrow-prereq"
+              viewBox="0 0 10 10"
+              refX="8"
+              refY="5"
+              markerWidth="5"
+              markerHeight="5"
+              orient="auto-start-reverse"
+            >
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#22c55e" />
             </marker>
           </defs>
           {renderContent.hubLines}
@@ -400,8 +420,8 @@ export function GlobalGrimoireView({
         <h2 className="text-sm font-bold uppercase tracking-widest text-accent">Arch-Grimoire Hub</h2>
         <p className="text-[10px] text-muted-foreground mt-1">Convergence View: Edit any discipline from this focal point.</p>
         <div className="flex gap-2 mt-3">
-          <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-accent/40"></div><span className="text-[9px] text-muted-foreground">Foundation</span></div>
-          <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-primary/40"></div><span className="text-[9px] text-muted-foreground">Progression</span></div>
+          <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-[#22c55e]"></div><span className="text-[9px] text-muted-foreground">Prerequisites</span></div>
+          <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-[#f97316]"></div><span className="text-[9px] text-muted-foreground">Unlocks</span></div>
         </div>
       </div>
 
