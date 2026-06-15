@@ -2,7 +2,7 @@ import type {Metadata, Viewport} from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'HoM tree editor',
+  title: 'HoM Tree Editor',
   description: 'Master your spell structures with visual editing.',
   manifest: '/manifest.json',
   appleWebApp: {
