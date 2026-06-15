@@ -1,15 +1,13 @@
-
 "use client"
 
-import React, { useState } from 'react'
+import React from 'react'
 import { SpellNode, SpellSchool } from '@/types/spell-tree'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
-import { Sparkles, Trash2, Link as LinkIcon, Lock, Unlock, MapPin, X, Star, StarOff } from 'lucide-react'
-import { suggestSpellNodeDetails } from '@/ai/flows/suggest-spell-node-details-flow'
+import { Trash2, Link as LinkIcon, Lock, Unlock, MapPin, X, Star, StarOff } from 'lucide-react'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
@@ -35,7 +33,6 @@ export function NodeEditor({
   onDelete, 
   onSelectNode 
 }: NodeEditorProps) {
-  const [isAiLoading, setIsAiLoading] = useState(false)
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
@@ -43,34 +40,6 @@ export function NodeEditor({
       onUpdate(node.formId, { [name]: Number(value) })
     } else {
       onUpdate(node.formId, { [name]: value })
-    }
-  }
-
-  const handleAiSuggest = async () => {
-    setIsAiLoading(true)
-    try {
-      const neighbors = node.prerequisites
-        .map(id => school.nodes.find(n => n.formId === id))
-        .filter(Boolean)
-        .map(n => ({
-          name: n!.name,
-          theme: n!.theme,
-          skillLevel: n!.skillLevel
-        }))
-
-      const result = await suggestSpellNodeDetails({
-        spellSchool: schoolName,
-        neighboringNodes: neighbors
-      })
-      
-      onUpdate(node.formId, {
-        name: result.suggestedName,
-        theme: result.suggestedTheme
-      })
-    } catch (error) {
-      console.error("AI Suggestion failed", error)
-    } finally {
-      setIsAiLoading(false)
     }
   }
 
@@ -122,24 +91,6 @@ export function NodeEditor({
 
       <ScrollArea className="flex-1">
         <div className="p-6 space-y-6">
-          {/* AI Tools */}
-          <div className="space-y-2 p-4 rounded-lg bg-accent/10 border border-accent/20">
-            <h3 className="text-sm font-semibold flex items-center gap-2 text-accent">
-              <Sparkles className="w-4 h-4" />
-              AI Lore Master
-            </h3>
-            <div className="flex gap-2">
-              <Button 
-                size="sm" 
-                className="flex-1 bg-accent/20 text-accent hover:bg-accent/30 text-[10px]"
-                disabled={isAiLoading}
-                onClick={handleAiSuggest}
-              >
-                {isAiLoading ? 'Brewing...' : 'Suggest Name & Theme'}
-              </Button>
-            </div>
-          </div>
-
           {/* School Status */}
           <div className="space-y-4">
             <div className="flex items-center justify-between p-3 bg-accent/5 rounded-lg border border-accent/20">
