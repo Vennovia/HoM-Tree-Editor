@@ -5,7 +5,6 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { SpellTreeData, SpellNode } from '@/types/spell-tree'
 import { JSONImporter } from '@/components/editor/JSONImporter'
 import { TreeCanvas } from '@/components/canvas/TreeCanvas'
-import { GlobalGrimoireView } from '@/components/canvas/GlobalGrimoireView'
 import { NodeEditor } from '@/components/editor/NodeEditor'
 import { DashboardView } from '@/components/dashboard/DashboardView'
 import { Button } from '@/components/ui/button'
@@ -19,13 +18,11 @@ import {
   Database,
   Search,
   LayoutDashboard,
-  Target,
-  Globe
+  Target
 } from 'lucide-react'
 import { cn, deepClone } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Separator } from '@/components/ui/separator'
 import { Toaster } from '@/components/ui/toaster'
 import { useToast } from '@/hooks/use-toast'
 import {
@@ -37,7 +34,7 @@ import {
 export default function ArcanaFlowStudio() {
   const { toast } = useToast()
   const [treeData, setTreeData] = useState<SpellTreeData | null>(null)
-  const [selectedSchool, setSelectedSchool] = useState<string | 'all' | null>(null)
+  const [selectedSchool, setSelectedSchool] = useState<string | null>(null)
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
   const [isImportOpen, setIsImportOpen] = useState(false)
@@ -105,7 +102,7 @@ export default function ArcanaFlowStudio() {
     const targetSchool = findSchoolForNode(targetId)
 
     if (!sourceSchool || !targetSchool || sourceSchool !== targetSchool || sourceId === targetId) {
-      if (sourceSchool !== targetSchool) {
+      if (sourceSchool && targetSchool && sourceSchool !== targetSchool) {
         toast({
           variant: "destructive",
           title: "Arcane Dissonance",
@@ -161,7 +158,7 @@ export default function ArcanaFlowStudio() {
   }
 
   const handleAddNode = () => {
-    if (!treeData || !selectedSchool || selectedSchool === 'all') return
+    if (!treeData || !selectedSchool) return
 
     setTreeData(prev => {
       if (!prev) return prev
@@ -208,7 +205,7 @@ export default function ArcanaFlowStudio() {
     if (!treeData || nodeSearchQuery.length < 2) return []
     const results: SpellNode[] = []
     
-    const schoolsToSearch = selectedSchool === 'all' || selectedSchool === null 
+    const schoolsToSearch = selectedSchool === null 
       ? Object.values(treeData.schools) 
       : [treeData.schools[selectedSchool]]
 
@@ -268,12 +265,6 @@ export default function ArcanaFlowStudio() {
                 >
                   <LayoutDashboard className="w-3.5 h-3.5" /> Dashboard
                 </button>
-                <button
-                  onClick={() => { setSelectedSchool('all'); setSelectedNodeId(null); }}
-                  className={cn("w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md transition-all", selectedSchool === 'all' ? "bg-primary text-accent" : "text-muted-foreground hover:bg-secondary")}
-                >
-                  <Globe className="w-3.5 h-3.5" /> View All (Hub)
-                </button>
               </div>
 
               <div className="space-y-1">
@@ -310,7 +301,7 @@ export default function ArcanaFlowStudio() {
         <header className="h-16 border-b border-border flex items-center justify-between px-6 bg-card/30 backdrop-blur-sm relative z-20">
           <div className="flex items-center gap-6">
             <h2 className="font-bold">
-              {selectedSchool === 'all' ? "Arch-Grimoire Hub" : selectedSchool || "Dashboard"}
+              {selectedSchool || "Dashboard"}
             </h2>
 
             {selectedSchool && (
@@ -346,7 +337,7 @@ export default function ArcanaFlowStudio() {
               </Popover>
             )}
           </div>
-          {selectedSchool && selectedSchool !== 'all' && (
+          {selectedSchool && (
             <Button size="sm" onClick={handleAddNode}>
               <Plus className="w-4 h-4" /> Add Spell
             </Button>
@@ -355,14 +346,7 @@ export default function ArcanaFlowStudio() {
 
         <div className="flex-1 relative">
           {treeData ? (
-            selectedSchool === 'all' ? (
-              <GlobalGrimoireView 
-                schools={treeData.schools}
-                selectedNodeId={selectedNodeId}
-                onSelectNode={setSelectedNodeId}
-                searchQuery={nodeSearchQuery}
-              />
-            ) : selectedSchool ? (
+            selectedSchool ? (
               <TreeCanvas 
                 schoolName={selectedSchool}
                 school={treeData.schools[selectedSchool]}
