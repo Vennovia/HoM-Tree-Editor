@@ -25,15 +25,16 @@ export function TreeCanvas({
   const [transform, setTransform] = useState({ x: 0, y: 0, scale: 0.5 });
   
   // States for different types of dragging
-  const [dragMode, setDragMode] = useState<'canvas' | 'node' | null>(null);
+  const [dragMode, setDragMode] = useState<'canvas' | 'node' | 'linking' | null>(null);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [dragNodeId, setDragNodeId] = useState<string | null>(null);
   const [dragNodeInitialPos, setDragNodeInitialPos] = useState({ x: 0, y: 0 });
   
-  // State for linking mode
+  // State for linking mode (Shift + Drag)
   const [linkingSourceId, setLinkingSourceId] = useState<string | null>(null);
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
 
-  // Focus on root when school changes, but NOT when nodes move
+  // Center camera when school changes
   useEffect(() => {
     const rootNode = school.nodes.find(n => n.formId === school.root);
     if (rootNode) {
@@ -43,9 +44,16 @@ export function TreeCanvas({
         scale: 0.5
       });
     }
-    // We only want to center once when switching schools
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [schoolName]);
+
+  const getCanvasCoords = (clientX: number, clientY: number) => {
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return { x: 0, y: 0 };
+    return {
+      x: (clientX - rect.left - transform.x) / transform.scale,
+      y: (clientY - rect.top - transform.y) / transform.scale
+    };
+  };
 
   const handleMouseDown = (e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
@@ -53,14 +61,10 @@ export function TreeCanvas({
     const nodeId = isNode?.getAttribute('data-node-id');
 
     if (e.shiftKey && nodeId) {
-      if (!linkingSourceId) {
-        setLinkingSourceId(nodeId);
-      } else {
-        if (linkingSourceId !== nodeId) {
-          onLinkNodes(linkingSourceId, nodeId);
-        }
-        setLinkingSourceId(null);
-      }
+      setDragMode('linking');
+      setLinkingSourceId(nodeId);
+      const coords = getCanvasCoords(e.clientX, e.clientY);
+      setMousePos(coords);
       return;
     }
 
@@ -79,8 +83,6 @@ export function TreeCanvas({
     if (e.button === 1 || (e.button === 0 && e.altKey)) {
       setDragMode('canvas');
       setDragStart({ x: e.clientX - transform.x, y: e.clientY - transform.y });
-    } else if (e.button === 0 && !e.shiftKey) {
-      setLinkingSourceId(null);
     }
   };
 
@@ -101,12 +103,26 @@ export function TreeCanvas({
         x: Math.round(dragNodeInitialPos.x + dx),
         y: Math.round(dragNodeInitialPos.y + dy)
       });
+    } else if (dragMode === 'linking') {
+      const coords = getCanvasCoords(e.clientX, e.clientY);
+      setMousePos(coords);
     }
   };
 
-  const handleMouseUp = () => {
+  const handleMouseUp = (e: React.MouseEvent) => {
+    if (dragMode === 'linking' && linkingSourceId) {
+      const target = e.target as HTMLElement;
+      const targetNode = target.closest('.spell-node');
+      const targetId = targetNode?.getAttribute('data-node-id');
+
+      if (targetId && targetId !== linkingSourceId) {
+        onLinkNodes(linkingSourceId, targetId);
+      }
+    }
+    
     setDragMode(null);
     setDragNodeId(null);
+    setLinkingSourceId(null);
   };
 
   const handleWheel = (e: React.WheelEvent) => {
@@ -137,30 +153,65 @@ export function TreeCanvas({
         const childNode = school.nodes.find(n => n.formId === childId);
         if (childNode) {
           lines.push(
-            <line
-              key={`${node.formId}-${childId}`}
-              x1={node.x}
-              y1={node.y}
-              x2={childNode.x}
-              y2={childNode.y}
-              stroke={linkingSourceId === node.formId || linkingSourceId === childId ? "hsl(var(--accent))" : "hsl(var(--primary))"}
-              strokeWidth={linkingSourceId === node.formId || linkingSourceId === childId ? "3" : "2"}
-              strokeOpacity={linkingSourceId === node.formId || linkingSourceId === childId ? "1" : "0.5"}
-              className="transition-all duration-300"
-            />
+            <g key={`${node.formId}-${childId}`} className="group/line cursor-pointer">
+              {/* Invisible wider stroke for easier clicking */}
+              <line
+                x1={node.x}
+                y1={node.y}
+                x2={childNode.x}
+                y2={childNode.y}
+                stroke="transparent"
+                strokeWidth="20"
+                className="pointer-events-auto"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onLinkNodes(node.formId, childId);
+                }}
+              />
+              <line
+                x1={node.x}
+                y1={node.y}
+                x2={childNode.x}
+                y2={childNode.y}
+                stroke="hsl(var(--primary))"
+                strokeWidth="2"
+                strokeOpacity="0.5"
+                className="transition-all duration-300 group-hover/line:stroke-destructive group-hover/line:stroke-opacity-100 group-hover/line:stroke-[3px]"
+              />
+            </g>
           );
         }
       });
     });
     return lines;
-  }, [school, linkingSourceId]);
+  }, [school, onLinkNodes]);
+
+  const activeLinkingLine = useMemo(() => {
+    if (dragMode !== 'linking' || !linkingSourceId) return null;
+    const sourceNode = school.nodes.find(n => n.formId === linkingSourceId);
+    if (!sourceNode) return null;
+
+    return (
+      <line
+        x1={sourceNode.x}
+        y1={sourceNode.y}
+        x2={mousePos.x}
+        y2={mousePos.y}
+        stroke="hsl(var(--accent))"
+        strokeWidth="3"
+        strokeDasharray="5,5"
+        className="animate-pulse"
+      />
+    );
+  }, [dragMode, linkingSourceId, mousePos, school.nodes]);
 
   return (
     <div 
       ref={containerRef}
       className={cn(
         "relative w-full h-full overflow-hidden bg-background cursor-crosshair",
-        dragMode === 'canvas' && "cursor-grabbing"
+        dragMode === 'canvas' && "cursor-grabbing",
+        dragMode === 'linking' && "cursor-alias"
       )}
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
@@ -180,6 +231,7 @@ export function TreeCanvas({
           style={{ width: 1, height: 1 }}
         >
           {connections}
+          {activeLinkingLine}
         </svg>
 
         {school.nodes.map(node => (
@@ -230,7 +282,10 @@ export function TreeCanvas({
             <span className="bg-secondary px-1.5 py-0.5 rounded text-[8px] font-mono border border-border">Drag</span> Move Node
           </p>
           <p className="text-[10px] text-foreground flex items-center gap-2">
-            <span className="bg-secondary px-1.5 py-0.5 rounded text-[8px] font-mono border border-border">Shift + Click</span> Link/Unlink
+            <span className="bg-secondary px-1.5 py-0.5 rounded text-[8px] font-mono border border-border">Shift + Drag</span> Link Nodes
+          </p>
+          <p className="text-[10px] text-foreground flex items-center gap-2">
+            <span className="bg-secondary px-1.5 py-0.5 rounded text-[8px] font-mono border border-border">Click Link</span> Delete Connection
           </p>
           <p className="text-[10px] text-foreground flex items-center gap-2">
             <span className="bg-secondary px-1.5 py-0.5 rounded text-[8px] font-mono border border-border">Middle / Alt</span> Pan Canvas
@@ -242,7 +297,7 @@ export function TreeCanvas({
         {linkingSourceId && (
           <div className="mt-2 pt-2 border-t border-accent/20 bg-accent/5 p-2 rounded animate-pulse">
             <p className="text-[10px] text-accent font-bold">Linking Active</p>
-            <p className="text-[9px] text-accent/70">Click another node to connect</p>
+            <p className="text-[9px] text-accent/70">Drop on target node to connect</p>
           </div>
         )}
       </div>
