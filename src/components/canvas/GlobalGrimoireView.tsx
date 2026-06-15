@@ -113,10 +113,16 @@ export function GlobalGrimoireView({
       const dx = (e.clientX - dragStart.x) / transform.scale;
       const dy = (e.clientY - dragStart.y) / transform.scale;
       
-      setDraggingNodePos({
-        x: Math.round(dragNodeInitialPos.x + dx),
-        y: Math.round(dragNodeInitialPos.y + dy)
-      });
+      let x = Math.round(dragNodeInitialPos.x + dx);
+      let y = Math.round(dragNodeInitialPos.y + dy);
+
+      // Snapping logic
+      if (e.ctrlKey || e.metaKey) {
+        x = Math.round(x / 50) * 50;
+        y = Math.round(y / 50) * 50;
+      }
+      
+      setDraggingNodePos({ x, y });
     } else if (dragMode === 'linking') {
       const coords = getCanvasCoords(e.clientX, e.clientY);
       setMousePos(coords);
@@ -171,7 +177,6 @@ export function GlobalGrimoireView({
     const connections: React.ReactNode[] = [];
     const hubLines: React.ReactNode[] = [];
 
-    // Track related nodes to highlight them too
     const relatedNodeIds = new Set<string>();
     if (selectedNodeId) {
       let selectedNode: SpellNode | undefined;
@@ -223,7 +228,8 @@ export function GlobalGrimoireView({
             const dx = cX - nX;
             const dy = cY - nY;
             const angle = Math.atan2(dy, dx);
-            const targetRadius = (childNode.formId === school.root ? 27 : 16) + 4;
+            const isTargetRoot = childNode.formId === school.root;
+            const targetRadius = (isTargetRoot ? 27 : 16) + 4;
             
             const x2 = cX - targetRadius * Math.cos(angle);
             const y2 = cY - targetRadius * Math.sin(angle);
@@ -322,7 +328,7 @@ export function GlobalGrimoireView({
     <div 
       ref={containerRef}
       className={cn(
-        "relative w-full h-full overflow-hidden bg-background cursor-grab active:cursor-grabbing arcane-grid",
+        "relative w-full h-full overflow-hidden bg-background cursor-grab active:cursor-grabbing",
         dragMode === 'linking' && "cursor-alias"
       )}
       onMouseDown={handleMouseDown}
@@ -338,6 +344,9 @@ export function GlobalGrimoireView({
         )}
         style={{ transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})` }}
       >
+        {/* Coordinate Grid System */}
+        <div className="absolute inset-[-50000px] pointer-events-none arcane-grid" />
+
         <svg className="absolute overflow-visible" style={{ width: 1, height: 1 }}>
           <defs>
             <marker
@@ -394,6 +403,15 @@ export function GlobalGrimoireView({
         <div className="flex gap-2 mt-3">
           <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-accent/40"></div><span className="text-[9px] text-muted-foreground">Foundation</span></div>
           <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-primary/40"></div><span className="text-[9px] text-muted-foreground">Progression</span></div>
+        </div>
+      </div>
+
+      <div className="absolute top-4 right-4 flex flex-col gap-2 p-3 bg-card/80 border border-border rounded-lg backdrop-blur-sm shadow-xl">
+        <p className="text-[9px] text-muted-foreground uppercase font-semibold border-b border-border pb-1">Controls</p>
+        <div className="space-y-1.5">
+          <p className="text-[10px] text-foreground flex items-center gap-2">
+            <span className="bg-secondary px-1.5 py-0.5 rounded text-[8px] font-mono border border-border">Ctrl + Drag</span> Snap to Grid
+          </p>
         </div>
       </div>
     </div>

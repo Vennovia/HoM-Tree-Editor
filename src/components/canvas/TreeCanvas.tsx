@@ -33,7 +33,6 @@ export function TreeCanvas({
   const [dragNodeId, setDragNodeId] = useState<string | null>(null);
   const [dragNodeInitialPos, setDragNodeInitialPos] = useState({ x: 0, y: 0 });
   
-  // Local state for dragging to keep UI snappy
   const [draggingNodePos, setDraggingNodePos] = useState<{ x: number, y: number } | null>(null);
 
   const [linkingSourceId, setLinkingSourceId] = useState<string | null>(null);
@@ -41,7 +40,6 @@ export function TreeCanvas({
 
   const lastCenteredId = useRef<string | null>(null);
 
-  // Focus root on school change
   useEffect(() => {
     if (school) {
       const rootNode = school.nodes.find(n => n.formId === school.root);
@@ -56,7 +54,6 @@ export function TreeCanvas({
     }
   }, [schoolName]);
 
-  // Center on node only if selected externally (e.g. search)
   useEffect(() => {
     if (
       selectedNodeId && 
@@ -139,11 +136,16 @@ export function TreeCanvas({
       const dx = (e.clientX - dragStart.x) / transform.scale;
       const dy = (e.clientY - dragStart.y) / transform.scale;
       
-      // Update local position for zero-latency feedback
-      setDraggingNodePos({
-        x: Math.round(dragNodeInitialPos.x + dx),
-        y: Math.round(dragNodeInitialPos.y + dy)
-      });
+      let x = Math.round(dragNodeInitialPos.x + dx);
+      let y = Math.round(dragNodeInitialPos.y + dy);
+
+      // Snapping logic
+      if (e.ctrlKey || e.metaKey) {
+        x = Math.round(x / 50) * 50;
+        y = Math.round(y / 50) * 50;
+      }
+
+      setDraggingNodePos({ x, y });
     } else if (dragMode === 'linking') {
       const coords = getCanvasCoords(e.clientX, e.clientY);
       setMousePos(coords);
@@ -152,7 +154,6 @@ export function TreeCanvas({
 
   const handleMouseUp = (e: React.MouseEvent) => {
     if (dragMode === 'node' && dragNodeId && draggingNodePos) {
-      // Final sync with parent state
       onNodeMove(dragNodeId, draggingNodePos, schoolName);
     }
 
@@ -198,9 +199,6 @@ export function TreeCanvas({
     const nodes: React.ReactNode[] = [];
     const connections: React.ReactNode[] = [];
 
-    const connectionsData: Array<{ source: SpellNode, target: SpellNode, isHighlighted: boolean }> = [];
-    
-    // Track related nodes to highlight them too
     const relatedNodeIds = new Set<string>();
     if (selectedNodeId) {
       const selectedNode = school.nodes.find(n => n.formId === selectedNodeId);
@@ -212,6 +210,7 @@ export function TreeCanvas({
       }
     }
 
+    const connectionsData: Array<{ source: SpellNode, target: SpellNode, isHighlighted: boolean }> = [];
     school.nodes.forEach(node => {
       (node.children || []).forEach(childId => {
         const childNode = school.nodes.find(n => n.formId === childId);
@@ -225,7 +224,6 @@ export function TreeCanvas({
     connectionsData.sort((a, b) => (a.isHighlighted === b.isHighlighted ? 0 : a.isHighlighted ? 1 : -1));
 
     connectionsData.forEach(({ source, target, isHighlighted }) => {
-      // Use local dragging positions if available
       const sX = (dragNodeId === source.formId && draggingNodePos) ? draggingNodePos.x : source.x;
       const sY = (dragNodeId === source.formId && draggingNodePos) ? draggingNodePos.y : source.y;
       const tX = (dragNodeId === target.formId && draggingNodePos) ? draggingNodePos.x : target.x;
@@ -234,7 +232,8 @@ export function TreeCanvas({
       const dx = tX - sX;
       const dy = tY - sY;
       const angle = Math.atan2(dy, dx);
-      const targetRadius = (target.formId === school.root ? 27 : 20) + 4;
+      const isRoot = target.formId === school.root;
+      const targetRadius = (isRoot ? 27 : 20) + 4;
       
       const x2 = tX - targetRadius * Math.cos(angle);
       const y2 = tY - targetRadius * Math.sin(angle);
@@ -354,7 +353,7 @@ export function TreeCanvas({
     <div 
       ref={containerRef}
       className={cn(
-        "relative w-full h-full overflow-hidden bg-background arcane-grid cursor-crosshair",
+        "relative w-full h-full overflow-hidden bg-background cursor-crosshair",
         dragMode === 'canvas' && "cursor-grabbing",
         dragMode === 'linking' && "cursor-alias"
       )}
@@ -371,6 +370,9 @@ export function TreeCanvas({
         )}
         style={{ transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})` }}
       >
+        {/* Coordinate Grid System */}
+        <div className="absolute inset-[-50000px] pointer-events-none arcane-grid" />
+
         <svg 
           className="absolute overflow-visible"
           style={{ width: 1, height: 1 }}
@@ -415,10 +417,13 @@ export function TreeCanvas({
         <p className="text-[9px] text-muted-foreground uppercase font-semibold border-b border-border pb-1">Controls</p>
         <div className="space-y-1.5">
           <p className="text-[10px] text-foreground flex items-center gap-2">
-            <span className="bg-secondary px-1.5 py-0.5 rounded text-[8px] font-mono border border-border">Drag</span> Move Node
+            <span className="bg-secondary px-1.5 py-0.5 rounded text-[8px] font-mono border border-border">Drag</span> Move
           </p>
           <p className="text-[10px] text-foreground flex items-center gap-2">
-            <span className="bg-secondary px-1.5 py-0.5 rounded text-[8px] font-mono border border-border">Shift + Drag</span> Link Nodes
+            <span className="bg-secondary px-1.5 py-0.5 rounded text-[8px] font-mono border border-border">Ctrl + Drag</span> Snap to Grid
+          </p>
+          <p className="text-[10px] text-foreground flex items-center gap-2">
+            <span className="bg-secondary px-1.5 py-0.5 rounded text-[8px] font-mono border border-border">Shift + Drag</span> Link
           </p>
         </div>
       </div>
