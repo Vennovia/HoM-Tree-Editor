@@ -115,7 +115,6 @@ export function GlobalGrimoireView({
       let x = Math.round(dragNodeInitialPos.x + dx);
       let y = Math.round(dragNodeInitialPos.y + dy);
 
-      // Snapping logic (25x25 grid)
       if (e.ctrlKey || e.metaKey) {
         x = Math.round(x / 25) * 25;
         y = Math.round(y / 25) * 25;
@@ -275,7 +274,7 @@ export function GlobalGrimoireView({
               "spell-node absolute flex items-center justify-center rounded-full border bg-card/90 transition-all cursor-grab pointer-events-auto select-none",
               (dragMode === 'node' || draggingNodePos) && "transition-none",
               isSelected ? "node-selected ring-2 ring-accent z-30 scale-125" : "border-border hover:border-accent/60",
-              isPrereq && !isSelected && "border-[#22c55e] ring-2 ring-[#22c55e]/50 z-20 scale-110",
+              isPrereq && !isSelected && "border-[#22c55e] ring-2 ring-[#22c55e] z-20 scale-110",
               isChild && !isSelected && "border-[#f97316] ring-2 ring-[#f97316]/50 z-20 scale-110",
               isRoot && "border-accent bg-accent/5 scale-125 z-10 shadow-[0_0_15px_hsl(var(--accent)/0.2)]",
               isMatch && "ring-4 ring-yellow-400 scale-150 z-40",
@@ -352,60 +351,22 @@ export function GlobalGrimoireView({
         )}
         style={{ transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})` }}
       >
-        {/* Coordinate Grid System */}
         <div className="absolute inset-[-50000px] pointer-events-none arcane-grid" />
 
         <svg className="absolute overflow-visible" style={{ width: 1, height: 1 }}>
           <defs>
-            <marker
-              id="arrow-default"
-              viewBox="0 0 10 10"
-              refX="8"
-              refY="5"
-              markerWidth="4"
-              markerHeight="4"
-              orient="auto-start-reverse"
-            >
-              <path d="M 0 0 L 10 5 L 0 10 z" fill="hsl(var(--primary))" fillOpacity="0.4" />
-            </marker>
-            <marker
-              id="arrow-child"
-              viewBox="0 0 10 10"
-              refX="8"
-              refY="5"
-              markerWidth="5"
-              markerHeight="5"
-              orient="auto-start-reverse"
-            >
-              <path d="M 0 0 L 10 5 L 0 10 z" fill="#f97316" />
-            </marker>
-            <marker
-              id="arrow-prereq"
-              viewBox="0 0 10 10"
-              refX="8"
-              refY="5"
-              markerWidth="5"
-              markerHeight="5"
-              orient="auto-start-reverse"
-            >
-              <path d="M 0 0 L 10 5 L 0 10 z" fill="#22c55e" />
-            </marker>
+            <marker id="arrow-default" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="4" markerHeight="4" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="hsl(var(--primary))" fillOpacity="0.4" /></marker>
+            <marker id="arrow-child" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#f97316" /></marker>
+            <marker id="arrow-prereq" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#22c55e" /></marker>
           </defs>
           {renderContent.hubLines}
           {renderContent.connections}
           {activeLinkingLine}
         </svg>
 
-        {/* Central Globe Hub (Radius 45 = Width/Height 90) */}
         <div 
           className="absolute rounded-full border-[8px] border-accent/40 bg-card flex items-center justify-center z-50 pointer-events-none shadow-[0_0_60px_hsl(var(--accent)/0.2)]"
-          style={{ 
-            left: 0, 
-            top: 0, 
-            width: 90, 
-            height: 90, 
-            transform: 'translate(-50%, -50%)' 
-          }}
+          style={{ left: 0, top: 0, width: 90, height: 90, transform: 'translate(-50%, -50%)' }}
         >
           <div className="text-center">
             <div className="text-[10px] font-black tracking-tighter text-accent uppercase animate-pulse">Core</div>
@@ -422,15 +383,6 @@ export function GlobalGrimoireView({
         <div className="flex gap-2 mt-3">
           <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-[#22c55e]"></div><span className="text-[9px] text-muted-foreground">Prerequisites</span></div>
           <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-[#f97316]"></div><span className="text-[9px] text-muted-foreground">Unlocks</span></div>
-        </div>
-      </div>
-
-      <div className="absolute top-4 right-4 flex flex-col gap-2 p-3 bg-card/80 border border-border rounded-lg backdrop-blur-sm shadow-xl">
-        <p className="text-[9px] text-muted-foreground uppercase font-semibold border-b border-border pb-1">Controls</p>
-        <div className="space-y-1.5">
-          <p className="text-[10px] text-foreground flex items-center gap-2">
-            <span className="bg-secondary px-1.5 py-0.5 rounded text-[8px] font-mono border border-border">Ctrl + Drag</span> Snap to Grid
-          </p>
         </div>
       </div>
     </div>
