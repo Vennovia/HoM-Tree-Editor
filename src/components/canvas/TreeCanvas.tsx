@@ -36,10 +36,8 @@ export function TreeCanvas({
   const [linkingSourceId, setLinkingSourceId] = useState<string | null>(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
 
-  // Track the last ID we centered on to avoid redundant snapping during manual interaction
   const lastCenteredId = useRef<string | null>(null);
 
-  // Initial centering on root when school changes
   useEffect(() => {
     if (school) {
       const rootNode = school.nodes.find(n => n.formId === school.root);
@@ -54,8 +52,6 @@ export function TreeCanvas({
     }
   }, [schoolName]);
 
-  // Center on node when selected (e.g. from search menu)
-  // Only triggers if the ID changed to a NEW value and we aren't currently dragging
   useEffect(() => {
     if (
       selectedNodeId && 
@@ -76,7 +72,6 @@ export function TreeCanvas({
       }
     }
     
-    // If selection is cleared, reset the tracking ref
     if (!selectedNodeId) {
       lastCenteredId.current = null;
     }
@@ -107,16 +102,12 @@ export function TreeCanvas({
     if (nodeId) {
       const foundNode = school.nodes.find(n => n.formId === nodeId);
       if (foundNode) {
-        // Prevent move if locked
         if (!foundNode.isLocked) {
           setDragMode('node');
           setDragNodeId(nodeId);
           setDragNodeInitialPos({ x: foundNode.x, y: foundNode.y });
           setDragStart({ x: e.clientX, y: e.clientY });
         }
-        
-        // Update tracking ref immediately if we are clicking on canvas 
-        // to prevent the selection-change useEffect from snapping to center
         lastCenteredId.current = nodeId;
         onSelectNode(nodeId);
       }
@@ -194,7 +185,6 @@ export function TreeCanvas({
     const nodes: React.ReactNode[] = [];
     const connections: React.ReactNode[] = [];
 
-    // First, collect all connections to handle highlighting layers
     const connectionsData: Array<{ source: SpellNode, target: SpellNode, isHighlighted: boolean }> = [];
 
     school.nodes.forEach(node => {
@@ -207,10 +197,18 @@ export function TreeCanvas({
       });
     });
 
-    // Sort to ensure highlighted lines are drawn on top
     connectionsData.sort((a, b) => (a.isHighlighted === b.isHighlighted ? 0 : a.isHighlighted ? 1 : -1));
 
     connectionsData.forEach(({ source, target, isHighlighted }) => {
+      // Calculate intersection point at node radius to show arrowhead properly
+      const dx = target.x - source.x;
+      const dy = target.y - source.y;
+      const angle = Math.atan2(dy, dx);
+      const targetRadius = (target.formId === school.root ? 27 : 20) + 4; // Node radius + small gap
+      
+      const x2 = target.x - targetRadius * Math.cos(angle);
+      const y2 = target.y - targetRadius * Math.sin(angle);
+
       connections.push(
         <g key={`${source.formId}-${target.formId}`} className="group/line cursor-pointer">
           <line
@@ -229,11 +227,12 @@ export function TreeCanvas({
           <line
             x1={source.x}
             y1={source.y}
-            x2={target.x}
-            y2={target.y}
+            x2={x2}
+            y2={y2}
             stroke={isHighlighted ? "#f97316" : "hsl(var(--primary))"}
             strokeWidth={isHighlighted ? "2.5" : "1.5"}
             strokeOpacity={isHighlighted ? "0.9" : "0.4"}
+            markerEnd={isHighlighted ? "url(#arrow-highlighted)" : "url(#arrow-default)"}
             className={cn(
               "transition-all duration-300",
               !isHighlighted && "group-hover/line:stroke-destructive group-hover/line:stroke-opacity-100 group-hover/line:stroke-[2px]",
@@ -345,6 +344,30 @@ export function TreeCanvas({
           className="absolute overflow-visible"
           style={{ width: 1, height: 1 }}
         >
+          <defs>
+            <marker
+              id="arrow-default"
+              viewBox="0 0 10 10"
+              refX="8"
+              refY="5"
+              markerWidth="4"
+              markerHeight="4"
+              orient="auto-start-reverse"
+            >
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="hsl(var(--primary))" fillOpacity="0.4" />
+            </marker>
+            <marker
+              id="arrow-highlighted"
+              viewBox="0 0 10 10"
+              refX="8"
+              refY="5"
+              markerWidth="5"
+              markerHeight="5"
+              orient="auto-start-reverse"
+            >
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#f97316" />
+            </marker>
+          </defs>
           {renderData.connections}
           {activeLinkingLine}
         </svg>
