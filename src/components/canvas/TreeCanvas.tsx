@@ -33,7 +33,7 @@ export function TreeCanvas({
   // State for linking mode
   const [linkingSourceId, setLinkingSourceId] = useState<string | null>(null);
 
-  // Focus on root when school changes
+  // Focus on root when school changes, but NOT when nodes move
   useEffect(() => {
     const rootNode = school.nodes.find(n => n.formId === school.root);
     if (rootNode) {
@@ -43,7 +43,9 @@ export function TreeCanvas({
         scale: 0.5
       });
     }
-  }, [schoolName, school.root, school.nodes]);
+    // We only want to center once when switching schools
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [schoolName]);
 
   const handleMouseDown = (e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
