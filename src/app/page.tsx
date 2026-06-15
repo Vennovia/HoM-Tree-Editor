@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
@@ -33,7 +32,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 
-export default function ArcanaFlowStudio() {
+export default function HoMTreeEditor() {
   const { toast } = useToast()
   const [treeData, setTreeData] = useState<SpellTreeData | null>(null)
   const [selectedSchool, setSelectedSchool] = useState<string | null>(null)
@@ -323,7 +322,7 @@ export default function ArcanaFlowStudio() {
           {!isSidebarCollapsed && (
             <div className="flex items-center gap-2">
               <Wand2 className="w-5 h-5 text-accent" />
-              <h1 className="font-bold text-lg">ArcanaFlow</h1>
+              <h1 className="font-bold text-lg">HoM tree editor</h1>
             </div>
           )}
           <Button variant="ghost" size="icon" onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}>

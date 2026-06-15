@@ -2,8 +2,8 @@ import type {Metadata} from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'ArcanaFlow Studio - Spell Tree Editor',
-  description: 'Master your spell structures with AI-powered suggestions and visual editing.',
+  title: 'HoM tree editor',
+  description: 'Master your spell structures with visual editing.',
 };
 
 export default function RootLayout({
