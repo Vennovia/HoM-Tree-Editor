@@ -53,7 +53,7 @@ export function DashboardView({ data, onSelectSchool }: DashboardViewProps) {
         <div className="space-y-2">
           <h1 className="text-3xl font-headline font-bold text-accent flex items-center gap-3">
             <BookOpen className="w-8 h-8" />
-            Arcane Grimoire Summary
+            Heart of Magic tree editor
           </h1>
           <p className="text-muted-foreground">Comprehensive overview of all mapped magical disciplines and their structures.</p>
         </div>
