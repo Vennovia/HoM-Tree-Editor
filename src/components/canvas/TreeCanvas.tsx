@@ -35,18 +35,34 @@ export function TreeCanvas({
   const [linkingSourceId, setLinkingSourceId] = useState<string | null>(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
 
+  // Initial centering on root when school changes
   useEffect(() => {
     if (school) {
       const rootNode = school.nodes.find(n => n.formId === school.root);
-      if (rootNode) {
+      if (rootNode && containerRef.current) {
         setTransform({
-          x: -rootNode.x * 0.5 + (containerRef.current?.clientWidth || 0) / 2,
-          y: -rootNode.y * 0.5 + (containerRef.current?.clientHeight || 0) / 2,
+          x: -rootNode.x * 0.5 + containerRef.current.clientWidth / 2,
+          y: -rootNode.y * 0.5 + containerRef.current.clientHeight / 2,
           scale: 0.5
         });
       }
     }
   }, [schoolName]);
+
+  // Center on node when selected (e.g. from search menu)
+  useEffect(() => {
+    if (selectedNodeId && school && containerRef.current && dragMode === null) {
+      const node = school.nodes.find(n => n.formId === selectedNodeId);
+      if (node) {
+        const { clientWidth, clientHeight } = containerRef.current;
+        setTransform(prev => ({
+          ...prev,
+          x: -node.x * prev.scale + clientWidth / 2,
+          y: -node.y * prev.scale + clientHeight / 2,
+        }));
+      }
+    }
+  }, [selectedNodeId, school, dragMode]);
 
   const getCanvasCoords = (clientX: number, clientY: number) => {
     const rect = containerRef.current?.getBoundingClientRect();
