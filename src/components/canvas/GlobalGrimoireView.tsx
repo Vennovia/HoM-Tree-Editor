@@ -195,20 +195,21 @@ export function GlobalGrimoireView({
     }
 
     if (showRadialGuides) {
-      const radii = [100, 200, 300, 400, 500, 600, 700, 800, 1000, 1200, 1500];
-      radii.forEach(r => {
+      // Create circles at 25px intervals up to 5000px
+      for (let r = 25; r <= 5000; r += 25) {
+        const isMajor = r % 100 === 0;
         radialGuides.push(
           <circle
             key={`radial-${r}`}
             cx={0} cy={0}
             r={r}
             fill="none"
-            stroke="hsl(var(--accent) / 0.15)"
-            strokeWidth="1.5"
-            strokeDasharray="8,8"
+            stroke={isMajor ? "hsl(var(--accent) / 0.3)" : "hsl(var(--accent) / 0.1)"}
+            strokeWidth={isMajor ? "1.5" : "0.5"}
+            strokeDasharray={isMajor ? "8,8" : "4,4"}
           />
         );
-      });
+      }
     }
 
     Object.entries(schools).forEach(([sName, school]) => {
@@ -373,7 +374,10 @@ export function GlobalGrimoireView({
         )}
         style={{ transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})` }}
       >
-        <div className="absolute inset-[-50000px] pointer-events-none arcane-grid" />
+        {/* Coordinate Grid System - hidden when radial guides are on */}
+        {!showRadialGuides && (
+          <div className="absolute inset-[-50000px] pointer-events-none arcane-grid" />
+        )}
 
         <svg className="absolute overflow-visible" style={{ width: 1, height: 1 }}>
           <defs>
