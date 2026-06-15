@@ -171,6 +171,22 @@ export function GlobalGrimoireView({
     const connections: React.ReactNode[] = [];
     const hubLines: React.ReactNode[] = [];
 
+    // Track related nodes to highlight them too
+    const relatedNodeIds = new Set<string>();
+    if (selectedNodeId) {
+      let selectedNode: SpellNode | undefined;
+      for (const sName in schools) {
+        selectedNode = schools[sName].nodes.find(n => n.formId === selectedNodeId);
+        if (selectedNode) break;
+      }
+      if (selectedNode) {
+        selectedNode.children?.forEach(id => relatedNodeIds.add(id));
+        selectedNode.prerequisites?.forEach(id => relatedNodeIds.add(id));
+        selectedNode.hardPrereqs?.forEach(id => relatedNodeIds.add(id));
+        selectedNode.softPrereqs?.forEach(id => relatedNodeIds.add(id));
+      }
+    }
+
     Object.entries(schools).forEach(([sName, school]) => {
       const rootId = school.root;
       const schoolRoot = school.nodes.find(n => n.formId === rootId);
@@ -227,6 +243,8 @@ export function GlobalGrimoireView({
         });
 
         const isRoot = node.formId === rootId;
+        const isSelected = selectedNodeId === node.formId;
+        const isRelated = relatedNodeIds.has(node.formId);
         const isMatch = searchQuery.length > 1 && (
           node.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
           node.formId.toLowerCase().includes(searchQuery.toLowerCase())
@@ -243,9 +261,10 @@ export function GlobalGrimoireView({
             className={cn(
               "spell-node absolute flex items-center justify-center rounded-full border bg-card/90 transition-all cursor-grab pointer-events-auto select-none",
               (dragMode === 'node' || draggingNodePos) && "transition-none",
-              selectedNodeId === node.formId ? "node-selected ring-2 ring-accent z-20 scale-125" : "border-border hover:border-accent/60",
+              isSelected ? "node-selected ring-2 ring-accent z-30 scale-125" : "border-border hover:border-accent/60",
+              isRelated && !isSelected && "border-[#f97316] ring-2 ring-[#f97316]/50 z-20 scale-110",
               isRoot && "border-accent bg-accent/5 scale-125 z-10 shadow-[0_0_15px_hsl(var(--accent)/0.2)]",
-              isMatch && "ring-4 ring-yellow-400 scale-150 z-30",
+              isMatch && "ring-4 ring-yellow-400 scale-150 z-40",
               dragNodeId === node.formId && "cursor-grabbing opacity-70 scale-110",
               node.isLocked && "cursor-default"
             )}

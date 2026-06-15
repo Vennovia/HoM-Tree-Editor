@@ -199,6 +199,18 @@ export function TreeCanvas({
     const connections: React.ReactNode[] = [];
 
     const connectionsData: Array<{ source: SpellNode, target: SpellNode, isHighlighted: boolean }> = [];
+    
+    // Track related nodes to highlight them too
+    const relatedNodeIds = new Set<string>();
+    if (selectedNodeId) {
+      const selectedNode = school.nodes.find(n => n.formId === selectedNodeId);
+      if (selectedNode) {
+        selectedNode.children?.forEach(id => relatedNodeIds.add(id));
+        selectedNode.prerequisites?.forEach(id => relatedNodeIds.add(id));
+        selectedNode.hardPrereqs?.forEach(id => relatedNodeIds.add(id));
+        selectedNode.softPrereqs?.forEach(id => relatedNodeIds.add(id));
+      }
+    }
 
     school.nodes.forEach(node => {
       (node.children || []).forEach(childId => {
@@ -264,6 +276,8 @@ export function TreeCanvas({
       );
 
       const isRoot = node.formId === school.root;
+      const isSelected = selectedNodeId === node.formId;
+      const isRelated = relatedNodeIds.has(node.formId);
       const x = (dragNodeId === node.formId && draggingNodePos) ? draggingNodePos.x : node.x;
       const y = (dragNodeId === node.formId && draggingNodePos) ? draggingNodePos.y : node.y;
 
@@ -275,10 +289,11 @@ export function TreeCanvas({
             "spell-node absolute flex items-center justify-center p-1.5 rounded-full border bg-card cursor-grab hover:scale-110 pointer-events-auto arcane-glow select-none group transition-transform duration-200 ease-out",
             (dragMode === 'node' || draggingNodePos) && "transition-none",
             node.isLocked && "cursor-default hover:scale-100",
-            selectedNodeId === node.formId ? "node-selected ring-2 ring-accent ring-offset-1 ring-offset-background z-20" : "border-primary/40",
+            isSelected ? "node-selected ring-2 ring-accent ring-offset-1 ring-offset-background z-30" : "border-primary/40",
+            isRelated && !isSelected && "border-[#f97316] ring-2 ring-[#f97316]/50 z-20 scale-105",
             isRoot && "border-accent shadow-[0_0_15px_hsl(var(--accent))] z-10",
-            linkingSourceId === node.formId && "ring-2 ring-accent ring-offset-2 animate-pulse z-30",
-            dragNodeId === node.formId && "cursor-grabbing scale-110 opacity-80 z-40",
+            linkingSourceId === node.formId && "ring-2 ring-accent ring-offset-2 animate-pulse z-40",
+            dragNodeId === node.formId && "cursor-grabbing scale-110 opacity-80 z-50",
             isMatch && "node-pulse ring-2 ring-yellow-400 border-yellow-400 z-50 scale-125 shadow-[0_0_20px_hsl(48_100%_50%)]"
           )}
           style={{ 
