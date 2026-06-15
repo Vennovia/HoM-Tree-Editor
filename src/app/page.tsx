@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState, useEffect, useCallback } from 'react'
@@ -90,34 +91,31 @@ export default function ArcanaFlowStudio() {
   }, [selectedSchool])
 
   const handleLinkNodes = useCallback((sourceId: string, targetId: string) => {
-    if (sourceId === targetId) return
+    if (!treeData || !selectedSchool || sourceId === targetId) return
     
-    setTreeData(prev => {
-      if (!prev || !selectedSchool) return prev
-      const newData = deepClone(prev)
-      const school = newData.schools[selectedSchool]
-      const sourceNode = school.nodes.find(n => n.formId === sourceId)
-      const targetNode = school.nodes.find(n => n.formId === targetId)
-      
-      if (!sourceNode || !targetNode) return prev
+    const newData = deepClone(treeData)
+    const school = newData.schools[selectedSchool]
+    const sourceNode = school.nodes.find(n => n.formId === sourceId)
+    const targetNode = school.nodes.find(n => n.formId === targetId)
+    
+    if (!sourceNode || !targetNode) return
 
-      const isAlreadyLinked = sourceNode.children.includes(targetId)
-      
-      if (isAlreadyLinked) {
-        sourceNode.children = sourceNode.children.filter(id => id !== targetId)
-        targetNode.prerequisites = targetNode.prerequisites.filter(id => id !== sourceId)
-        targetNode.hardPrereqs = targetNode.hardPrereqs.filter(id => id !== sourceId)
-        toast({ title: "Arcane Severance", description: "Connection dissolved." })
-      } else {
-        sourceNode.children.push(targetId)
-        targetNode.prerequisites.push(sourceId)
-        targetNode.hardPrereqs.push(sourceId)
-        toast({ title: "Bond Established", description: "The flow of power is linked." })
-      }
-      
-      return newData
-    })
-  }, [selectedSchool, toast])
+    const isAlreadyLinked = sourceNode.children.includes(targetId)
+    
+    if (isAlreadyLinked) {
+      sourceNode.children = sourceNode.children.filter(id => id !== targetId)
+      targetNode.prerequisites = targetNode.prerequisites.filter(id => id !== sourceId)
+      targetNode.hardPrereqs = targetNode.hardPrereqs.filter(id => id !== sourceId)
+      toast({ title: "Arcane Severance", description: "Connection dissolved." })
+    } else {
+      sourceNode.children.push(targetId)
+      targetNode.prerequisites.push(sourceId)
+      targetNode.hardPrereqs.push(sourceId)
+      toast({ title: "Bond Established", description: "The flow of power is linked." })
+    }
+    
+    setTreeData(newData)
+  }, [selectedSchool, treeData, toast])
 
   const handleDeleteNode = (nodeId: string) => {
     if (!treeData || !selectedSchool) return
