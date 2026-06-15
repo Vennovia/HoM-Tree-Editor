@@ -9,15 +9,31 @@ interface TreeCanvasProps {
   school: SpellSchool;
   selectedNodeId: string | null;
   onSelectNode: (nodeId: string) => void;
+  onNodeMove: (nodeId: string, updates: Partial<SpellNode>) => void;
+  onLinkNodes: (sourceId: string, targetId: string) => void;
 }
 
-export function TreeCanvas({ schoolName, school, selectedNodeId, onSelectNode }: TreeCanvasProps) {
+export function TreeCanvas({ 
+  schoolName, 
+  school, 
+  selectedNodeId, 
+  onSelectNode, 
+  onNodeMove,
+  onLinkNodes 
+}: TreeCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [transform, setTransform] = useState({ x: 0, y: 0, scale: 0.5 });
-  const [isDragging, setIsDragging] = useState(false);
+  
+  // States for different types of dragging
+  const [dragMode, setDragMode] = useState<'canvas' | 'node' | null>(null);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [dragNodeId, setDragNodeId] = useState<string | null>(null);
+  const [dragNodeInitialPos, setDragNodeInitialPos] = useState({ x: 0, y: 0 });
+  
+  // State for linking mode
+  const [linkingSourceId, setLinkingSourceId] = useState<string | null>(null);
 
-  // Reset transform when school changes to focus on root
+  // Focus on root when school changes
   useEffect(() => {
     const rootNode = school.nodes.find(n => n.formId === school.root);
     if (rootNode) {
@@ -27,26 +43,72 @@ export function TreeCanvas({ schoolName, school, selectedNodeId, onSelectNode }:
         scale: 0.5
       });
     }
-  }, [schoolName]);
+  }, [schoolName, school.root, school.nodes]);
 
   const handleMouseDown = (e: React.MouseEvent) => {
+    const target = e.target as HTMLElement;
+    const isNode = target.closest('.spell-node');
+    const nodeId = isNode?.getAttribute('data-node-id');
+
+    if (e.shiftKey && nodeId) {
+      // Start/End Linking
+      if (!linkingSourceId) {
+        setLinkingSourceId(nodeId);
+      } else {
+        if (linkingSourceId !== nodeId) {
+          onLinkNodes(linkingSourceId, nodeId);
+        }
+        setLinkingSourceId(null);
+      }
+      return;
+    }
+
+    if (nodeId) {
+      // Start dragging node
+      setDragMode('node');
+      setDragNodeId(nodeId);
+      const node = school.nodes.find(n => n.formId === nodeId);
+      if (node) {
+        setDragNodeInitialPos({ x: node.x, y: node.y });
+        setDragStart({ x: e.clientX, y: e.clientY });
+      }
+      onSelectNode(nodeId);
+      return;
+    }
+
+    // Default to canvas pan (Middle mouse or Alt+Left)
     if (e.button === 1 || (e.button === 0 && e.altKey)) {
-      setIsDragging(true);
+      setDragMode('canvas');
       setDragStart({ x: e.clientX - transform.x, y: e.clientY - transform.y });
+    } else if (e.button === 0 && !e.shiftKey) {
+      // Clear linking if clicking empty space
+      setLinkingSourceId(null);
     }
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDragging) return;
-    setTransform(prev => ({
-      ...prev,
-      x: e.clientX - dragStart.x,
-      y: e.clientY - dragStart.y
-    }));
+    if (!dragMode) return;
+
+    if (dragMode === 'canvas') {
+      setTransform(prev => ({
+        ...prev,
+        x: e.clientX - dragStart.x,
+        y: e.clientY - dragStart.y
+      }));
+    } else if (dragMode === 'node' && dragNodeId) {
+      const dx = (e.clientX - dragStart.x) / transform.scale;
+      const dy = (e.clientY - dragStart.y) / transform.scale;
+      
+      onNodeMove(dragNodeId, {
+        x: Math.round(dragNodeInitialPos.x + dx),
+        y: Math.round(dragNodeInitialPos.y + dy)
+      });
+    }
   };
 
   const handleMouseUp = () => {
-    setIsDragging(false);
+    setDragMode(null);
+    setDragNodeId(null);
   };
 
   const handleWheel = (e: React.WheelEvent) => {
@@ -54,7 +116,6 @@ export function TreeCanvas({ schoolName, school, selectedNodeId, onSelectNode }:
     const scaleFactor = e.deltaY > 0 ? 0.9 : 1.1;
     const newScale = Math.min(Math.max(transform.scale * scaleFactor, 0.05), 5);
     
-    // Zoom towards mouse position
     const rect = containerRef.current?.getBoundingClientRect();
     if (!rect) return;
     
@@ -84,21 +145,25 @@ export function TreeCanvas({ schoolName, school, selectedNodeId, onSelectNode }:
               y1={node.y}
               x2={childNode.x}
               y2={childNode.y}
-              stroke="hsl(var(--primary))"
-              strokeWidth="2"
-              strokeOpacity="0.5"
+              stroke={linkingSourceId === node.formId || linkingSourceId === childId ? "hsl(var(--accent))" : "hsl(var(--primary))"}
+              strokeWidth={linkingSourceId === node.formId || linkingSourceId === childId ? "3" : "2"}
+              strokeOpacity={linkingSourceId === node.formId || linkingSourceId === childId ? "1" : "0.5"}
+              className="transition-all duration-300"
             />
           );
         }
       });
     });
     return lines;
-  }, [school]);
+  }, [school, linkingSourceId]);
 
   return (
     <div 
       ref={containerRef}
-      className="relative w-full h-full overflow-hidden bg-background cursor-crosshair"
+      className={cn(
+        "relative w-full h-full overflow-hidden bg-background cursor-crosshair",
+        dragMode === 'canvas' && "cursor-grabbing"
+      )}
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
@@ -119,11 +184,13 @@ export function TreeCanvas({ schoolName, school, selectedNodeId, onSelectNode }:
         {school.nodes.map(node => (
           <div
             key={node.formId}
-            onClick={() => onSelectNode(node.formId)}
+            data-node-id={node.formId}
             className={cn(
-              "absolute flex items-center justify-center p-3 rounded-full border-2 bg-card cursor-pointer transition-all hover:scale-110 pointer-events-auto arcane-glow select-none",
+              "spell-node absolute flex items-center justify-center p-3 rounded-full border-2 bg-card cursor-grab transition-all hover:scale-110 pointer-events-auto arcane-glow select-none group",
               selectedNodeId === node.formId ? "node-selected ring-2 ring-accent ring-offset-2 ring-offset-background z-20" : "border-primary/50",
-              node.isRoot && "border-accent shadow-[0_0_10px_hsl(var(--accent))]"
+              node.isRoot && "border-accent shadow-[0_0_10px_hsl(var(--accent))]",
+              linkingSourceId === node.formId && "ring-4 ring-accent ring-offset-4 animate-pulse z-30",
+              dragNodeId === node.formId && "cursor-grabbing scale-110 opacity-80"
             )}
             style={{ 
               left: node.x, 
@@ -133,7 +200,7 @@ export function TreeCanvas({ schoolName, school, selectedNodeId, onSelectNode }:
               height: node.isRoot ? 80 : 60,
             }}
           >
-            <span className="text-[10px] text-center font-bold truncate leading-tight w-full px-1">
+            <span className="text-[10px] text-center font-bold truncate leading-tight w-full px-1 group-hover:whitespace-normal group-hover:bg-card/90 group-hover:p-1 group-hover:rounded">
               {node.name}
             </span>
             <div 
@@ -149,23 +216,35 @@ export function TreeCanvas({ schoolName, school, selectedNodeId, onSelectNode }:
         ))}
       </div>
 
+      {/* Info Panels */}
       <div className="absolute bottom-4 left-4 flex flex-col gap-1 p-3 bg-card/80 border border-border rounded-lg backdrop-blur-sm pointer-events-none">
         <h3 className="text-xs font-bold uppercase text-muted-foreground tracking-widest">{schoolName} School</h3>
         <p className="text-[10px] text-muted-foreground">{school.nodes.length} Nodes Loaded</p>
         <p className="text-[10px] text-accent/80 font-mono">Zoom: {(transform.scale * 100).toFixed(0)}%</p>
-        <div className="mt-2 space-y-1">
-          <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-yellow-500"/> <span className="text-[9px]">Master</span></div>
-          <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-purple-500"/> <span className="text-[9px]">Expert</span></div>
-          <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-blue-500"/> <span className="text-[9px]">Adept</span></div>
-          <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-green-500"/> <span className="text-[9px]">Apprentice</span></div>
-          <div className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-gray-500"/> <span className="text-[9px]">Novice</span></div>
-        </div>
       </div>
 
-      <div className="absolute top-4 right-4 flex flex-col gap-2 p-3 bg-card/80 border border-border rounded-lg backdrop-blur-sm">
-        <p className="text-[9px] text-muted-foreground uppercase font-semibold">Controls</p>
-        <p className="text-[10px] text-muted-foreground italic">Middle Mouse / Alt+Left: Pan</p>
-        <p className="text-[10px] text-muted-foreground italic">Wheel: Zoom</p>
+      <div className="absolute top-4 right-4 flex flex-col gap-2 p-3 bg-card/80 border border-border rounded-lg backdrop-blur-sm shadow-xl">
+        <p className="text-[9px] text-muted-foreground uppercase font-semibold border-b border-border pb-1">Controls</p>
+        <div className="space-y-1.5">
+          <p className="text-[10px] text-foreground flex items-center gap-2">
+            <span className="bg-secondary px-1.5 py-0.5 rounded text-[8px] font-mono border border-border">Drag</span> Move Node
+          </p>
+          <p className="text-[10px] text-foreground flex items-center gap-2">
+            <span className="bg-secondary px-1.5 py-0.5 rounded text-[8px] font-mono border border-border">Shift + Click</span> Link/Unlink
+          </p>
+          <p className="text-[10px] text-foreground flex items-center gap-2">
+            <span className="bg-secondary px-1.5 py-0.5 rounded text-[8px] font-mono border border-border">Middle / Alt</span> Pan Canvas
+          </p>
+          <p className="text-[10px] text-foreground flex items-center gap-2">
+            <span className="bg-secondary px-1.5 py-0.5 rounded text-[8px] font-mono border border-border">Wheel</span> Zoom
+          </p>
+        </div>
+        {linkingSourceId && (
+          <div className="mt-2 pt-2 border-t border-accent/20 bg-accent/5 p-2 rounded animate-pulse">
+            <p className="text-[10px] text-accent font-bold">Linking Active</p>
+            <p className="text-[9px] text-accent/70">Click another node to connect</p>
+          </div>
+        )}
       </div>
     </div>
   )

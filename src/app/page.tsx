@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { SpellTreeData, SpellNode } from '@/types/spell-tree'
 import { JSONImporter } from '@/components/editor/JSONImporter'
 import { TreeCanvas } from '@/components/canvas/TreeCanvas'
@@ -65,16 +65,50 @@ export default function ArcanaFlowStudio() {
     })
   }
 
-  const handleUpdateNode = (nodeId: string, updates: Partial<SpellNode>) => {
-    if (!treeData || !selectedSchool) return
-    const newData = deepClone(treeData)
-    const school = newData.schools[selectedSchool]
-    const nodeIndex = school.nodes.findIndex(n => n.formId === nodeId)
-    if (nodeIndex !== -1) {
-      school.nodes[nodeIndex] = { ...school.nodes[nodeIndex], ...updates }
-      setTreeData(newData)
-    }
-  }
+  const handleUpdateNode = useCallback((nodeId: string, updates: Partial<SpellNode>) => {
+    setTreeData(prev => {
+      if (!prev || !selectedSchool) return prev
+      const newData = deepClone(prev)
+      const school = newData.schools[selectedSchool]
+      const nodeIndex = school.nodes.findIndex(n => n.formId === nodeId)
+      if (nodeIndex !== -1) {
+        school.nodes[nodeIndex] = { ...school.nodes[nodeIndex], ...updates }
+      }
+      return newData
+    })
+  }, [selectedSchool])
+
+  const handleLinkNodes = useCallback((sourceId: string, targetId: string) => {
+    if (sourceId === targetId) return
+    
+    setTreeData(prev => {
+      if (!prev || !selectedSchool) return prev
+      const newData = deepClone(prev)
+      const school = newData.schools[selectedSchool]
+      const sourceNode = school.nodes.find(n => n.formId === sourceId)
+      const targetNode = school.nodes.find(n => n.formId === targetId)
+      
+      if (!sourceNode || !targetNode) return prev
+
+      const isAlreadyLinked = sourceNode.children.includes(targetId)
+      
+      if (isAlreadyLinked) {
+        // Remove link
+        sourceNode.children = sourceNode.children.filter(id => id !== targetId)
+        targetNode.prerequisites = targetNode.prerequisites.filter(id => id !== sourceId)
+        targetNode.hardPrereqs = targetNode.hardPrereqs.filter(id => id !== sourceId)
+        toast({ title: "Arcane Severance", description: "Connection dissolved." })
+      } else {
+        // Add link
+        sourceNode.children.push(targetId)
+        targetNode.prerequisites.push(sourceId)
+        targetNode.hardPrereqs.push(sourceId) // Default to hard prereq for now
+        toast({ title: "Bond Established", description: "The flow of power is linked." })
+      }
+      
+      return newData
+    })
+  }, [selectedSchool, toast])
 
   const handleDeleteNode = (nodeId: string) => {
     if (!treeData || !selectedSchool) return
@@ -285,6 +319,8 @@ export default function ArcanaFlowStudio() {
               school={treeData.schools[selectedSchool]}
               selectedNodeId={selectedNodeId}
               onSelectNode={setSelectedNodeId}
+              onNodeMove={handleUpdateNode}
+              onLinkNodes={handleLinkNodes}
             />
           ) : (
             <div className="w-full h-full flex flex-col items-center justify-center space-y-4 text-muted-foreground">
