@@ -27,6 +27,11 @@ The most reliable way to use this as a standalone application is to install it a
 3.  Click the **Install Icon** (monitor icon) on the right side of the address bar.
 4.  The editor will now open in its own window. You can now pin it to your Taskbar or Start Menu.
 
+## Updating Your Program
+When you make changes to the code and rebuild the app:
+- **In Development**: The app will hot-reload automatically.
+- **In Standalone/Installed Mode**: Viewers will not be forced to reload. The browser downloads the update in the background. To see changes immediately, the user should close and reopen the app or press `Ctrl + R` (or `Cmd + R`) inside the program window.
+
 ## Sharing & Collaboration
 
 ### Giving Others Workspace Access
