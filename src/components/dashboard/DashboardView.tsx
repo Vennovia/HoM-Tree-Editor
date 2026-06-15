@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useMemo } from 'react'
@@ -9,7 +8,6 @@ import {
   Database, 
   Layers, 
   Zap, 
-  Star, 
   Activity,
   ChevronRight,
   BookOpen
@@ -34,7 +32,7 @@ export function DashboardView({ data, onSelectSchool }: DashboardViewProps) {
       const school = data.schools[schoolName];
       totalNodes += school.nodes.length;
       school.nodes.forEach(node => {
-        totalLinks += node.children.length;
+        totalLinks += (node.children || []).length;
         tierCounts[node.tier] = (tierCounts[node.tier] || 0) + 1;
         skillLevelCounts[node.skillLevel] = (skillLevelCounts[node.skillLevel] || 0) + 1;
       });
@@ -143,16 +141,6 @@ export function DashboardView({ data, onSelectSchool }: DashboardViewProps) {
                   ))}
                 </CardContent>
               </Card>
-            </div>
-
-            <div className="p-6 rounded-xl bg-accent/5 border border-accent/20 arcane-glow flex items-start gap-4">
-              <div className="p-3 bg-accent/10 rounded-lg">
-                <Star className="w-6 h-6 text-accent" />
-              </div>
-              <div>
-                <h4 className="text-sm font-bold text-accent">Arcane Potential</h4>
-                <p className="text-xs text-muted-foreground mt-1">Your current spell trees cover {stats.schoolCount} magical domains. Continue mapping to unlock deep synergy effects.</p>
-              </div>
             </div>
           </div>
         </div>
