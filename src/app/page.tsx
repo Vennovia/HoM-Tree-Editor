@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
@@ -46,21 +47,42 @@ export default function HoMTreeEditor() {
   const [searchQuery, setSearchQuery] = useState('')
   const [nodeSearchQuery, setNodeSearchQuery] = useState('')
 
+  // Robust migration function to handle multiple root sources
+  const migrateGrimoireData = useCallback((data: any) => {
+    if (!data.schools) return data;
+    
+    Object.values(data.schools).forEach((school: any) => {
+      const rootsSet = new Set<string>();
+      
+      // 1. Check legacy single root field
+      if (school.root) rootsSet.add(school.root);
+      
+      // 2. Check current roots array
+      if (Array.isArray(school.roots)) {
+        school.roots.forEach((id: string) => rootsSet.add(id));
+      }
+      
+      // 3. Check node-level isRoot flags
+      if (Array.isArray(school.nodes)) {
+        school.nodes.forEach((node: any) => {
+          if (node.isRoot) rootsSet.add(node.formId);
+        });
+      }
+      
+      school.roots = Array.from(rootsSet);
+    });
+    
+    return data;
+  }, []);
+
   // Load from LocalStorage on mount
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY)
     if (saved) {
       try {
         const parsed = JSON.parse(saved)
-        // Migration: convert root: string to roots: string[]
-        Object.values(parsed.schools || {}).forEach((school: any) => {
-          if (school.root && !school.roots) {
-            school.roots = [school.root];
-          } else if (!school.roots) {
-            school.roots = [];
-          }
-        });
-        setTreeData(parsed)
+        const migrated = migrateGrimoireData(parsed)
+        setTreeData(migrated)
         setIsImportOpen(false)
       } catch (e) {
         console.error("Failed to parse saved grimoire", e)
@@ -69,7 +91,7 @@ export default function HoMTreeEditor() {
     } else {
       setIsImportOpen(true)
     }
-  }, [])
+  }, [migrateGrimoireData])
 
   // Save to LocalStorage whenever treeData changes
   useEffect(() => {
@@ -79,15 +101,8 @@ export default function HoMTreeEditor() {
   }, [treeData])
 
   const handleImport = (data: SpellTreeData) => {
-    // Migration for imports
-    Object.values(data.schools || {}).forEach((school: any) => {
-      if (school.root && !school.roots) {
-        school.roots = [school.root];
-      } else if (!school.roots) {
-        school.roots = [];
-      }
-    });
-    setTreeData(data)
+    const migrated = migrateGrimoireData(data)
+    setTreeData(migrated)
     setSelectedSchool(null) 
     setIsGlobalView(false)
     toast({
