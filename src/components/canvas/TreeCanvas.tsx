@@ -36,6 +36,9 @@ export function TreeCanvas({
   const [linkingSourceId, setLinkingSourceId] = useState<string | null>(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
 
+  // Track the last ID we centered on to avoid redundant snapping during manual interaction
+  const lastCenteredId = useRef<string | null>(null);
+
   // Initial centering on root when school changes
   useEffect(() => {
     if (school) {
@@ -46,13 +49,21 @@ export function TreeCanvas({
           y: -rootNode.y * 0.5 + containerRef.current.clientHeight / 2,
           scale: 0.5
         });
+        lastCenteredId.current = school.root;
       }
     }
   }, [schoolName]);
 
   // Center on node when selected (e.g. from search menu)
+  // Only triggers if the ID changed to a NEW value and we aren't currently dragging
   useEffect(() => {
-    if (selectedNodeId && school && containerRef.current && dragMode === null) {
+    if (
+      selectedNodeId && 
+      selectedNodeId !== lastCenteredId.current && 
+      school && 
+      containerRef.current && 
+      dragMode === null
+    ) {
       const node = school.nodes.find(n => n.formId === selectedNodeId);
       if (node) {
         const { clientWidth, clientHeight } = containerRef.current;
@@ -61,7 +72,13 @@ export function TreeCanvas({
           x: -node.x * prev.scale + clientWidth / 2,
           y: -node.y * prev.scale + clientHeight / 2,
         }));
+        lastCenteredId.current = selectedNodeId;
       }
+    }
+    
+    // If selection is cleared, reset the tracking ref
+    if (!selectedNodeId) {
+      lastCenteredId.current = null;
     }
   }, [selectedNodeId, school, dragMode]);
 
@@ -97,6 +114,10 @@ export function TreeCanvas({
           setDragNodeInitialPos({ x: foundNode.x, y: foundNode.y });
           setDragStart({ x: e.clientX, y: e.clientY });
         }
+        
+        // Update tracking ref immediately if we are clicking on canvas 
+        // to prevent the selection-change useEffect from snapping to center
+        lastCenteredId.current = nodeId;
         onSelectNode(nodeId);
       }
       return;
