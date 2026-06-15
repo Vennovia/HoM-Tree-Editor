@@ -12,12 +12,6 @@ interface GlobalGrimoireViewProps {
   searchQuery?: string;
 }
 
-interface TransformedNode extends SpellNode {
-  schoolName: string;
-  globalX: number;
-  globalY: number;
-}
-
 export function GlobalGrimoireView({ 
   schools, 
   selectedNodeId, 
@@ -25,69 +19,16 @@ export function GlobalGrimoireView({
   searchQuery = ''
 }: GlobalGrimoireViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [transform, setTransform] = useState({ x: 0, y: 0, scale: 0.3 });
+  const [transform, setTransform] = useState({ x: 0, y: 0, scale: 0.25 });
   const [dragMode, setDragMode] = useState<'canvas' | null>(null);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-
-  // HUB_RADIUS is the distance from (0,0) to the starting (root) nodes
-  const HUB_RADIUS = 400;
-
-  // Specific angles for schools as requested previously
-  const SCHOOL_ANGLES: Record<string, number> = {
-    'Conjuration': 0,             // Right
-    'Restoration': Math.PI / 2,   // Down
-    'Alteration': Math.PI,        // Left
-    'Destruction': (3 * Math.PI) / 2, // Up
-    'Illusion': (3 * Math.PI) / 4,    // Bottom Left
-  };
-
-  const transformedData = useMemo(() => {
-    const allNodes: TransformedNode[] = [];
-    const schoolKeys = Object.keys(schools);
-
-    schoolKeys.forEach((sName, i) => {
-      const school = schools[sName];
-      const rootNode = school.nodes.find(n => n.formId === school.root);
-      if (!rootNode) return;
-
-      const angle = SCHOOL_ANGLES[sName] !== undefined 
-        ? SCHOOL_ANGLES[sName] 
-        : (i * 2 * Math.PI) / schoolKeys.length;
-        
-      const cosA = Math.cos(angle);
-      const sinA = Math.sin(angle);
-
-      // Root node position on the hub circle
-      const targetRootX = cosA * HUB_RADIUS;
-      const targetRootY = sinA * HUB_RADIUS;
-
-      school.nodes.forEach(node => {
-        // Local relative position
-        const relX = node.x - rootNode.x;
-        const relY = node.y - rootNode.y;
-
-        // Rotate so trees "flow away" from center
-        const rotatedX = relX * cosA - relY * sinA;
-        const rotatedY = relX * sinA + relY * cosA;
-
-        allNodes.push({
-          ...node,
-          schoolName: sName,
-          globalX: targetRootX + rotatedX,
-          globalY: targetRootY + rotatedY
-        });
-      });
-    });
-
-    return allNodes;
-  }, [schools]);
 
   useEffect(() => {
     if (containerRef.current) {
       setTransform({
         x: containerRef.current.clientWidth / 2,
         y: containerRef.current.clientHeight / 2,
-        scale: 0.3
+        scale: 0.25
       });
     }
   }, []);
@@ -138,44 +79,40 @@ export function GlobalGrimoireView({
     const connections: React.ReactNode[] = [];
     const hubLines: React.ReactNode[] = [];
 
-    const nodesBySchool = transformedData.reduce((acc, node) => {
-      if (!acc[node.schoolName]) acc[node.schoolName] = [];
-      acc[node.schoolName].push(node);
-      return acc;
-    }, {} as Record<string, TransformedNode[]>);
-
-    Object.entries(nodesBySchool).forEach(([sName, sNodes]) => {
-      const rootId = schools[sName].root;
-      const schoolRoot = sNodes.find(n => n.formId === rootId);
+    Object.entries(schools).forEach(([sName, school]) => {
+      const rootId = school.root;
+      const schoolRoot = school.nodes.find(n => n.formId === rootId);
       
+      // Connect hub (0,0) to root of school
       if (schoolRoot) {
         hubLines.push(
           <line
             key={`hub-${sName}`}
             x1={0} y1={0}
-            x2={schoolRoot.globalX} y2={schoolRoot.globalY}
+            x2={schoolRoot.x} y2={schoolRoot.y}
             stroke="hsl(var(--accent))"
             strokeWidth="4"
-            strokeOpacity="0.2"
-            strokeDasharray="8,8"
+            strokeOpacity="0.15"
+            strokeDasharray="12,12"
             className="animate-pulse"
           />
         );
       }
 
-      sNodes.forEach(node => {
+      school.nodes.forEach(node => {
+        // Render progression lines
         node.children.forEach(childId => {
-          const childNode = sNodes.find(n => n.formId === childId);
+          const childNode = school.nodes.find(n => n.formId === childId);
           if (childNode) {
             const isHighlighted = selectedNodeId === node.formId || selectedNodeId === childId;
             connections.push(
               <line
                 key={`${sName}-${node.formId}-${childId}`}
-                x1={node.globalX} y1={node.globalY}
-                x2={childNode.globalX} y2={childNode.globalY}
+                x1={node.x} y1={node.y}
+                x2={childNode.x} y2={childNode.y}
                 stroke={isHighlighted ? "#f97316" : "hsl(var(--primary))"}
-                strokeWidth={isHighlighted ? "3" : "1.5"}
-                strokeOpacity={isHighlighted ? "0.8" : "0.3"}
+                strokeWidth={isHighlighted ? "3" : "1"}
+                strokeOpacity={isHighlighted ? "0.8" : "0.2"}
               />
             );
           }
@@ -183,7 +120,8 @@ export function GlobalGrimoireView({
 
         const isRoot = node.formId === rootId;
         const isMatch = searchQuery.length > 1 && (
-          node.name.toLowerCase().includes(searchQuery.toLowerCase())
+          node.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          node.formId.toLowerCase().includes(searchQuery.toLowerCase())
         );
 
         nodes.push(
@@ -192,21 +130,21 @@ export function GlobalGrimoireView({
             onClick={() => onSelectNode(node.formId)}
             className={cn(
               "spell-node absolute flex items-center justify-center rounded-full border bg-card/90 transition-all cursor-pointer pointer-events-auto",
-              selectedNodeId === node.formId ? "ring-4 ring-accent z-20 scale-110" : "border-border hover:border-accent",
-              isRoot && "border-accent bg-accent/10 scale-125 z-10 shadow-[0_0_20px_hsl(var(--accent)/0.3)]",
+              selectedNodeId === node.formId ? "ring-2 ring-accent z-20 scale-125" : "border-border hover:border-accent/60",
+              isRoot && "border-accent bg-accent/5 scale-125 z-10 shadow-[0_0_15px_hsl(var(--accent)/0.2)]",
               isMatch && "ring-4 ring-yellow-400 scale-150 z-30"
             )}
             style={{
-              left: node.globalX,
-              top: node.globalY,
-              width: isRoot ? 60 : 40,
-              height: isRoot ? 60 : 40,
+              left: node.x,
+              top: node.y,
+              width: isRoot ? 54 : 32,
+              height: isRoot ? 54 : 32,
               transform: 'translate(-50%, -50%)'
             }}
           >
             <span className={cn(
-              "font-bold text-center px-1 truncate leading-tight",
-              isRoot ? "text-[10px]" : "text-[8px]"
+              "font-bold text-center px-1 truncate leading-tight pointer-events-none",
+              isRoot ? "text-[9px]" : "text-[7px]"
             )}>
               {node.name}
             </span>
@@ -216,7 +154,7 @@ export function GlobalGrimoireView({
     });
 
     return { nodes, connections, hubLines };
-  }, [transformedData, schools, selectedNodeId, searchQuery, onSelectNode]);
+  }, [schools, selectedNodeId, searchQuery, onSelectNode]);
 
   return (
     <div 
@@ -239,7 +177,7 @@ export function GlobalGrimoireView({
 
         {/* Central Globe Hub (Radius 45 = Width/Height 90) */}
         <div 
-          className="absolute rounded-full border-[10px] border-accent bg-background arcane-glow flex items-center justify-center z-50 pointer-events-none"
+          className="absolute rounded-full border-[8px] border-accent/40 bg-card flex items-center justify-center z-50 pointer-events-none shadow-[0_0_60px_hsl(var(--accent)/0.2)]"
           style={{ 
             left: 0, 
             top: 0, 
@@ -258,8 +196,12 @@ export function GlobalGrimoireView({
       </div>
       
       <div className="absolute top-6 left-6 p-4 bg-card/60 backdrop-blur-md border border-border rounded-xl shadow-2xl pointer-events-none">
-        <h2 className="text-sm font-bold uppercase tracking-widest text-accent">Primordial Hub</h2>
-        <p className="text-[10px] text-muted-foreground mt-1">Converging lineages of the five ancient schools.</p>
+        <h2 className="text-sm font-bold uppercase tracking-widest text-accent">Arch-Grimoire Hub</h2>
+        <p className="text-[10px] text-muted-foreground mt-1">Converging lineages from the five ancient schools.</p>
+        <div className="flex gap-2 mt-3">
+          <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-accent/40"></div><span className="text-[9px] text-muted-foreground">Foundation</span></div>
+          <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-primary/40"></div><span className="text-[9px] text-muted-foreground">Ability</span></div>
+        </div>
       </div>
     </div>
   )
