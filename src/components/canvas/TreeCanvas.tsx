@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState, useRef, useEffect, useMemo } from 'react'
@@ -41,7 +42,7 @@ export function TreeCanvas({
     if (!allSchools) return { [schoolName]: { x: 0, y: 0 } };
     const keys = Object.keys(allSchools);
     const offsets: Record<string, { x: number, y: number }> = {};
-    const HUB_RADIUS = 500; // Radius where root nodes sit
+    const HUB_RADIUS = 400; // Radius where root nodes sit tightly around the heart
 
     keys.forEach((key, i) => {
       const sData = allSchools[key];
@@ -67,11 +68,11 @@ export function TreeCanvas({
   // Center camera ONLY when school context changes
   useEffect(() => {
     if (allSchools) {
-      // Center on the global focal point (0,0)
+      // Center on the global focal point (0,0) with a slightly tighter zoom for the "Heart"
       setTransform({ 
         x: (containerRef.current?.clientWidth || 0) / 2, 
         y: (containerRef.current?.clientHeight || 0) / 2, 
-        scale: 0.15 
+        scale: 0.25 
       });
     } else if (school) {
       const rootNode = school.nodes.find(n => n.formId === school.root);
@@ -216,9 +217,9 @@ export function TreeCanvas({
               x2={rootNode.x + offset.x}
               y2={rootNode.y + offset.y}
               stroke="hsl(var(--accent))"
-              strokeWidth="4"
-              strokeDasharray="10,10"
-              strokeOpacity="0.2"
+              strokeWidth="6"
+              strokeDasharray="12,12"
+              strokeOpacity="0.3"
               className="animate-pulse"
             />
           );
@@ -266,6 +267,8 @@ export function TreeCanvas({
           node.formId.toLowerCase().includes(searchQuery.toLowerCase())
         );
 
+        const isRoot = node.isRoot || node.formId === sData.root;
+
         nodes.push(
           <div
             key={`${sName}-${node.formId}`}
@@ -274,7 +277,7 @@ export function TreeCanvas({
               "spell-node absolute flex items-center justify-center p-3 rounded-full border-2 bg-card cursor-grab hover:scale-110 pointer-events-auto arcane-glow select-none group transition-transform duration-200 ease-out",
               dragMode === 'node' && "transition-none",
               selectedNodeId === node.formId ? "node-selected ring-2 ring-accent ring-offset-2 ring-offset-background z-20" : "border-primary/50",
-              (node.isRoot || node.formId === sData.root) && "border-accent shadow-[0_0_15px_hsl(var(--accent))]",
+              isRoot && "border-accent shadow-[0_0_20px_hsl(var(--accent))] z-10",
               linkingSourceId === node.formId && "ring-4 ring-accent ring-offset-4 animate-pulse z-30",
               dragNodeId === node.formId && "cursor-grabbing scale-110 opacity-80 z-40",
               isMatch && "node-pulse ring-4 ring-yellow-400 border-yellow-400 z-50 scale-125 shadow-[0_0_30px_hsl(48_100%_50%)]"
@@ -283,11 +286,14 @@ export function TreeCanvas({
               left: node.x + offset.x, 
               top: node.y + offset.y, 
               transform: 'translate(-50%, -50%)',
-              width: (node.isRoot || node.formId === sData.root) ? 80 : 60,
-              height: (node.isRoot || node.formId === sData.root) ? 80 : 60,
+              width: isRoot ? 100 : 60,
+              height: isRoot ? 100 : 60,
             }}
           >
-            <span className="text-[10px] text-center font-bold truncate leading-tight w-full px-1 group-hover:whitespace-normal group-hover:bg-card/90 group-hover:p-1 group-hover:rounded">
+            <span className={cn(
+              "text-center font-bold truncate leading-tight w-full px-1 group-hover:whitespace-normal group-hover:bg-card/90 group-hover:p-1 group-hover:rounded",
+              isRoot ? "text-xs" : "text-[10px]"
+            )}>
               {node.name}
             </span>
             <div 
@@ -373,19 +379,19 @@ export function TreeCanvas({
 
         {allSchools && (
           <div 
-            className="absolute w-48 h-48 rounded-full bg-background border-8 border-accent heart-glow flex items-center justify-center z-50 pointer-events-none"
-            style={{ left: 0, top: 0 }}
+            className="absolute w-56 h-56 rounded-full bg-background border-8 border-accent heart-glow flex items-center justify-center z-50 pointer-events-none"
+            style={{ left: 0, top: 0, transform: 'translate(-50%, -50%)' }}
           >
             <div className="text-center">
-              <div className="text-[10px] font-black tracking-[0.3em] text-accent uppercase animate-pulse">Heart of</div>
-              <div className="text-2xl font-black tracking-tighter text-foreground uppercase">Magic</div>
+              <div className="text-[12px] font-black tracking-[0.4em] text-accent uppercase animate-pulse">Heart of</div>
+              <div className="text-3xl font-black tracking-tighter text-foreground uppercase">Magic</div>
             </div>
           </div>
         )}
 
         {renderData.nodes}
 
-        {/* School Labels for Global View - Adjusted for Hub Layout */}
+        {/* School Labels for Global View - Adjusted for tighter Hub Layout */}
         {allSchools && Object.entries(schoolOffsets).map(([sName, offset]) => {
           const sData = allSchools[sName];
           const rootNode = sData.nodes.find(n => n.formId === sData.root);
@@ -397,7 +403,7 @@ export function TreeCanvas({
               className="absolute text-5xl font-headline font-black text-accent/10 pointer-events-none select-none uppercase tracking-[1em]"
               style={{ 
                 left: rootNode.x + offset.x, 
-                top: rootNode.y + offset.y - 450,
+                top: rootNode.y + offset.y - 350,
                 transform: 'translateX(-50%)'
               }}
             >
