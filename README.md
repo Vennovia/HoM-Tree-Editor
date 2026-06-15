@@ -27,6 +27,24 @@ The most reliable way to use this as a standalone application is to install it a
 3.  Click the **Install Icon** (monitor icon) on the right side of the address bar.
 4.  The editor will now open in its own window. You can now pin it to your Taskbar or Start Menu.
 
+## Sharing & Collaboration
+
+### Giving Others Workspace Access
+To give another person access to this specific Firebase Studio workspace:
+1.  Go to the [Firebase Console](https://console.firebase.google.com/).
+2.  Select this project.
+3.  Navigate to **Project Settings** (gear icon) > **Users and Permissions**.
+4.  Click **Add Member**.
+5.  Enter their email address.
+6.  Assign the **Editor** role (or a specific role that includes Google Cloud Workstation permissions).
+7.  Once added, they can log into Firebase Studio and open this project to collaborate on the code.
+
+### Sharing Your Grimoire Data
+Since this app uses browser local storage for high performance, your specific spell data stays on your machine by default. To share your structures:
+- Use the **"Grimoire Seal" (Export)** button in the sidebar to download your work as a `.json` file.
+- Send this file to your collaborator.
+- They can use the **"Import"** button in their instance of the editor to load your data.
+
 ## Saving Your Work
 - **Auto-Save**: The app automatically saves your grimoire to your browser's local storage. Even if you close the window, your work will be there when you return.
 - **Manual Backup**: Use the **"Grimoire Seal" (Export)** button in the sidebar to download a `.json` file. This is the best way to move your data between different computers.
