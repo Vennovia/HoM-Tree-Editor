@@ -1,8 +1,8 @@
 
 "use client"
 
-import React, { useState, useEffect, useCallback } from 'react'
-import { SpellTreeData, SpellNode } from '@/types/spell-tree'
+import React, { useState, useEffect, useCallback, useMemo } from 'react'
+import { SpellTreeData, SpellNode, SpellSchool } from '@/types/spell-tree'
 import { JSONImporter } from '@/components/editor/JSONImporter'
 import { TreeCanvas } from '@/components/canvas/TreeCanvas'
 import { NodeEditor } from '@/components/editor/NodeEditor'
@@ -18,7 +18,8 @@ import {
   Database,
   Search,
   LayoutDashboard,
-  Target
+  Target,
+  Globe
 } from 'lucide-react'
 import { cn, deepClone } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
@@ -35,7 +36,7 @@ import {
 export default function ArcanaFlowStudio() {
   const { toast } = useToast()
   const [treeData, setTreeData] = useState<SpellTreeData | null>(null)
-  const [selectedSchool, setSelectedSchool] = useState<string | null>(null)
+  const [selectedSchool, setSelectedSchool] = useState<string | 'all' | null>(null)
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
   const [isImportOpen, setIsImportOpen] = useState(false)
@@ -74,42 +75,56 @@ export default function ArcanaFlowStudio() {
     })
   }
 
+  // Helper to find which school a node belongs to
+  const findSchoolForNode = useCallback((nodeId: string): string | null => {
+    if (!treeData) return null
+    for (const schoolName in treeData.schools) {
+      if (treeData.schools[schoolName].nodes.some(n => n.formId === nodeId)) {
+        return schoolName
+      }
+    }
+    return null
+  }, [treeData])
+
   const handleUpdateNode = useCallback((nodeId: string, updates: Partial<SpellNode>) => {
+    const schoolName = findSchoolForNode(nodeId)
+    if (!schoolName) return
+
     setTreeData(prev => {
-      if (!prev || !selectedSchool) return prev
-      
-      const school = prev.schools[selectedSchool]
+      if (!prev) return prev
+      const newData = deepClone(prev)
+      const school = newData.schools[schoolName]
       const nodeIndex = school.nodes.findIndex(n => n.formId === nodeId)
       if (nodeIndex === -1) return prev
 
-      const updatedNodes = [...school.nodes]
-      updatedNodes[nodeIndex] = { ...updatedNodes[nodeIndex], ...updates }
-
-      return {
-        ...prev,
-        schools: {
-          ...prev.schools,
-          [selectedSchool]: {
-            ...school,
-            nodes: updatedNodes
-          }
-        }
-      }
+      school.nodes[nodeIndex] = { ...school.nodes[nodeIndex], ...updates }
+      return newData
     })
-  }, [selectedSchool])
+  }, [findSchoolForNode])
 
   const handleLinkNodes = (sourceId: string, targetId: string) => {
-    if (!treeData || !selectedSchool || sourceId === targetId) return
-    
-    // First check if already linked to decide notification
-    const currentSchool = treeData.schools[selectedSchool]
-    const sourceNode = currentSchool.nodes.find(n => n.formId === sourceId)
+    const sourceSchool = findSchoolForNode(sourceId)
+    const targetSchool = findSchoolForNode(targetId)
+
+    if (!sourceSchool || !targetSchool || sourceSchool !== targetSchool || sourceId === targetId) {
+      if (sourceSchool !== targetSchool) {
+        toast({
+          variant: "destructive",
+          title: "Arcane Dissonance",
+          description: "Cannot link spells from different schools of magic."
+        })
+      }
+      return
+    }
+
+    const currentSchoolData = treeData!.schools[sourceSchool]
+    const sourceNode = currentSchoolData.nodes.find(n => n.formId === sourceId)
     const isAlreadyLinked = sourceNode?.children.includes(targetId)
 
     setTreeData(prev => {
       if (!prev) return prev
       const newData = deepClone(prev)
-      const school = newData.schools[selectedSchool]
+      const school = newData.schools[sourceSchool]
       const sNode = school.nodes.find(n => n.formId === sourceId)
       const tNode = school.nodes.find(n => n.formId === targetId)
       
@@ -128,7 +143,6 @@ export default function ArcanaFlowStudio() {
       return newData
     })
 
-    // Side effects outside of state update
     toast({
       title: isAlreadyLinked ? "Arcane Severance" : "Bond Established",
       description: isAlreadyLinked ? "Connection dissolved." : "The flow of power is linked."
@@ -136,17 +150,27 @@ export default function ArcanaFlowStudio() {
   }
 
   const handleDeleteNode = (nodeId: string) => {
-    if (!treeData || !selectedSchool) return
-    const newData = deepClone(treeData)
-    const school = newData.schools[selectedSchool]
-    school.nodes = school.nodes.filter(n => n.formId !== nodeId)
-    school.nodes.forEach(n => {
-      n.children = n.children.filter(id => id !== nodeId)
-      n.prerequisites = n.prerequisites.filter(id => id !== nodeId)
-      n.hardPrereqs = n.hardPrereqs.filter(id => id !== nodeId)
-      n.softPrereqs = n.softPrereqs.filter(id => id !== nodeId)
+    const schoolName = findSchoolForNode(nodeId)
+    if (!schoolName) return
+
+    setTreeData(prev => {
+      if (!prev) return prev
+      const newData = deepClone(prev)
+      const school = newData.schools[schoolName]
+      school.nodes = school.nodes.filter(n => n.formId !== nodeId)
+      
+      // Clean up references in all schools (though usually links are intra-school)
+      Object.values(newData.schools).forEach(s => {
+        s.nodes.forEach(n => {
+          n.children = n.children.filter(id => id !== nodeId)
+          n.prerequisites = n.prerequisites.filter(id => id !== nodeId)
+          n.hardPrereqs = n.hardPrereqs.filter(id => id !== nodeId)
+        })
+      })
+      
+      return newData
     })
-    setTreeData(newData)
+
     setSelectedNodeId(null)
     toast({
       variant: "destructive",
@@ -156,32 +180,40 @@ export default function ArcanaFlowStudio() {
   }
 
   const handleAddNode = () => {
-    if (!treeData || !selectedSchool) return
-    const newData = deepClone(treeData)
-    const school = newData.schools[selectedSchool]
-    const rootNode = school.nodes.find(n => n.formId === school.root)
-    
-    const newNode: SpellNode = {
-      formId: "0x" + Math.random().toString(16).slice(2, 10).toUpperCase(),
-      name: "New Spell Node",
-      theme: "_misc",
-      tier: 1,
-      skillLevel: "Novice",
-      x: (rootNode?.x || 0) + 100,
-      y: (rootNode?.y || 0) + 100,
-      children: [],
-      prerequisites: [],
-      hardPrereqs: [],
-      softPrereqs: [],
-      softNeeded: 0
-    }
-    
-    school.nodes.push(newNode)
-    setTreeData(newData)
-    setSelectedNodeId(newNode.formId)
+    // Determine which school to add to
+    let schoolToAdd = selectedSchool === 'all' ? Object.keys(treeData?.schools || {})[0] : selectedSchool
+    if (!treeData || !schoolToAdd || schoolToAdd === 'all') return
+
+    setTreeData(prev => {
+      if (!prev) return prev
+      const newData = deepClone(prev)
+      const school = newData.schools[schoolToAdd!]
+      const rootNode = school.nodes.find(n => n.formId === school.root)
+      
+      const newNodeId = "0x" + Math.random().toString(16).slice(2, 10).toUpperCase()
+      const newNode: SpellNode = {
+        formId: newNodeId,
+        name: "New Spell Node",
+        theme: "_misc",
+        tier: 1,
+        skillLevel: "Novice",
+        x: (rootNode?.x || 0) + 100,
+        y: (rootNode?.y || 0) + 100,
+        children: [],
+        prerequisites: [],
+        hardPrereqs: [],
+        softPrereqs: [],
+        softNeeded: 0
+      }
+      
+      school.nodes.push(newNode)
+      setSelectedNodeId(newNodeId)
+      return newData
+    })
+
     toast({
       title: "Magic Manifested",
-      description: "New spell node added to the tree."
+      description: `New spell node added to ${schoolToAdd}.`
     })
   }
 
@@ -189,16 +221,33 @@ export default function ArcanaFlowStudio() {
     s.toLowerCase().includes(searchQuery.toLowerCase())
   ) : []
 
-  const selectedNode = treeData && selectedSchool && selectedNodeId 
-    ? treeData.schools[selectedSchool].nodes.find(n => n.formId === selectedNodeId) 
-    : null
+  const selectedNode = useMemo(() => {
+    if (!treeData || !selectedNodeId) return null
+    for (const sName in treeData.schools) {
+      const node = treeData.schools[sName].nodes.find(n => n.formId === selectedNodeId)
+      if (node) return { node, schoolName: sName }
+    }
+    return null
+  }, [treeData, selectedNodeId])
 
-  const nodeSearchResults = treeData && selectedSchool && nodeSearchQuery.length > 1
-    ? treeData.schools[selectedSchool].nodes.filter(n => 
-        n.name.toLowerCase().includes(nodeSearchQuery.toLowerCase()) || 
-        n.formId.toLowerCase().includes(nodeSearchQuery.toLowerCase())
-      )
-    : []
+  const nodeSearchResults = useMemo(() => {
+    if (!treeData || nodeSearchQuery.length < 2) return []
+    const results: SpellNode[] = []
+    
+    const schoolsToSearch = selectedSchool === 'all' || selectedSchool === null 
+      ? Object.values(treeData.schools) 
+      : [treeData.schools[selectedSchool]]
+
+    schoolsToSearch.forEach(school => {
+      school.nodes.forEach(node => {
+        if (node.name.toLowerCase().includes(nodeSearchQuery.toLowerCase()) || 
+            node.formId.toLowerCase().includes(nodeSearchQuery.toLowerCase())) {
+          results.push(node)
+        }
+      })
+    })
+    return results.slice(0, 10)
+  }, [treeData, selectedSchool, nodeSearchQuery])
 
   return (
     <div className="flex h-screen w-full bg-background overflow-hidden font-body selection:bg-accent/30">
@@ -261,7 +310,22 @@ export default function ArcanaFlowStudio() {
                     )}
                   >
                     <LayoutDashboard className="w-3.5 h-3.5 opacity-50 group-hover:text-accent" />
-                    All Schools
+                    Dashboard
+                  </button>
+                  <button
+                    onClick={() => {
+                      setSelectedSchool('all')
+                      setSelectedNodeId(null)
+                    }}
+                    className={cn(
+                      "w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md transition-all group",
+                      selectedSchool === 'all' 
+                        ? "bg-primary text-accent font-medium arcane-glow" 
+                        : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                    )}
+                  >
+                    <Globe className="w-3.5 h-3.5 opacity-50 group-hover:text-accent" />
+                    Arch-Grimoire Mode
                   </button>
                 </div>
               </div>
@@ -319,6 +383,9 @@ export default function ArcanaFlowStudio() {
             <Button variant="ghost" size="icon" onClick={() => setSelectedSchool(null)} title="Dashboard">
               <LayoutDashboard className={cn("w-5 h-5", selectedSchool === null ? "text-accent" : "text-muted-foreground")} />
             </Button>
+            <Button variant="ghost" size="icon" onClick={() => setSelectedSchool('all')} title="Global Tree">
+              <Globe className={cn("w-5 h-5", selectedSchool === 'all' ? "text-accent" : "text-muted-foreground")} />
+            </Button>
             <Separator className="bg-border w-8" />
             <Button variant="ghost" size="icon" onClick={() => setIsImportOpen(true)}>
               <Code className="w-5 h-5 text-muted-foreground" />
@@ -353,9 +420,15 @@ export default function ArcanaFlowStudio() {
         <header className="h-16 border-b border-border flex items-center justify-between px-6 bg-card/30 backdrop-blur-sm relative z-20">
           <div className="flex items-center gap-6">
             <h2 className="font-headline font-bold text-muted-foreground">
-              {selectedSchool ? <span className="text-accent">{selectedSchool}</span> : <span className="text-accent flex items-center gap-2"><LayoutDashboard className="w-4 h-4" /> Dashboard</span>} 
+              {selectedSchool === 'all' ? (
+                <span className="text-accent flex items-center gap-2"><Globe className="w-4 h-4" /> Arch-Grimoire Mode</span>
+              ) : selectedSchool ? (
+                <span className="text-accent">{selectedSchool}</span>
+              ) : (
+                <span className="text-accent flex items-center gap-2"><LayoutDashboard className="w-4 h-4" /> Dashboard</span>
+              )} 
               {selectedNode && <span className="text-muted-foreground/50 mx-2">/</span>}
-              {selectedNode && <span className="text-foreground">{selectedNode.name}</span>}
+              {selectedNode && <span className="text-foreground">{selectedNode.node.name}</span>}
             </h2>
 
             {selectedSchool && (
@@ -397,7 +470,7 @@ export default function ArcanaFlowStudio() {
             )}
           </div>
           <div className="flex items-center gap-2">
-            {selectedSchool && (
+            {selectedSchool && selectedSchool !== 'all' && (
               <Button 
                 size="sm" 
                 className="gap-2 bg-accent hover:bg-accent/90 text-accent-foreground rounded-full px-4"
@@ -413,8 +486,9 @@ export default function ArcanaFlowStudio() {
           {treeData ? (
             selectedSchool ? (
               <TreeCanvas 
-                schoolName={selectedSchool}
-                school={treeData.schools[selectedSchool]}
+                allSchools={selectedSchool === 'all' ? treeData.schools : undefined}
+                schoolName={selectedSchool === 'all' ? 'Global' : selectedSchool}
+                school={selectedSchool === 'all' ? undefined : treeData.schools[selectedSchool]}
                 selectedNodeId={selectedNodeId}
                 onSelectNode={setSelectedNodeId}
                 onNodeMove={handleUpdateNode}
@@ -443,11 +517,11 @@ export default function ArcanaFlowStudio() {
         "border-l border-border bg-card/80 backdrop-blur-md transition-all duration-300 ease-in-out relative z-30",
         selectedNodeId ? "w-96" : "w-0 overflow-hidden border-l-0"
       )}>
-        {selectedNode && selectedSchool && (
+        {selectedNode && (
           <NodeEditor 
-            schoolName={selectedSchool}
-            school={treeData!.schools[selectedSchool]}
-            node={selectedNode}
+            schoolName={selectedNode.schoolName}
+            school={treeData!.schools[selectedNode.schoolName]}
+            node={selectedNode.node}
             onUpdate={handleUpdateNode}
             onDelete={handleDeleteNode}
           />

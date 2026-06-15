@@ -7,7 +7,8 @@ import { cn } from '@/lib/utils'
 
 interface TreeCanvasProps {
   schoolName: string;
-  school: SpellSchool;
+  school?: SpellSchool;
+  allSchools?: Record<string, SpellSchool>;
   selectedNodeId: string | null;
   onSelectNode: (nodeId: string) => void;
   onNodeMove: (nodeId: string, updates: Partial<SpellNode>) => void;
@@ -15,9 +16,13 @@ interface TreeCanvasProps {
   searchQuery?: string;
 }
 
+// Fixed spacing for global view
+const GLOBAL_RADIUS = 2500;
+
 export function TreeCanvas({ 
   schoolName, 
   school, 
+  allSchools,
   selectedNodeId, 
   onSelectNode, 
   onNodeMove,
@@ -35,17 +40,36 @@ export function TreeCanvas({
   const [linkingSourceId, setLinkingSourceId] = useState<string | null>(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
 
-  // Center camera ONLY when school changes
+  // Compute school offsets for global view
+  const schoolOffsets = useMemo(() => {
+    if (!allSchools) return { [schoolName]: { x: 0, y: 0 } };
+    const keys = Object.keys(allSchools);
+    const offsets: Record<string, { x: number, y: number }> = {};
+    keys.forEach((key, i) => {
+      const angle = (i * 2 * Math.PI) / keys.length;
+      offsets[key] = {
+        x: Math.cos(angle) * GLOBAL_RADIUS,
+        y: Math.sin(angle) * GLOBAL_RADIUS
+      };
+    });
+    return offsets;
+  }, [allSchools, schoolName]);
+
+  // Center camera ONLY when school context changes
   useEffect(() => {
-    const rootNode = school.nodes.find(n => n.formId === school.root);
-    if (rootNode) {
-      setTransform({
-        x: -rootNode.x * 0.5 + (containerRef.current?.clientWidth || 0) / 2,
-        y: -rootNode.y * 0.5 + (containerRef.current?.clientHeight || 0) / 2,
-        scale: 0.5
-      });
+    if (allSchools) {
+      setTransform({ x: (containerRef.current?.clientWidth || 0) / 2, y: (containerRef.current?.clientHeight || 0) / 2, scale: 0.1 });
+    } else if (school) {
+      const rootNode = school.nodes.find(n => n.formId === school.root);
+      if (rootNode) {
+        setTransform({
+          x: -rootNode.x * 0.5 + (containerRef.current?.clientWidth || 0) / 2,
+          y: -rootNode.y * 0.5 + (containerRef.current?.clientHeight || 0) / 2,
+          scale: 0.5
+        });
+      }
     }
-  }, [schoolName]);
+  }, [schoolName, !!allSchools]);
 
   const getCanvasCoords = (clientX: number, clientY: number) => {
     const rect = containerRef.current?.getBoundingClientRect();
@@ -72,9 +96,20 @@ export function TreeCanvas({
     if (nodeId) {
       setDragMode('node');
       setDragNodeId(nodeId);
-      const node = school.nodes.find(n => n.formId === nodeId);
-      if (node) {
-        setDragNodeInitialPos({ x: node.x, y: node.y });
+      
+      // Find node in any active school
+      let foundNode: SpellNode | undefined;
+      if (allSchools) {
+        for (const s of Object.values(allSchools)) {
+          foundNode = s.nodes.find(n => n.formId === nodeId);
+          if (foundNode) break;
+        }
+      } else if (school) {
+        foundNode = school.nodes.find(n => n.formId === nodeId);
+      }
+
+      if (foundNode) {
+        setDragNodeInitialPos({ x: foundNode.x, y: foundNode.y });
         setDragStart({ x: e.clientX, y: e.clientY });
       }
       onSelectNode(nodeId);
@@ -129,7 +164,8 @@ export function TreeCanvas({
   const handleWheel = (e: React.WheelEvent) => {
     e.preventDefault();
     const scaleFactor = e.deltaY > 0 ? 0.9 : 1.1;
-    const newScale = Math.min(Math.max(transform.scale * scaleFactor, 0.05), 5);
+    const minScale = allSchools ? 0.02 : 0.05;
+    const newScale = Math.min(Math.max(transform.scale * scaleFactor, minScale), 5);
     
     const rect = containerRef.current?.getBoundingClientRect();
     if (!rect) return;
@@ -147,54 +183,123 @@ export function TreeCanvas({
     });
   };
 
-  const connections = useMemo(() => {
-    const lines: React.ReactNode[] = [];
-    school.nodes.forEach(node => {
-      node.children.forEach(childId => {
-        const childNode = school.nodes.find(n => n.formId === childId);
-        if (childNode) {
-          lines.push(
-            <g key={`${node.formId}-${childId}`} className="group/line cursor-pointer">
-              <line
-                x1={node.x}
-                y1={node.y}
-                x2={childNode.x}
-                y2={childNode.y}
-                stroke="transparent"
-                strokeWidth="20"
-                className="pointer-events-auto"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onLinkNodes(node.formId, childId);
-                }}
-              />
-              <line
-                x1={node.x}
-                y1={node.y}
-                x2={childNode.x}
-                y2={childNode.y}
-                stroke="hsl(var(--primary))"
-                strokeWidth="2"
-                strokeOpacity="0.5"
-                className="transition-all duration-300 group-hover/line:stroke-destructive group-hover/line:stroke-opacity-100 group-hover/line:stroke-[3px]"
-              />
-            </g>
-          );
-        }
+  const renderData = useMemo(() => {
+    const activeSchools = allSchools || (school ? { [schoolName]: school } : {});
+    const nodes: React.ReactNode[] = [];
+    const connections: React.ReactNode[] = [];
+
+    Object.entries(activeSchools).forEach(([sName, sData]) => {
+      const offset = schoolOffsets[sName] || { x: 0, y: 0 };
+      
+      // Render connections
+      sData.nodes.forEach(node => {
+        node.children.forEach(childId => {
+          const childNode = sData.nodes.find(n => n.formId === childId);
+          if (childNode) {
+            connections.push(
+              <g key={`${sName}-${node.formId}-${childId}`} className="group/line cursor-pointer">
+                <line
+                  x1={node.x + offset.x}
+                  y1={node.y + offset.y}
+                  x2={childNode.x + offset.x}
+                  y2={childNode.y + offset.y}
+                  stroke="transparent"
+                  strokeWidth="20"
+                  className="pointer-events-auto"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onLinkNodes(node.formId, childId);
+                  }}
+                />
+                <line
+                  x1={node.x + offset.x}
+                  y1={node.y + offset.y}
+                  x2={childNode.x + offset.x}
+                  y2={childNode.y + offset.y}
+                  stroke="hsl(var(--primary))"
+                  strokeWidth="2"
+                  strokeOpacity="0.5"
+                  className="transition-all duration-300 group-hover/line:stroke-destructive group-hover/line:stroke-opacity-100 group-hover/line:stroke-[3px]"
+                />
+              </g>
+            );
+          }
+        });
+      });
+
+      // Render nodes
+      sData.nodes.forEach(node => {
+        const isMatch = searchQuery.length > 1 && (
+          node.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+          node.formId.toLowerCase().includes(searchQuery.toLowerCase())
+        );
+
+        nodes.push(
+          <div
+            key={`${sName}-${node.formId}`}
+            data-node-id={node.formId}
+            className={cn(
+              "spell-node absolute flex items-center justify-center p-3 rounded-full border-2 bg-card cursor-grab hover:scale-110 pointer-events-auto arcane-glow select-none group transition-transform duration-200 ease-out",
+              dragMode && "transition-none",
+              selectedNodeId === node.formId ? "node-selected ring-2 ring-accent ring-offset-2 ring-offset-background z-20" : "border-primary/50",
+              node.isRoot && "border-accent shadow-[0_0_10px_hsl(var(--accent))]",
+              linkingSourceId === node.formId && "ring-4 ring-accent ring-offset-4 animate-pulse z-30",
+              dragNodeId === node.formId && "cursor-grabbing scale-110 opacity-80 z-40",
+              isMatch && "node-pulse ring-4 ring-yellow-400 border-yellow-400 z-50 scale-125 shadow-[0_0_30px_hsl(48_100%_50%)]"
+            )}
+            style={{ 
+              left: node.x + offset.x, 
+              top: node.y + offset.y, 
+              transform: 'translate(-50%, -50%)',
+              width: node.isRoot ? 80 : 60,
+              height: node.isRoot ? 80 : 60,
+            }}
+          >
+            <span className="text-[10px] text-center font-bold truncate leading-tight w-full px-1 group-hover:whitespace-normal group-hover:bg-card/90 group-hover:p-1 group-hover:rounded">
+              {node.name}
+            </span>
+            <div 
+              className={cn(
+                "absolute -top-1 -right-1 w-3 h-3 rounded-full border border-background",
+                node.skillLevel === 'Master' ? "bg-yellow-500" :
+                node.skillLevel === 'Expert' ? "bg-purple-500" :
+                node.skillLevel === 'Adept' ? "bg-blue-500" :
+                node.skillLevel === 'Apprentice' ? "bg-green-500" : "bg-gray-500"
+              )} 
+            />
+          </div>
+        );
       });
     });
-    return lines;
-  }, [school, onLinkNodes]);
+
+    return { nodes, connections };
+  }, [allSchools, school, schoolOffsets, selectedNodeId, linkingSourceId, dragNodeId, dragMode, searchQuery, onLinkNodes]);
 
   const activeLinkingLine = useMemo(() => {
     if (dragMode !== 'linking' || !linkingSourceId) return null;
-    const sourceNode = school.nodes.find(n => n.formId === linkingSourceId);
+    
+    // Find source node and its school offset
+    let sourceNode: SpellNode | undefined;
+    let sourceOffset = { x: 0, y: 0 };
+    
+    if (allSchools) {
+      for (const [sName, sData] of Object.entries(allSchools)) {
+        sourceNode = sData.nodes.find(n => n.formId === linkingSourceId);
+        if (sourceNode) {
+          sourceOffset = schoolOffsets[sName];
+          break;
+        }
+      }
+    } else if (school) {
+      sourceNode = school.nodes.find(n => n.formId === linkingSourceId);
+    }
+
     if (!sourceNode) return null;
 
     return (
       <line
-        x1={sourceNode.x}
-        y1={sourceNode.y}
+        x1={sourceNode.x + sourceOffset.x}
+        y1={sourceNode.y + sourceOffset.y}
         x2={mousePos.x}
         y2={mousePos.y}
         stroke="hsl(var(--accent))"
@@ -203,7 +308,7 @@ export function TreeCanvas({
         className="animate-pulse"
       />
     );
-  }, [dragMode, linkingSourceId, mousePos, school.nodes]);
+  }, [dragMode, linkingSourceId, mousePos, school, allSchools, schoolOffsets]);
 
   return (
     <div 
@@ -230,56 +335,35 @@ export function TreeCanvas({
           className="absolute overflow-visible"
           style={{ width: 1, height: 1 }}
         >
-          {connections}
+          {renderData.connections}
           {activeLinkingLine}
         </svg>
 
-        {school.nodes.map(node => {
-          const isMatch = searchQuery.length > 1 && (
-            node.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-            node.formId.toLowerCase().includes(searchQuery.toLowerCase())
-          );
+        {renderData.nodes}
 
-          return (
-            <div
-              key={node.formId}
-              data-node-id={node.formId}
-              className={cn(
-                "spell-node absolute flex items-center justify-center p-3 rounded-full border-2 bg-card cursor-grab hover:scale-110 pointer-events-auto arcane-glow select-none group",
-                selectedNodeId === node.formId ? "node-selected ring-2 ring-accent ring-offset-2 ring-offset-background z-20" : "border-primary/50",
-                node.isRoot && "border-accent shadow-[0_0_10px_hsl(var(--accent))]",
-                linkingSourceId === node.formId && "ring-4 ring-accent ring-offset-4 animate-pulse z-30",
-                dragNodeId === node.formId && "cursor-grabbing scale-110 opacity-80 z-40",
-                isMatch && "node-pulse ring-4 ring-yellow-400 border-yellow-400 z-50 scale-125 shadow-[0_0_30px_hsl(48_100%_50%)]"
-              )}
-              style={{ 
-                left: node.x, 
-                top: node.y, 
-                transform: 'translate(-50%, -50%)',
-                width: node.isRoot ? 80 : 60,
-                height: node.isRoot ? 80 : 60,
-              }}
-            >
-              <span className="text-[10px] text-center font-bold truncate leading-tight w-full px-1 group-hover:whitespace-normal group-hover:bg-card/90 group-hover:p-1 group-hover:rounded">
-                {node.name}
-              </span>
-              <div 
-                className={cn(
-                  "absolute -top-1 -right-1 w-3 h-3 rounded-full border border-background",
-                  node.skillLevel === 'Master' ? "bg-yellow-500" :
-                  node.skillLevel === 'Expert' ? "bg-purple-500" :
-                  node.skillLevel === 'Adept' ? "bg-blue-500" :
-                  node.skillLevel === 'Apprentice' ? "bg-green-500" : "bg-gray-500"
-                )} 
-              />
-            </div>
-          );
-        })}
+        {/* School Labels for Global View */}
+        {allSchools && Object.entries(schoolOffsets).map(([sName, offset]) => (
+          <div 
+            key={`label-${sName}`}
+            className="absolute text-4xl font-headline font-black text-accent/10 pointer-events-none select-none uppercase tracking-[2em]"
+            style={{ 
+              left: offset.x, 
+              top: offset.y - 1000,
+              transform: 'translateX(-50%)'
+            }}
+          >
+            {sName}
+          </div>
+        ))}
       </div>
 
       <div className="absolute bottom-4 left-4 flex flex-col gap-1 p-3 bg-card/80 border border-border rounded-lg backdrop-blur-sm pointer-events-none">
-        <h3 className="text-xs font-bold uppercase text-muted-foreground tracking-widest">{schoolName} School</h3>
-        <p className="text-[10px] text-muted-foreground">{school.nodes.length} Nodes Loaded</p>
+        <h3 className="text-xs font-bold uppercase text-muted-foreground tracking-widest">{schoolName}</h3>
+        <p className="text-[10px] text-muted-foreground">
+          {allSchools 
+            ? `${Object.keys(allSchools).length} Schools Visible` 
+            : `${school?.nodes.length || 0} Nodes Loaded`}
+        </p>
         <p className="text-[10px] text-accent/80 font-mono">Zoom: {(transform.scale * 100).toFixed(0)}%</p>
       </div>
 
