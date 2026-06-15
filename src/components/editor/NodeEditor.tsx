@@ -1,0 +1,205 @@
+"use client"
+
+import React, { useState } from 'react'
+import { SpellNode, SpellSchool } from '@/types/spell-tree'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Button } from '@/components/ui/button'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Separator } from '@/components/ui/separator'
+import { Sparkles, Trash2, Link as LinkIcon, Lock, MapPin } from 'lucide-react'
+import { suggestSpellNodeDetails } from '@/ai/flows/suggest-spell-node-details-flow'
+import { generateSpellLore } from '@/ai/flows/generate-spell-lore-flow'
+import { ScrollArea } from '@/components/ui/scroll-area'
+
+interface NodeEditorProps {
+  schoolName: string;
+  school: SpellSchool;
+  node: SpellNode;
+  onUpdate: (nodeId: string, updates: Partial<SpellNode>) => void;
+  onDelete: (nodeId: string) => void;
+}
+
+export function NodeEditor({ schoolName, school, node, onUpdate, onDelete }: NodeEditorProps) {
+  const [isAiLoading, setIsAiLoading] = useState(false)
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target
+    if (name === 'x' || name === 'y' || name === 'tier' || name === 'softNeeded') {
+      onUpdate(node.formId, { [name]: Number(value) })
+    } else {
+      onUpdate(node.formId, { [name]: value })
+    }
+  }
+
+  const handleAiSuggest = async () => {
+    setIsAiLoading(true)
+    try {
+      const neighbors = node.prerequisites
+        .map(id => school.nodes.find(n => n.formId === id))
+        .filter(Boolean)
+        .map(n => ({
+          name: n!.name,
+          theme: n!.theme,
+          skillLevel: n!.skillLevel
+        }))
+
+      const result = await suggestSpellNodeDetails({
+        spellSchool: schoolName,
+        neighboringNodes: neighbors
+      })
+      
+      onUpdate(node.formId, {
+        name: result.suggestedName,
+        theme: result.suggestedTheme
+      })
+    } catch (error) {
+      console.error("AI Suggestion failed", error)
+    } finally {
+      setIsAiLoading(false)
+    }
+  }
+
+  return (
+    <div className="flex flex-col h-full bg-card">
+      <div className="p-6 border-b border-border flex justify-between items-center bg-primary/20">
+        <div>
+          <h2 className="text-xl font-headline font-bold text-accent">Node Editor</h2>
+          <p className="text-xs text-muted-foreground font-mono">{node.formId}</p>
+        </div>
+        <Button variant="destructive" size="icon" onClick={() => onDelete(node.formId)}>
+          <Trash2 className="w-4 h-4" />
+        </Button>
+      </div>
+
+      <ScrollArea className="flex-1">
+        <div className="p-6 space-y-6">
+          {/* AI Tools */}
+          <div className="space-y-2 p-4 rounded-lg bg-accent/10 border border-accent/20">
+            <h3 className="text-sm font-semibold flex items-center gap-2 text-accent">
+              <Sparkles className="w-4 h-4" />
+              AI Lore Master
+            </h3>
+            <div className="flex gap-2">
+              <Button 
+                size="sm" 
+                className="flex-1 bg-accent/20 text-accent hover:bg-accent/30 text-[10px]"
+                disabled={isAiLoading}
+                onClick={handleAiSuggest}
+              >
+                {isAiLoading ? 'Brewing...' : 'Suggest Name & Theme'}
+              </Button>
+            </div>
+          </div>
+
+          {/* Basic Info */}
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label className="text-xs uppercase text-muted-foreground tracking-widest font-bold">Display Name</Label>
+              <Input name="name" value={node.name} onChange={handleChange} className="bg-background border-border" />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-xs uppercase text-muted-foreground tracking-widest font-bold">Skill Level</Label>
+                <Select value={node.skillLevel} onValueChange={(val) => onUpdate(node.formId, { skillLevel: val })}>
+                  <SelectTrigger className="bg-background border-border">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Novice">Novice</SelectItem>
+                    <SelectItem value="Apprentice">Apprentice</SelectItem>
+                    <SelectItem value="Adept">Adept</SelectItem>
+                    <SelectItem value="Expert">Expert</SelectItem>
+                    <SelectItem value="Master">Master</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs uppercase text-muted-foreground tracking-widest font-bold">Tier</Label>
+                <Input type="number" name="tier" value={node.tier} onChange={handleChange} className="bg-background border-border" />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-xs uppercase text-muted-foreground tracking-widest font-bold">Theme (Glyph)</Label>
+              <Input name="theme" value={node.theme} onChange={handleChange} className="bg-background border-border" />
+            </div>
+          </div>
+
+          <Separator className="bg-border" />
+
+          {/* Positioning */}
+          <div className="space-y-4">
+            <h3 className="text-sm font-semibold flex items-center gap-2">
+              <MapPin className="w-4 h-4 text-accent" />
+              Coordinates
+            </h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground">X Axis</Label>
+                <Input type="number" name="x" value={node.x} onChange={handleChange} className="bg-background border-border" />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground">Y Axis</Label>
+                <Input type="number" name="y" value={node.y} onChange={handleChange} className="bg-background border-border" />
+              </div>
+            </div>
+          </div>
+
+          <Separator className="bg-border" />
+
+          {/* Logic & Requirements */}
+          <div className="space-y-4">
+            <h3 className="text-sm font-semibold flex items-center gap-2">
+              <LinkIcon className="w-4 h-4 text-accent" />
+              Logic & Requirements
+            </h3>
+            <div className="space-y-2">
+              <Label className="text-xs text-muted-foreground">Soft Needed (Count)</Label>
+              <Input type="number" name="softNeeded" value={node.softNeeded} onChange={handleChange} className="bg-background border-border" />
+            </div>
+            
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Prerequisites ({node.prerequisites.length})</Label>
+              <div className="flex flex-wrap gap-1">
+                {node.prerequisites.map(p => (
+                  <span key={p} className="text-[9px] px-2 py-1 bg-secondary rounded border border-border font-mono">{p}</span>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Children ({node.children.length})</Label>
+              <div className="flex flex-wrap gap-1">
+                {node.children.map(c => (
+                  <span key={c} className="text-[9px] px-2 py-1 bg-secondary rounded border border-border font-mono">{c}</span>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {node.locks && node.locks.length > 0 && (
+            <>
+              <Separator className="bg-border" />
+              <div className="space-y-4 pb-8">
+                <h3 className="text-sm font-semibold flex items-center gap-2">
+                  <Lock className="w-4 h-4 text-accent" />
+                  Locks
+                </h3>
+                {node.locks.map((lock, idx) => (
+                  <div key={idx} className="p-3 bg-secondary/50 rounded border border-border space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-[10px] font-mono">{lock.nodeId}</span>
+                      <span className="text-[10px] font-bold text-accent">Score: {lock.score}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      </ScrollArea>
+    </div>
+  )
+}
