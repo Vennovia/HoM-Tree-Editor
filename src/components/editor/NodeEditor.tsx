@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState } from 'react'
@@ -7,10 +8,11 @@ import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
-import { Sparkles, Trash2, Link as LinkIcon, Lock, MapPin } from 'lucide-react'
+import { Sparkles, Trash2, Link as LinkIcon, Lock, Unlock, MapPin } from 'lucide-react'
 import { suggestSpellNodeDetails } from '@/ai/flows/suggest-spell-node-details-flow'
 import { generateSpellLore } from '@/ai/flows/generate-spell-lore-flow'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { Switch } from '@/components/ui/switch'
 
 interface NodeEditorProps {
   schoolName: string;
@@ -94,6 +96,18 @@ export function NodeEditor({ schoolName, school, node, onUpdate, onDelete }: Nod
 
           {/* Basic Info */}
           <div className="space-y-4">
+            <div className="flex items-center justify-between p-3 bg-secondary/30 rounded-lg border border-border">
+              <div className="flex items-center gap-2">
+                {node.isLocked ? <Lock className="w-3.5 h-3.5 text-accent" /> : <Unlock className="w-3.5 h-3.5 text-muted-foreground" />}
+                <Label htmlFor="lock-toggle" className="text-xs font-bold uppercase tracking-wider">Lock Position</Label>
+              </div>
+              <Switch 
+                id="lock-toggle" 
+                checked={node.isLocked || false} 
+                onCheckedChange={(checked) => onUpdate(node.formId, { isLocked: checked })}
+              />
+            </div>
+
             <div className="space-y-2">
               <Label className="text-xs uppercase text-muted-foreground tracking-widest font-bold">Display Name</Label>
               <Input name="name" value={node.name} onChange={handleChange} className="bg-background border-border" />
@@ -138,11 +152,25 @@ export function NodeEditor({ schoolName, school, node, onUpdate, onDelete }: Nod
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label className="text-xs text-muted-foreground">X Axis</Label>
-                <Input type="number" name="x" value={node.x} onChange={handleChange} className="bg-background border-border" />
+                <Input 
+                  type="number" 
+                  name="x" 
+                  value={node.x} 
+                  onChange={handleChange} 
+                  disabled={node.isLocked}
+                  className="bg-background border-border" 
+                />
               </div>
               <div className="space-y-2">
                 <Label className="text-xs text-muted-foreground">Y Axis</Label>
-                <Input type="number" name="y" value={node.y} onChange={handleChange} className="bg-background border-border" />
+                <Input 
+                  type="number" 
+                  name="y" 
+                  value={node.y} 
+                  onChange={handleChange} 
+                  disabled={node.isLocked}
+                  className="bg-background border-border" 
+                />
               </div>
             </div>
           </div>

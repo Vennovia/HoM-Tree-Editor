@@ -19,6 +19,7 @@ export interface SpellNode {
   y: number;
   locks?: SpellNodeLock[];
   isRoot?: boolean;
+  isLocked?: boolean;
 }
 
 export interface SpellSchool {

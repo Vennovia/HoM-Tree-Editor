@@ -4,6 +4,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react'
 import { SpellNode, SpellSchool } from '@/types/spell-tree'
 import { cn } from '@/lib/utils'
+import { Lock } from 'lucide-react'
 
 interface TreeCanvasProps {
   schoolName: string;
@@ -87,14 +88,17 @@ export function TreeCanvas({
     }
 
     if (nodeId) {
-      setDragMode('node');
-      setDragNodeId(nodeId);
       const foundNode = school.nodes.find(n => n.formId === nodeId);
       if (foundNode) {
-        setDragNodeInitialPos({ x: foundNode.x, y: foundNode.y });
-        setDragStart({ x: e.clientX, y: e.clientY });
+        // Prevent move if locked
+        if (!foundNode.isLocked) {
+          setDragMode('node');
+          setDragNodeId(nodeId);
+          setDragNodeInitialPos({ x: foundNode.x, y: foundNode.y });
+          setDragStart({ x: e.clientX, y: e.clientY });
+        }
+        onSelectNode(nodeId);
       }
-      onSelectNode(nodeId);
       return;
     }
 
@@ -219,6 +223,7 @@ export function TreeCanvas({
           className={cn(
             "spell-node absolute flex items-center justify-center p-1.5 rounded-full border bg-card cursor-grab hover:scale-110 pointer-events-auto arcane-glow select-none group transition-transform duration-200 ease-out",
             dragMode === 'node' && "transition-none",
+            node.isLocked && "cursor-default hover:scale-100",
             selectedNodeId === node.formId ? "node-selected ring-2 ring-accent ring-offset-1 ring-offset-background z-20" : "border-primary/40",
             isRoot && "border-accent shadow-[0_0_15px_hsl(var(--accent))] z-10",
             linkingSourceId === node.formId && "ring-2 ring-accent ring-offset-2 animate-pulse z-30",
@@ -248,6 +253,11 @@ export function TreeCanvas({
               node.skillLevel === 'Apprentice' ? "bg-green-500" : "bg-gray-500"
             )} 
           />
+          {node.isLocked && (
+            <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-background/80 rounded-full p-0.5 border border-border">
+              <Lock className="w-2 h-2 text-muted-foreground" />
+            </div>
+          )}
         </div>
       );
     });
