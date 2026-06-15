@@ -6,6 +6,7 @@ import { SpellTreeData, SpellNode } from '@/types/spell-tree'
 import { JSONImporter } from '@/components/editor/JSONImporter'
 import { TreeCanvas } from '@/components/canvas/TreeCanvas'
 import { NodeEditor } from '@/components/editor/NodeEditor'
+import { DashboardView } from '@/components/dashboard/DashboardView'
 import { Button } from '@/components/ui/button'
 import { 
   Plus, 
@@ -15,7 +16,8 @@ import {
   ChevronLeft, 
   ChevronRight,
   Database,
-  Search
+  Search,
+  LayoutDashboard
 } from 'lucide-react'
 import { cn, deepClone } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
@@ -42,8 +44,7 @@ export default function ArcanaFlowStudio() {
 
   const handleImport = (data: SpellTreeData) => {
     setTreeData(data)
-    const firstSchool = Object.keys(data.schools)[0]
-    if (firstSchool) setSelectedSchool(firstSchool)
+    setSelectedSchool(null) // Default to dashboard
     toast({
       title: "Knowledge Absorbed",
       description: "Successfully imported arcane data structures."
@@ -93,29 +94,32 @@ export default function ArcanaFlowStudio() {
   const handleLinkNodes = useCallback((sourceId: string, targetId: string) => {
     if (!treeData || !selectedSchool || sourceId === targetId) return
     
-    const newData = deepClone(treeData)
-    const school = newData.schools[selectedSchool]
-    const sourceNode = school.nodes.find(n => n.formId === sourceId)
-    const targetNode = school.nodes.find(n => n.formId === targetId)
-    
-    if (!sourceNode || !targetNode) return
+    setTreeData(prev => {
+      if (!prev) return prev
+      const newData = deepClone(prev)
+      const school = newData.schools[selectedSchool]
+      const sourceNode = school.nodes.find(n => n.formId === sourceId)
+      const targetNode = school.nodes.find(n => n.formId === targetId)
+      
+      if (!sourceNode || !targetNode) return prev
 
-    const isAlreadyLinked = sourceNode.children.includes(targetId)
-    
-    if (isAlreadyLinked) {
-      sourceNode.children = sourceNode.children.filter(id => id !== targetId)
-      targetNode.prerequisites = targetNode.prerequisites.filter(id => id !== sourceId)
-      targetNode.hardPrereqs = targetNode.hardPrereqs.filter(id => id !== sourceId)
-      toast({ title: "Arcane Severance", description: "Connection dissolved." })
-    } else {
-      sourceNode.children.push(targetId)
-      targetNode.prerequisites.push(sourceId)
-      targetNode.hardPrereqs.push(sourceId)
-      toast({ title: "Bond Established", description: "The flow of power is linked." })
-    }
-    
-    setTreeData(newData)
-  }, [selectedSchool, treeData, toast])
+      const isAlreadyLinked = sourceNode.children.includes(targetId)
+      
+      if (isAlreadyLinked) {
+        sourceNode.children = sourceNode.children.filter(id => id !== targetId)
+        targetNode.prerequisites = targetNode.prerequisites.filter(id => id !== sourceId)
+        targetNode.hardPrereqs = targetNode.hardPrereqs.filter(id => id !== sourceId)
+        setTimeout(() => toast({ title: "Arcane Severance", description: "Connection dissolved." }), 0)
+      } else {
+        sourceNode.children.push(targetId)
+        targetNode.prerequisites.push(sourceId)
+        targetNode.hardPrereqs.push(sourceId)
+        setTimeout(() => toast({ title: "Bond Established", description: "The flow of power is linked." }), 0)
+      }
+      
+      return newData
+    })
+  }, [selectedSchool, toast])
 
   const handleDeleteNode = (nodeId: string) => {
     if (!treeData || !selectedSchool) return
@@ -221,6 +225,27 @@ export default function ArcanaFlowStudio() {
               </div>
 
               <div className="space-y-1">
+                <Label className="text-[10px] uppercase text-muted-foreground tracking-widest font-bold px-2">Navigation</Label>
+                <div className="space-y-1 mt-2">
+                  <button
+                    onClick={() => {
+                      setSelectedSchool(null)
+                      setSelectedNodeId(null)
+                    }}
+                    className={cn(
+                      "w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md transition-all group",
+                      selectedSchool === null 
+                        ? "bg-primary text-accent font-medium arcane-glow" 
+                        : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                    )}
+                  >
+                    <LayoutDashboard className="w-3.5 h-3.5 opacity-50 group-hover:text-accent" />
+                    All Schools
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-1">
                 <Label className="text-[10px] uppercase text-muted-foreground tracking-widest font-bold px-2">Spell Schools</Label>
                 <div className="space-y-1 mt-2">
                   {filteredSchools.map(school => (
@@ -269,6 +294,10 @@ export default function ArcanaFlowStudio() {
 
         {isSidebarCollapsed && (
           <div className="flex flex-col items-center py-4 gap-4">
+            <Button variant="ghost" size="icon" onClick={() => setSelectedSchool(null)} title="Dashboard">
+              <LayoutDashboard className={cn("w-5 h-5", selectedSchool === null ? "text-accent" : "text-muted-foreground")} />
+            </Button>
+            <Separator className="bg-border w-8" />
             <Button variant="ghost" size="icon" onClick={() => setIsImportOpen(true)}>
               <Code className="w-5 h-5 text-muted-foreground" />
             </Button>
@@ -299,33 +328,41 @@ export default function ArcanaFlowStudio() {
         <header className="h-16 border-b border-border flex items-center justify-between px-6 bg-card/30 backdrop-blur-sm relative z-20">
           <div className="flex items-center gap-4">
             <h2 className="font-headline font-bold text-muted-foreground">
-              {selectedSchool ? <span className="text-accent">{selectedSchool}</span> : "Select a school"} 
+              {selectedSchool ? <span className="text-accent">{selectedSchool}</span> : <span className="text-accent flex items-center gap-2"><LayoutDashboard className="w-4 h-4" /> Dashboard</span>} 
               {selectedNode && <span className="text-muted-foreground/50 mx-2">/</span>}
               {selectedNode && <span className="text-foreground">{selectedNode.name}</span>}
             </h2>
           </div>
           <div className="flex items-center gap-2">
-            <Button 
-              size="sm" 
-              className="gap-2 bg-accent hover:bg-accent/90 text-accent-foreground rounded-full px-4"
-              onClick={handleAddNode}
-              disabled={!selectedSchool}
-            >
-              <Plus className="w-4 h-4" /> Add Node
-            </Button>
+            {selectedSchool && (
+              <Button 
+                size="sm" 
+                className="gap-2 bg-accent hover:bg-accent/90 text-accent-foreground rounded-full px-4"
+                onClick={handleAddNode}
+              >
+                <Plus className="w-4 h-4" /> Add Node
+              </Button>
+            )}
           </div>
         </header>
 
-        <div className="flex-1 relative">
-          {treeData && selectedSchool ? (
-            <TreeCanvas 
-              schoolName={selectedSchool}
-              school={treeData.schools[selectedSchool]}
-              selectedNodeId={selectedNodeId}
-              onSelectNode={setSelectedNodeId}
-              onNodeMove={handleUpdateNode}
-              onLinkNodes={handleLinkNodes}
-            />
+        <div className="flex-1 relative overflow-auto">
+          {treeData ? (
+            selectedSchool ? (
+              <TreeCanvas 
+                schoolName={selectedSchool}
+                school={treeData.schools[selectedSchool]}
+                selectedNodeId={selectedNodeId}
+                onSelectNode={setSelectedNodeId}
+                onNodeMove={handleUpdateNode}
+                onLinkNodes={handleLinkNodes}
+              />
+            ) : (
+              <DashboardView 
+                data={treeData} 
+                onSelectSchool={setSelectedSchool} 
+              />
+            )
           ) : (
             <div className="w-full h-full flex flex-col items-center justify-center space-y-4 text-muted-foreground">
               <div className="p-8 rounded-full bg-secondary/20 animate-pulse border border-dashed border-border">
