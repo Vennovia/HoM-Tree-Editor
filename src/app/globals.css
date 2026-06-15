@@ -61,6 +61,23 @@
   100% { box-shadow: 0 0 5px hsl(var(--accent) / 0.2); }
 }
 
+.arcane-grid {
+  background-size: 50px 50px;
+  background-image: 
+    linear-gradient(to right, hsl(var(--border) / 0.1) 1px, transparent 1px),
+    linear-gradient(to bottom, hsl(var(--border) / 0.1) 1px, transparent 1px);
+}
+
+.heart-glow {
+  animation: heart-pulse 4s ease-in-out infinite;
+}
+
+@keyframes heart-pulse {
+  0% { box-shadow: 0 0 40px hsl(var(--accent) / 0.2); transform: translate(-50%, -50%) scale(1); }
+  50% { box-shadow: 0 0 100px hsl(var(--accent) / 0.4); transform: translate(-50%, -50%) scale(1.05); }
+  100% { box-shadow: 0 0 40px hsl(var(--accent) / 0.2); transform: translate(-50%, -50%) scale(1); }
+}
+
 /* Custom scrollbar for arcane feel */
 ::-webkit-scrollbar {
   width: 8px;
