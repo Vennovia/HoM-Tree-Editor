@@ -51,7 +51,6 @@ export function TreeCanvas({
     const nodeId = isNode?.getAttribute('data-node-id');
 
     if (e.shiftKey && nodeId) {
-      // Start/End Linking
       if (!linkingSourceId) {
         setLinkingSourceId(nodeId);
       } else {
@@ -64,7 +63,6 @@ export function TreeCanvas({
     }
 
     if (nodeId) {
-      // Start dragging node
       setDragMode('node');
       setDragNodeId(nodeId);
       const node = school.nodes.find(n => n.formId === nodeId);
@@ -76,12 +74,10 @@ export function TreeCanvas({
       return;
     }
 
-    // Default to canvas pan (Middle mouse or Alt+Left)
     if (e.button === 1 || (e.button === 0 && e.altKey)) {
       setDragMode('canvas');
       setDragStart({ x: e.clientX - transform.x, y: e.clientY - transform.y });
     } else if (e.button === 0 && !e.shiftKey) {
-      // Clear linking if clicking empty space
       setLinkingSourceId(null);
     }
   };
@@ -171,7 +167,10 @@ export function TreeCanvas({
       onWheel={handleWheel}
     >
       <div 
-        className="absolute transition-transform duration-75 ease-out origin-top-left pointer-events-none"
+        className={cn(
+          "absolute origin-top-left pointer-events-none",
+          !dragMode && "transition-transform duration-200 ease-out"
+        )}
         style={{ transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})` }}
       >
         <svg 
@@ -186,11 +185,11 @@ export function TreeCanvas({
             key={node.formId}
             data-node-id={node.formId}
             className={cn(
-              "spell-node absolute flex items-center justify-center p-3 rounded-full border-2 bg-card cursor-grab transition-all hover:scale-110 pointer-events-auto arcane-glow select-none group",
+              "spell-node absolute flex items-center justify-center p-3 rounded-full border-2 bg-card cursor-grab hover:scale-110 pointer-events-auto arcane-glow select-none group",
               selectedNodeId === node.formId ? "node-selected ring-2 ring-accent ring-offset-2 ring-offset-background z-20" : "border-primary/50",
               node.isRoot && "border-accent shadow-[0_0_10px_hsl(var(--accent))]",
               linkingSourceId === node.formId && "ring-4 ring-accent ring-offset-4 animate-pulse z-30",
-              dragNodeId === node.formId && "cursor-grabbing scale-110 opacity-80"
+              dragNodeId === node.formId && "cursor-grabbing scale-110 opacity-80 z-40"
             )}
             style={{ 
               left: node.x, 
@@ -216,7 +215,6 @@ export function TreeCanvas({
         ))}
       </div>
 
-      {/* Info Panels */}
       <div className="absolute bottom-4 left-4 flex flex-col gap-1 p-3 bg-card/80 border border-border rounded-lg backdrop-blur-sm pointer-events-none">
         <h3 className="text-xs font-bold uppercase text-muted-foreground tracking-widest">{schoolName} School</h3>
         <p className="text-[10px] text-muted-foreground">{school.nodes.length} Nodes Loaded</p>

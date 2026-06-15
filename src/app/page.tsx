@@ -68,13 +68,24 @@ export default function ArcanaFlowStudio() {
   const handleUpdateNode = useCallback((nodeId: string, updates: Partial<SpellNode>) => {
     setTreeData(prev => {
       if (!prev || !selectedSchool) return prev
-      const newData = deepClone(prev)
-      const school = newData.schools[selectedSchool]
+      
+      const school = prev.schools[selectedSchool]
       const nodeIndex = school.nodes.findIndex(n => n.formId === nodeId)
-      if (nodeIndex !== -1) {
-        school.nodes[nodeIndex] = { ...school.nodes[nodeIndex], ...updates }
+      if (nodeIndex === -1) return prev
+
+      const updatedNodes = [...school.nodes]
+      updatedNodes[nodeIndex] = { ...updatedNodes[nodeIndex], ...updates }
+
+      return {
+        ...prev,
+        schools: {
+          ...prev.schools,
+          [selectedSchool]: {
+            ...school,
+            nodes: updatedNodes
+          }
+        }
       }
-      return newData
     })
   }, [selectedSchool])
 
@@ -93,16 +104,14 @@ export default function ArcanaFlowStudio() {
       const isAlreadyLinked = sourceNode.children.includes(targetId)
       
       if (isAlreadyLinked) {
-        // Remove link
         sourceNode.children = sourceNode.children.filter(id => id !== targetId)
         targetNode.prerequisites = targetNode.prerequisites.filter(id => id !== sourceId)
         targetNode.hardPrereqs = targetNode.hardPrereqs.filter(id => id !== sourceId)
         toast({ title: "Arcane Severance", description: "Connection dissolved." })
       } else {
-        // Add link
         sourceNode.children.push(targetId)
         targetNode.prerequisites.push(sourceId)
-        targetNode.hardPrereqs.push(sourceId) // Default to hard prereq for now
+        targetNode.hardPrereqs.push(sourceId)
         toast({ title: "Bond Established", description: "The flow of power is linked." })
       }
       
@@ -115,7 +124,6 @@ export default function ArcanaFlowStudio() {
     const newData = deepClone(treeData)
     const school = newData.schools[selectedSchool]
     school.nodes = school.nodes.filter(n => n.formId !== nodeId)
-    // Remove as child or prereq from others
     school.nodes.forEach(n => {
       n.children = n.children.filter(id => id !== nodeId)
       n.prerequisites = n.prerequisites.filter(id => id !== nodeId)
@@ -178,7 +186,6 @@ export default function ArcanaFlowStudio() {
         onImport={handleImport} 
       />
 
-      {/* Sidebar */}
       <aside className={cn(
         "flex flex-col border-r border-border transition-all duration-300 ease-in-out bg-card/50 backdrop-blur-md relative z-30",
         isSidebarCollapsed ? "w-16" : "w-72"
@@ -290,7 +297,6 @@ export default function ArcanaFlowStudio() {
         )}
       </aside>
 
-      {/* Main Content (Canvas) */}
       <main className="flex-1 flex flex-col min-w-0 bg-background relative overflow-hidden">
         <header className="h-16 border-b border-border flex items-center justify-between px-6 bg-card/30 backdrop-blur-sm relative z-20">
           <div className="flex items-center gap-4">
@@ -334,7 +340,6 @@ export default function ArcanaFlowStudio() {
         </div>
       </main>
 
-      {/* Right Panel (Node Detail Editor) */}
       <aside className={cn(
         "border-l border-border bg-card/80 backdrop-blur-md transition-all duration-300 ease-in-out relative z-30",
         selectedNodeId ? "w-96" : "w-0 overflow-hidden border-l-0"
