@@ -16,9 +16,6 @@ interface TreeCanvasProps {
   searchQuery?: string;
 }
 
-// Fixed spacing for global view
-const GLOBAL_RADIUS = 2500;
-
 export function TreeCanvas({ 
   schoolName, 
   school, 
@@ -40,17 +37,30 @@ export function TreeCanvas({
   const [linkingSourceId, setLinkingSourceId] = useState<string | null>(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
 
-  // Compute school offsets for global view
+  // Compute school offsets for global view centered around a single focal point
   const schoolOffsets = useMemo(() => {
     if (!allSchools) return { [schoolName]: { x: 0, y: 0 } };
     const keys = Object.keys(allSchools);
     const offsets: Record<string, { x: number, y: number }> = {};
+    const HUB_RADIUS = 300; // Small circle for roots at the center
+
     keys.forEach((key, i) => {
+      const sData = allSchools[key];
+      const rootNode = sData.nodes.find(n => n.formId === sData.root);
       const angle = (i * 2 * Math.PI) / keys.length;
-      offsets[key] = {
-        x: Math.cos(angle) * GLOBAL_RADIUS,
-        y: Math.sin(angle) * GLOBAL_RADIUS
-      };
+      
+      if (rootNode) {
+        // Offset so the root node is positioned at the hub boundary
+        offsets[key] = {
+          x: (Math.cos(angle) * HUB_RADIUS) - rootNode.x,
+          y: (Math.sin(angle) * HUB_RADIUS) - rootNode.y
+        };
+      } else {
+        offsets[key] = {
+          x: Math.cos(angle) * HUB_RADIUS * 2,
+          y: Math.sin(angle) * HUB_RADIUS * 2
+        };
+      }
     });
     return offsets;
   }, [allSchools, schoolName]);
@@ -58,7 +68,12 @@ export function TreeCanvas({
   // Center camera ONLY when school context changes
   useEffect(() => {
     if (allSchools) {
-      setTransform({ x: (containerRef.current?.clientWidth || 0) / 2, y: (containerRef.current?.clientHeight || 0) / 2, scale: 0.1 });
+      // Center on the global focal point (0,0)
+      setTransform({ 
+        x: (containerRef.current?.clientWidth || 0) / 2, 
+        y: (containerRef.current?.clientHeight || 0) / 2, 
+        scale: 0.2 
+      });
     } else if (school) {
       const rootNode = school.nodes.find(n => n.formId === school.root);
       if (rootNode) {
@@ -97,7 +112,6 @@ export function TreeCanvas({
       setDragMode('node');
       setDragNodeId(nodeId);
       
-      // Find node in any active school
       let foundNode: SpellNode | undefined;
       if (allSchools) {
         for (const s of Object.values(allSchools)) {
@@ -191,7 +205,6 @@ export function TreeCanvas({
     Object.entries(activeSchools).forEach(([sName, sData]) => {
       const offset = schoolOffsets[sName] || { x: 0, y: 0 };
       
-      // Render connections
       sData.nodes.forEach(node => {
         node.children.forEach(childId => {
           const childNode = sData.nodes.find(n => n.formId === childId);
@@ -227,7 +240,6 @@ export function TreeCanvas({
         });
       });
 
-      // Render nodes
       sData.nodes.forEach(node => {
         const isMatch = searchQuery.length > 1 && (
           node.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -240,7 +252,7 @@ export function TreeCanvas({
             data-node-id={node.formId}
             className={cn(
               "spell-node absolute flex items-center justify-center p-3 rounded-full border-2 bg-card cursor-grab hover:scale-110 pointer-events-auto arcane-glow select-none group transition-transform duration-200 ease-out",
-              dragMode && "transition-none",
+              dragMode === 'node' && "transition-none",
               selectedNodeId === node.formId ? "node-selected ring-2 ring-accent ring-offset-2 ring-offset-background z-20" : "border-primary/50",
               node.isRoot && "border-accent shadow-[0_0_10px_hsl(var(--accent))]",
               linkingSourceId === node.formId && "ring-4 ring-accent ring-offset-4 animate-pulse z-30",
@@ -278,7 +290,6 @@ export function TreeCanvas({
   const activeLinkingLine = useMemo(() => {
     if (dragMode !== 'linking' || !linkingSourceId) return null;
     
-    // Find source node and its school offset
     let sourceNode: SpellNode | undefined;
     let sourceOffset = { x: 0, y: 0 };
     
@@ -341,27 +352,33 @@ export function TreeCanvas({
 
         {renderData.nodes}
 
-        {/* School Labels for Global View */}
-        {allSchools && Object.entries(schoolOffsets).map(([sName, offset]) => (
-          <div 
-            key={`label-${sName}`}
-            className="absolute text-4xl font-headline font-black text-accent/10 pointer-events-none select-none uppercase tracking-[2em]"
-            style={{ 
-              left: offset.x, 
-              top: offset.y - 1000,
-              transform: 'translateX(-50%)'
-            }}
-          >
-            {sName}
-          </div>
-        ))}
+        {/* School Labels for Global View - Adjusted for Hub Layout */}
+        {allSchools && Object.entries(schoolOffsets).map(([sName, offset]) => {
+          const sData = allSchools[sName];
+          const rootNode = sData.nodes.find(n => n.formId === sData.root);
+          if (!rootNode) return null;
+          
+          return (
+            <div 
+              key={`label-${sName}`}
+              className="absolute text-4xl font-headline font-black text-accent/5 pointer-events-none select-none uppercase tracking-[2em]"
+              style={{ 
+                left: rootNode.x + offset.x, 
+                top: rootNode.y + offset.y - 400,
+                transform: 'translateX(-50%)'
+              }}
+            >
+              {sName}
+            </div>
+          );
+        })}
       </div>
 
       <div className="absolute bottom-4 left-4 flex flex-col gap-1 p-3 bg-card/80 border border-border rounded-lg backdrop-blur-sm pointer-events-none">
         <h3 className="text-xs font-bold uppercase text-muted-foreground tracking-widest">{schoolName}</h3>
         <p className="text-[10px] text-muted-foreground">
           {allSchools 
-            ? `${Object.keys(allSchools).length} Schools Visible` 
+            ? `${Object.keys(allSchools).length} Schools Converging` 
             : `${school?.nodes.length || 0} Nodes Loaded`}
         </p>
         <p className="text-[10px] text-accent/80 font-mono">Zoom: {(transform.scale * 100).toFixed(0)}%</p>
