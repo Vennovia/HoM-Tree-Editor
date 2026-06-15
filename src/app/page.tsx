@@ -86,8 +86,8 @@ export default function ArcanaFlowStudio() {
     return null
   }, [treeData])
 
-  const handleUpdateNode = useCallback((nodeId: string, updates: Partial<SpellNode>) => {
-    const schoolName = findSchoolForNode(nodeId)
+  const handleUpdateNode = useCallback((nodeId: string, updates: Partial<SpellNode>, providedSchoolName?: string) => {
+    const schoolName = providedSchoolName || findSchoolForNode(nodeId)
     if (!schoolName) return
 
     setTreeData(prev => {
@@ -131,38 +131,38 @@ export default function ArcanaFlowStudio() {
       const target = { ...nodes[targetIdx] }
 
       if (type === 'hard') {
-        const exists = node.hardPrereqs.includes(targetId)
+        const exists = (node.hardPrereqs || []).includes(targetId)
         if (exists) {
-          node.hardPrereqs = node.hardPrereqs.filter(id => id !== targetId)
-          node.prerequisites = node.prerequisites.filter(id => id !== targetId)
-          target.children = target.children.filter(id => id !== nodeId)
+          node.hardPrereqs = (node.hardPrereqs || []).filter(id => id !== targetId)
+          node.prerequisites = (node.prerequisites || []).filter(id => id !== targetId)
+          target.children = (target.children || []).filter(id => id !== nodeId)
         } else {
-          node.hardPrereqs = [...node.hardPrereqs, targetId]
-          if (!node.prerequisites.includes(targetId)) node.prerequisites = [...node.prerequisites, targetId]
-          if (!target.children.includes(nodeId)) target.children = [...target.children, nodeId]
+          node.hardPrereqs = [...(node.hardPrereqs || []), targetId]
+          if (!(node.prerequisites || []).includes(targetId)) node.prerequisites = [...(node.prerequisites || []), targetId]
+          if (!(target.children || []).includes(nodeId)) target.children = [...(target.children || []), nodeId]
         }
       } else if (type === 'soft') {
-        const exists = node.softPrereqs.includes(targetId)
+        const exists = (node.softPrereqs || []).includes(targetId)
         if (exists) {
-          node.softPrereqs = node.softPrereqs.filter(id => id !== targetId)
-          node.prerequisites = node.prerequisites.filter(id => id !== targetId)
-          target.children = target.children.filter(id => id !== nodeId)
+          node.softPrereqs = (node.softPrereqs || []).filter(id => id !== targetId)
+          node.prerequisites = (node.prerequisites || []).filter(id => id !== targetId)
+          target.children = (target.children || []).filter(id => id !== nodeId)
         } else {
-          node.softPrereqs = [...node.softPrereqs, targetId]
-          if (!node.prerequisites.includes(targetId)) node.prerequisites = [...node.prerequisites, targetId]
-          if (!target.children.includes(nodeId)) target.children = [...target.children, nodeId]
+          node.softPrereqs = [...(node.softPrereqs || []), targetId]
+          if (!(node.prerequisites || []).includes(targetId)) node.prerequisites = [...(node.prerequisites || []), targetId]
+          if (!(target.children || []).includes(nodeId)) target.children = [...(target.children || []), nodeId]
         }
       } else if (type === 'child') {
-        const exists = node.children.includes(targetId)
+        const exists = (node.children || []).includes(targetId)
         if (exists) {
-          node.children = node.children.filter(id => id !== targetId)
-          target.prerequisites = target.prerequisites.filter(id => id !== nodeId)
-          target.hardPrereqs = target.hardPrereqs.filter(id => id !== nodeId)
-          target.softPrereqs = target.softPrereqs.filter(id => id !== nodeId)
+          node.children = (node.children || []).filter(id => id !== targetId)
+          target.prerequisites = (target.prerequisites || []).filter(id => id !== nodeId)
+          target.hardPrereqs = (target.hardPrereqs || []).filter(id => id !== nodeId)
+          target.softPrereqs = (target.softPrereqs || []).filter(id => id !== nodeId)
         } else {
-          node.children = [...node.children, targetId]
-          if (!target.prerequisites.includes(nodeId)) target.prerequisites = [...target.prerequisites, nodeId]
-          if (!target.hardPrereqs.includes(nodeId)) target.hardPrereqs = [...target.hardPrereqs, nodeId]
+          node.children = [...(node.children || []), targetId]
+          if (!(target.prerequisites || []).includes(nodeId)) target.prerequisites = [...(target.prerequisites || []), nodeId]
+          if (!(target.hardPrereqs || []).includes(nodeId)) target.hardPrereqs = [...(target.hardPrereqs || []), nodeId]
         }
       }
 
@@ -205,10 +205,10 @@ export default function ArcanaFlowStudio() {
           ...newSchools[sName],
           nodes: newSchools[sName].nodes.map(n => ({
             ...n,
-            children: n.children.filter(id => id !== nodeId),
-            prerequisites: n.prerequisites.filter(id => id !== nodeId),
-            hardPrereqs: n.hardPrereqs.filter(id => id !== nodeId),
-            softPrereqs: n.softPrereqs.filter(id => id !== nodeId)
+            children: (n.children || []).filter(id => id !== nodeId),
+            prerequisites: (n.prerequisites || []).filter(id => id !== nodeId),
+            hardPrereqs: (n.hardPrereqs || []).filter(id => id !== nodeId),
+            softPrereqs: (n.softPrereqs || []).filter(id => id !== nodeId)
           }))
         }
       })

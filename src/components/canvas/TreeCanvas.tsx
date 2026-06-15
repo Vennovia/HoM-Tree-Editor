@@ -11,7 +11,7 @@ interface TreeCanvasProps {
   school: SpellSchool;
   selectedNodeId: string | null;
   onSelectNode: (nodeId: string) => void;
-  onNodeMove: (nodeId: string, updates: Partial<SpellNode>) => void;
+  onNodeMove: (nodeId: string, updates: Partial<SpellNode>, schoolName: string) => void;
   onLinkNodes: (sourceId: string, targetId: string) => void;
   searchQuery?: string;
 }
@@ -33,6 +33,9 @@ export function TreeCanvas({
   const [dragNodeId, setDragNodeId] = useState<string | null>(null);
   const [dragNodeInitialPos, setDragNodeInitialPos] = useState({ x: 0, y: 0 });
   
+  // Local state for dragging to keep UI snappy
+  const [draggingNodePos, setDraggingNodePos] = useState<{ x: number, y: number } | null>(null);
+
   const [linkingSourceId, setLinkingSourceId] = useState<string | null>(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
 
@@ -109,8 +112,8 @@ export function TreeCanvas({
           setDragNodeId(nodeId);
           setDragNodeInitialPos({ x: foundNode.x, y: foundNode.y });
           setDragStart({ x: e.clientX, y: e.clientY });
+          setDraggingNodePos({ x: foundNode.x, y: foundNode.y });
         }
-        // Update selection but don't auto-center during manual interaction
         lastCenteredId.current = nodeId;
         onSelectNode(nodeId);
       }
@@ -136,7 +139,8 @@ export function TreeCanvas({
       const dx = (e.clientX - dragStart.x) / transform.scale;
       const dy = (e.clientY - dragStart.y) / transform.scale;
       
-      onNodeMove(dragNodeId, {
+      // Update local position for zero-latency feedback
+      setDraggingNodePos({
         x: Math.round(dragNodeInitialPos.x + dx),
         y: Math.round(dragNodeInitialPos.y + dy)
       });
@@ -147,6 +151,11 @@ export function TreeCanvas({
   };
 
   const handleMouseUp = (e: React.MouseEvent) => {
+    if (dragMode === 'node' && dragNodeId && draggingNodePos) {
+      // Final sync with parent state
+      onNodeMove(dragNodeId, draggingNodePos, schoolName);
+    }
+
     if (dragMode === 'linking' && linkingSourceId) {
       const target = e.target as HTMLElement;
       const targetNode = target.closest('.spell-node');
@@ -160,6 +169,7 @@ export function TreeCanvas({
     setDragMode(null);
     setDragNodeId(null);
     setLinkingSourceId(null);
+    setDraggingNodePos(null);
   };
 
   const handleWheel = (e: React.WheelEvent) => {
@@ -191,7 +201,7 @@ export function TreeCanvas({
     const connectionsData: Array<{ source: SpellNode, target: SpellNode, isHighlighted: boolean }> = [];
 
     school.nodes.forEach(node => {
-      node.children.forEach(childId => {
+      (node.children || []).forEach(childId => {
         const childNode = school.nodes.find(n => n.formId === childId);
         if (childNode) {
           const isHighlighted = selectedNodeId === node.formId || selectedNodeId === childId;
@@ -200,25 +210,28 @@ export function TreeCanvas({
       });
     });
 
-    // Draw highlighted lines on top
     connectionsData.sort((a, b) => (a.isHighlighted === b.isHighlighted ? 0 : a.isHighlighted ? 1 : -1));
 
     connectionsData.forEach(({ source, target, isHighlighted }) => {
-      const dx = target.x - source.x;
-      const dy = target.y - source.y;
+      // Use local dragging positions if available
+      const sX = (dragNodeId === source.formId && draggingNodePos) ? draggingNodePos.x : source.x;
+      const sY = (dragNodeId === source.formId && draggingNodePos) ? draggingNodePos.y : source.y;
+      const tX = (dragNodeId === target.formId && draggingNodePos) ? draggingNodePos.x : target.x;
+      const tY = (dragNodeId === target.formId && draggingNodePos) ? draggingNodePos.y : target.y;
+
+      const dx = tX - sX;
+      const dy = tY - sY;
       const angle = Math.atan2(dy, dx);
       const targetRadius = (target.formId === school.root ? 27 : 20) + 4;
       
-      const x2 = target.x - targetRadius * Math.cos(angle);
-      const y2 = target.y - targetRadius * Math.sin(angle);
+      const x2 = tX - targetRadius * Math.cos(angle);
+      const y2 = tY - targetRadius * Math.sin(angle);
 
       connections.push(
         <g key={`${source.formId}-${target.formId}`} className="group/line cursor-pointer">
           <line
-            x1={source.x}
-            y1={source.y}
-            x2={target.x}
-            y2={target.y}
+            x1={sX} y1={sY}
+            x2={tX} y2={tY}
             stroke="transparent"
             strokeWidth="20"
             className="pointer-events-auto"
@@ -228,10 +241,8 @@ export function TreeCanvas({
             }}
           />
           <line
-            x1={source.x}
-            y1={source.y}
-            x2={x2}
-            y2={y2}
+            x1={sX} y1={sY}
+            x2={x2} y2={y2}
             stroke={isHighlighted ? "#f97316" : "hsl(var(--primary))"}
             strokeWidth={isHighlighted ? "2.5" : "1.5"}
             strokeOpacity={isHighlighted ? "0.9" : "0.4"}
@@ -253,6 +264,8 @@ export function TreeCanvas({
       );
 
       const isRoot = node.formId === school.root;
+      const x = (dragNodeId === node.formId && draggingNodePos) ? draggingNodePos.x : node.x;
+      const y = (dragNodeId === node.formId && draggingNodePos) ? draggingNodePos.y : node.y;
 
       nodes.push(
         <div
@@ -260,7 +273,7 @@ export function TreeCanvas({
           data-node-id={node.formId}
           className={cn(
             "spell-node absolute flex items-center justify-center p-1.5 rounded-full border bg-card cursor-grab hover:scale-110 pointer-events-auto arcane-glow select-none group transition-transform duration-200 ease-out",
-            dragMode === 'node' && "transition-none",
+            (dragMode === 'node' || draggingNodePos) && "transition-none",
             node.isLocked && "cursor-default hover:scale-100",
             selectedNodeId === node.formId ? "node-selected ring-2 ring-accent ring-offset-1 ring-offset-background z-20" : "border-primary/40",
             isRoot && "border-accent shadow-[0_0_15px_hsl(var(--accent))] z-10",
@@ -269,8 +282,8 @@ export function TreeCanvas({
             isMatch && "node-pulse ring-2 ring-yellow-400 border-yellow-400 z-50 scale-125 shadow-[0_0_20px_hsl(48_100%_50%)]"
           )}
           style={{ 
-            left: node.x, 
-            top: node.y, 
+            left: x, 
+            top: y, 
             transform: 'translate(-50%, -50%)',
             width: isRoot ? 54 : 40,
             height: isRoot ? 54 : 40,
@@ -301,7 +314,7 @@ export function TreeCanvas({
     });
 
     return { nodes, connections };
-  }, [school, selectedNodeId, linkingSourceId, dragNodeId, dragMode, searchQuery, onLinkNodes]);
+  }, [school, selectedNodeId, linkingSourceId, dragNodeId, dragMode, searchQuery, onLinkNodes, draggingNodePos]);
 
   const activeLinkingLine = useMemo(() => {
     if (dragMode !== 'linking' || !linkingSourceId) return null;

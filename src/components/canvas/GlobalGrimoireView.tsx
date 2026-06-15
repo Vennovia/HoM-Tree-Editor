@@ -10,7 +10,7 @@ interface GlobalGrimoireViewProps {
   schools: Record<string, SpellSchool>;
   selectedNodeId: string | null;
   onSelectNode: (nodeId: string) => void;
-  onNodeMove: (nodeId: string, updates: Partial<SpellNode>) => void;
+  onNodeMove: (nodeId: string, updates: Partial<SpellNode>, schoolName: string) => void;
   onLinkNodes: (sourceId: string, targetId: string) => void;
   searchQuery?: string;
 }
@@ -30,7 +30,10 @@ export function GlobalGrimoireView({
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [dragNodeId, setDragNodeId] = useState<string | null>(null);
   const [dragNodeInitialPos, setDragNodeInitialPos] = useState({ x: 0, y: 0 });
+  const [dragSchoolName, setDragSchoolName] = useState<string | null>(null);
   
+  const [draggingNodePos, setDraggingNodePos] = useState<{ x: number, y: number } | null>(null);
+
   const [linkingSourceId, setLinkingSourceId] = useState<string | null>(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
 
@@ -68,17 +71,23 @@ export function GlobalGrimoireView({
 
     if (nodeId) {
       let foundNode: SpellNode | undefined;
+      let schoolName: string | undefined;
       for (const sName in schools) {
         foundNode = schools[sName].nodes.find(n => n.formId === nodeId);
-        if (foundNode) break;
+        if (foundNode) {
+          schoolName = sName;
+          break;
+        }
       }
 
-      if (foundNode) {
+      if (foundNode && schoolName) {
         if (!foundNode.isLocked) {
           setDragMode('node');
           setDragNodeId(nodeId);
+          setDragSchoolName(schoolName);
           setDragNodeInitialPos({ x: foundNode.x, y: foundNode.y });
           setDragStart({ x: e.clientX, y: e.clientY });
+          setDraggingNodePos({ x: foundNode.x, y: foundNode.y });
         }
         onSelectNode(nodeId);
       }
@@ -104,7 +113,7 @@ export function GlobalGrimoireView({
       const dx = (e.clientX - dragStart.x) / transform.scale;
       const dy = (e.clientY - dragStart.y) / transform.scale;
       
-      onNodeMove(dragNodeId, {
+      setDraggingNodePos({
         x: Math.round(dragNodeInitialPos.x + dx),
         y: Math.round(dragNodeInitialPos.y + dy)
       });
@@ -115,6 +124,10 @@ export function GlobalGrimoireView({
   };
 
   const handleMouseUp = (e: React.MouseEvent) => {
+    if (dragMode === 'node' && dragNodeId && draggingNodePos && dragSchoolName) {
+      onNodeMove(dragNodeId, draggingNodePos, dragSchoolName);
+    }
+
     if (dragMode === 'linking' && linkingSourceId) {
       const target = e.target as HTMLElement;
       const targetNode = target.closest('.spell-node');
@@ -128,6 +141,8 @@ export function GlobalGrimoireView({
     setDragMode(null);
     setDragNodeId(null);
     setLinkingSourceId(null);
+    setDraggingNodePos(null);
+    setDragSchoolName(null);
   };
 
   const handleWheel = (e: React.WheelEvent) => {
@@ -161,11 +176,14 @@ export function GlobalGrimoireView({
       const schoolRoot = school.nodes.find(n => n.formId === rootId);
       
       if (schoolRoot) {
+        const rootX = (dragNodeId === rootId && draggingNodePos) ? draggingNodePos.x : schoolRoot.x;
+        const rootY = (dragNodeId === rootId && draggingNodePos) ? draggingNodePos.y : schoolRoot.y;
+
         hubLines.push(
           <line
             key={`hub-${sName}`}
             x1={0} y1={0}
-            x2={schoolRoot.x} y2={schoolRoot.y}
+            x2={rootX} y2={rootY}
             stroke="hsl(var(--accent))"
             strokeWidth="4"
             strokeOpacity="0.15"
@@ -176,23 +194,28 @@ export function GlobalGrimoireView({
       }
 
       school.nodes.forEach(node => {
-        node.children.forEach(childId => {
+        (node.children || []).forEach(childId => {
           const childNode = school.nodes.find(n => n.formId === childId);
           if (childNode) {
             const isHighlighted = selectedNodeId === node.formId || selectedNodeId === childId;
             
-            const dx = childNode.x - node.x;
-            const dy = childNode.y - node.y;
+            const nX = (dragNodeId === node.formId && draggingNodePos) ? draggingNodePos.x : node.x;
+            const nY = (dragNodeId === node.formId && draggingNodePos) ? draggingNodePos.y : node.y;
+            const cX = (dragNodeId === childId && draggingNodePos) ? draggingNodePos.x : childNode.x;
+            const cY = (dragNodeId === childId && draggingNodePos) ? draggingNodePos.y : childNode.y;
+
+            const dx = cX - nX;
+            const dy = cY - nY;
             const angle = Math.atan2(dy, dx);
             const targetRadius = (childNode.formId === school.root ? 27 : 16) + 4;
             
-            const x2 = childNode.x - targetRadius * Math.cos(angle);
-            const y2 = childNode.y - targetRadius * Math.sin(angle);
+            const x2 = cX - targetRadius * Math.cos(angle);
+            const y2 = cY - targetRadius * Math.sin(angle);
 
             connections.push(
               <line
                 key={`${sName}-${node.formId}-${childId}`}
-                x1={node.x} y1={node.y}
+                x1={nX} y1={nY}
                 x2={x2} y2={y2}
                 stroke={isHighlighted ? "#f97316" : "hsl(var(--primary))"}
                 strokeWidth={isHighlighted ? "3" : "1"}
@@ -209,6 +232,9 @@ export function GlobalGrimoireView({
           node.formId.toLowerCase().includes(searchQuery.toLowerCase())
         );
 
+        const x = (dragNodeId === node.formId && draggingNodePos) ? draggingNodePos.x : node.x;
+        const y = (dragNodeId === node.formId && draggingNodePos) ? draggingNodePos.y : node.y;
+
         nodes.push(
           <div
             key={`${sName}-${node.formId}`}
@@ -216,6 +242,7 @@ export function GlobalGrimoireView({
             onClick={() => onSelectNode(node.formId)}
             className={cn(
               "spell-node absolute flex items-center justify-center rounded-full border bg-card/90 transition-all cursor-grab pointer-events-auto select-none",
+              (dragMode === 'node' || draggingNodePos) && "transition-none",
               selectedNodeId === node.formId ? "node-selected ring-2 ring-accent z-20 scale-125" : "border-border hover:border-accent/60",
               isRoot && "border-accent bg-accent/5 scale-125 z-10 shadow-[0_0_15px_hsl(var(--accent)/0.2)]",
               isMatch && "ring-4 ring-yellow-400 scale-150 z-30",
@@ -223,8 +250,8 @@ export function GlobalGrimoireView({
               node.isLocked && "cursor-default"
             )}
             style={{
-              left: node.x,
-              top: node.y,
+              left: x,
+              top: y,
               width: isRoot ? 54 : 32,
               height: isRoot ? 54 : 32,
               transform: 'translate(-50%, -50%)'
@@ -247,7 +274,7 @@ export function GlobalGrimoireView({
     });
 
     return { nodes, connections, hubLines };
-  }, [schools, selectedNodeId, searchQuery, onSelectNode, dragNodeId]);
+  }, [schools, selectedNodeId, searchQuery, onSelectNode, dragNodeId, draggingNodePos, dragMode]);
 
   const activeLinkingLine = useMemo(() => {
     if (dragMode !== 'linking' || !linkingSourceId) return null;
