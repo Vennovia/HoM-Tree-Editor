@@ -437,6 +437,8 @@ export default function ArcanaFlowStudio() {
                 schools={treeData.schools}
                 selectedNodeId={selectedNodeId}
                 onSelectNode={setSelectedNodeId}
+                onNodeMove={handleUpdateNode}
+                onLinkNodes={handleLinkNodes}
                 searchQuery={nodeSearchQuery}
               />
             ) : (
