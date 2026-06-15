@@ -75,7 +75,18 @@ export function NodeEditor({
   }
 
   const availableNodes = school.nodes.filter(n => n.formId !== node.formId)
-  const isRootNode = school.root === node.formId
+  const isRootNode = (school.roots || []).includes(node.formId)
+
+  const handleToggleRoot = (checked: boolean) => {
+    const currentRoots = school.roots || [];
+    let newRoots: string[];
+    if (checked) {
+      newRoots = [...new Set([...currentRoots, node.formId])];
+    } else {
+      newRoots = currentRoots.filter(id => id !== node.formId);
+    }
+    onUpdateSchool(schoolName, { roots: newRoots });
+  };
 
   return (
     <div className="flex flex-col h-full bg-card">
@@ -101,7 +112,7 @@ export function NodeEditor({
               <Switch 
                 id="root-toggle" 
                 checked={isRootNode} 
-                onCheckedChange={(checked) => onUpdateSchool(schoolName, { root: checked ? node.formId : "" })}
+                onCheckedChange={handleToggleRoot}
               />
             </div>
 

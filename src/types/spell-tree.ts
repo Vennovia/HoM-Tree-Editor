@@ -23,7 +23,7 @@ export interface SpellNode {
 }
 
 export interface SpellSchool {
-  root: string;
+  roots: string[];
   layoutStyle: string;
   nodes: SpellNode[];
   spokeAngle: number;

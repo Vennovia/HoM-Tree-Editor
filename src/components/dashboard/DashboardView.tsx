@@ -71,6 +71,7 @@ export function DashboardView({ data, onSelectSchool }: DashboardViewProps) {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {Object.keys(data.schools).map(schoolName => {
                 const school = data.schools[schoolName];
+                const roots = school.roots || [];
                 return (
                   <Card key={schoolName} className="bg-card/40 border-border hover:border-accent/50 transition-colors group cursor-pointer" onClick={() => onSelectSchool(schoolName)}>
                     <CardHeader className="p-4 pb-2">
@@ -78,7 +79,9 @@ export function DashboardView({ data, onSelectSchool }: DashboardViewProps) {
                         <CardTitle className="text-lg font-headline text-foreground group-hover:text-accent transition-colors">{schoolName}</CardTitle>
                         <Badge variant="outline" className="text-[10px] uppercase">{school.nodes.length} Nodes</Badge>
                       </div>
-                      <CardDescription className="text-xs">Root: {school.root}</CardDescription>
+                      <CardDescription className="text-xs">
+                        Roots: {roots.length > 0 ? roots.join(', ') : 'None'}
+                      </CardDescription>
                     </CardHeader>
                     <CardContent className="p-4 pt-0 flex justify-between items-center">
                       <div className="flex gap-2">

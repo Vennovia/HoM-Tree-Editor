@@ -41,14 +41,15 @@ export function TreeCanvas({
 
   useEffect(() => {
     if (school) {
-      const rootNode = school.nodes.find(n => n.formId === school.root);
+      const firstRootId = school.roots?.[0];
+      const rootNode = school.nodes.find(n => n.formId === firstRootId) || school.nodes[0];
       if (rootNode && containerRef.current) {
         setTransform({
           x: -rootNode.x * 0.5 + containerRef.current.clientWidth / 2,
           y: -rootNode.y * 0.5 + containerRef.current.clientHeight / 2,
           scale: 0.5
         });
-        lastCenteredId.current = school.root;
+        lastCenteredId.current = firstRootId || rootNode.formId;
       }
     }
   }, [schoolName]);
@@ -198,6 +199,7 @@ export function TreeCanvas({
     const nodes: React.ReactNode[] = [];
     const connections: React.ReactNode[] = [];
 
+    const schoolRoots = school.roots || [];
     const prereqNodeIds = new Set<string>();
     const childNodeIds = new Set<string>();
     if (selectedNodeId) {
@@ -234,7 +236,7 @@ export function TreeCanvas({
       const dx = tX - sX;
       const dy = tY - sY;
       const angle = Math.atan2(dy, dx);
-      const isRoot = target.formId === school.root;
+      const isRoot = schoolRoots.includes(target.formId);
       const targetRadius = (isRoot ? 27 : 20) + 4;
       
       const x2 = tX - targetRadius * Math.cos(angle);
@@ -279,7 +281,7 @@ export function TreeCanvas({
         node.formId.toLowerCase().includes(searchQuery.toLowerCase())
       );
 
-      const isRoot = node.formId === school.root;
+      const isRoot = schoolRoots.includes(node.formId);
       const isSelected = selectedNodeId === node.formId;
       const isPrereq = prereqNodeIds.has(node.formId);
       const isChild = childNodeIds.has(node.formId);

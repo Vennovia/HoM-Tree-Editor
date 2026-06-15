@@ -192,26 +192,28 @@ export function GlobalGrimoireView({
     }
 
     Object.entries(schools).forEach(([sName, school]) => {
-      const rootId = school.root;
-      const schoolRoot = school.nodes.find(n => n.formId === rootId);
+      const schoolRoots = school.roots || [];
       
-      if (schoolRoot) {
-        const rootX = (dragNodeId === rootId && draggingNodePos) ? draggingNodePos.x : schoolRoot.x;
-        const rootY = (dragNodeId === rootId && draggingNodePos) ? draggingNodePos.y : schoolRoot.y;
+      schoolRoots.forEach(rootId => {
+        const schoolRoot = school.nodes.find(n => n.formId === rootId);
+        if (schoolRoot) {
+          const rootX = (dragNodeId === rootId && draggingNodePos) ? draggingNodePos.x : schoolRoot.x;
+          const rootY = (dragNodeId === rootId && draggingNodePos) ? draggingNodePos.y : schoolRoot.y;
 
-        hubLines.push(
-          <line
-            key={`hub-${sName}`}
-            x1={0} y1={0}
-            x2={rootX} y2={rootY}
-            stroke="hsl(var(--accent))"
-            strokeWidth="4"
-            strokeOpacity="0.15"
-            strokeDasharray="12,12"
-            className="animate-pulse"
-          />
-        );
-      }
+          hubLines.push(
+            <line
+              key={`hub-${sName}-${rootId}`}
+              x1={0} y1={0}
+              x2={rootX} y2={rootY}
+              stroke="hsl(var(--accent))"
+              strokeWidth="4"
+              strokeOpacity="0.15"
+              strokeDasharray="12,12"
+              className="animate-pulse"
+            />
+          );
+        }
+      });
 
       school.nodes.forEach(node => {
         (node.children || []).forEach(childId => {
@@ -229,7 +231,7 @@ export function GlobalGrimoireView({
             const dx = cX - nX;
             const dy = cY - nY;
             const angle = Math.atan2(dy, dx);
-            const isTargetRoot = childNode.formId === school.root;
+            const isTargetRoot = schoolRoots.includes(childNode.formId);
             const targetRadius = (isTargetRoot ? 27 : 16) + 4;
             
             const x2 = cX - targetRadius * Math.cos(angle);
@@ -252,7 +254,7 @@ export function GlobalGrimoireView({
           }
         });
 
-        const isRoot = node.formId === rootId;
+        const isRoot = schoolRoots.includes(node.formId);
         const isSelected = selectedNodeId === node.formId;
         const isPrereq = prereqNodeIds.has(node.formId);
         const isChild = childNodeIds.has(node.formId);

@@ -51,7 +51,16 @@ export default function HoMTreeEditor() {
     const saved = localStorage.getItem(STORAGE_KEY)
     if (saved) {
       try {
-        setTreeData(JSON.parse(saved))
+        const parsed = JSON.parse(saved)
+        // Migration: convert root: string to roots: string[]
+        Object.values(parsed.schools || {}).forEach((school: any) => {
+          if (school.root && !school.roots) {
+            school.roots = [school.root];
+          } else if (!school.roots) {
+            school.roots = [];
+          }
+        });
+        setTreeData(parsed)
         setIsImportOpen(false)
       } catch (e) {
         console.error("Failed to parse saved grimoire", e)
@@ -70,6 +79,14 @@ export default function HoMTreeEditor() {
   }, [treeData])
 
   const handleImport = (data: SpellTreeData) => {
+    // Migration for imports
+    Object.values(data.schools || {}).forEach((school: any) => {
+      if (school.root && !school.roots) {
+        school.roots = [school.root];
+      } else if (!school.roots) {
+        school.roots = [];
+      }
+    });
     setTreeData(data)
     setSelectedSchool(null) 
     setIsGlobalView(false)
@@ -232,6 +249,7 @@ export default function HoMTreeEditor() {
       
       newSchools[schoolName] = {
         ...newSchools[schoolName],
+        roots: (newSchools[schoolName].roots || []).filter(id => id !== nodeId),
         nodes: newSchools[schoolName].nodes.filter(n => n.formId !== nodeId)
       }
       
@@ -262,7 +280,8 @@ export default function HoMTreeEditor() {
     setTreeData(prev => {
       if (!prev) return prev
       const school = prev.schools[selectedSchool]
-      const rootNode = school.nodes.find(n => n.formId === school.root)
+      const firstRoot = school.roots?.[0]
+      const referenceNode = school.nodes.find(n => n.formId === firstRoot) || school.nodes[0]
       
       const newNodeId = "0x" + Math.random().toString(16).slice(2, 10).toUpperCase()
       const newNode: SpellNode = {
@@ -271,8 +290,8 @@ export default function HoMTreeEditor() {
         theme: "_misc",
         tier: 1,
         skillLevel: "Novice",
-        x: (rootNode?.x || 0) + 100,
-        y: (rootNode?.y || 0) + 100,
+        x: (referenceNode?.x || 0) + 100,
+        y: (referenceNode?.y || 0) + 100,
         children: [],
         prerequisites: [],
         hardPrereqs: [],
