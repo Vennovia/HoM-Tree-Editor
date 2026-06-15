@@ -173,39 +173,54 @@ export function TreeCanvas({
     const nodes: React.ReactNode[] = [];
     const connections: React.ReactNode[] = [];
 
+    // First, collect all connections to handle highlighting layers
+    const connectionsData: Array<{ source: SpellNode, target: SpellNode, isHighlighted: boolean }> = [];
+
     school.nodes.forEach(node => {
       node.children.forEach(childId => {
         const childNode = school.nodes.find(n => n.formId === childId);
         if (childNode) {
-          connections.push(
-            <g key={`${node.formId}-${childId}`} className="group/line cursor-pointer">
-              <line
-                x1={node.x}
-                y1={node.y}
-                x2={childNode.x}
-                y2={childNode.y}
-                stroke="transparent"
-                strokeWidth="20"
-                className="pointer-events-auto"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onLinkNodes(node.formId, childId);
-                }}
-              />
-              <line
-                x1={node.x}
-                y1={node.y}
-                x2={childNode.x}
-                y2={childNode.y}
-                stroke="hsl(var(--primary))"
-                strokeWidth="1.5"
-                strokeOpacity="0.4"
-                className="transition-all duration-300 group-hover/line:stroke-destructive group-hover/line:stroke-opacity-100 group-hover/line:stroke-[2px]"
-              />
-            </g>
-          );
+          const isHighlighted = selectedNodeId === node.formId || selectedNodeId === childId;
+          connectionsData.push({ source: node, target: childNode, isHighlighted });
         }
       });
+    });
+
+    // Sort to ensure highlighted lines are drawn on top
+    connectionsData.sort((a, b) => (a.isHighlighted === b.isHighlighted ? 0 : a.isHighlighted ? 1 : -1));
+
+    connectionsData.forEach(({ source, target, isHighlighted }) => {
+      connections.push(
+        <g key={`${source.formId}-${target.formId}`} className="group/line cursor-pointer">
+          <line
+            x1={source.x}
+            y1={source.y}
+            x2={target.x}
+            y2={target.y}
+            stroke="transparent"
+            strokeWidth="20"
+            className="pointer-events-auto"
+            onClick={(e) => {
+              e.stopPropagation();
+              onLinkNodes(source.formId, target.formId);
+            }}
+          />
+          <line
+            x1={source.x}
+            y1={source.y}
+            x2={target.x}
+            y2={target.y}
+            stroke={isHighlighted ? "#f97316" : "hsl(var(--primary))"}
+            strokeWidth={isHighlighted ? "2.5" : "1.5"}
+            strokeOpacity={isHighlighted ? "0.9" : "0.4"}
+            className={cn(
+              "transition-all duration-300",
+              !isHighlighted && "group-hover/line:stroke-destructive group-hover/line:stroke-opacity-100 group-hover/line:stroke-[2px]",
+              isHighlighted && "animate-pulse"
+            )}
+          />
+        </g>
+      );
     });
 
     school.nodes.forEach(node => {
