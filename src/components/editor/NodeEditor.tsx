@@ -122,7 +122,13 @@ export function NodeEditor({
           <div className="space-y-4">
             <div className="space-y-2">
               <Label className="text-xs uppercase text-muted-foreground tracking-widest font-bold">Display Name</Label>
-              <Input name="name" value={node.name} onChange={handleChange} className="bg-background border-border" />
+              <Input 
+                name="name" 
+                value={node.name} 
+                onChange={handleChange} 
+                disabled 
+                className="bg-background border-border opacity-70 cursor-not-allowed" 
+              />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
