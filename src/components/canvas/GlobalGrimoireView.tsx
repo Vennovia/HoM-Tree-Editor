@@ -330,7 +330,7 @@ export function GlobalGrimoireView({
             const dy = cY - nY;
             const angle = Math.atan2(dy, dx);
             const isTargetRoot = schoolRoots.includes(childNode.formId);
-            const targetRadius = (isTargetRoot ? 18 : 13.5) + 4;
+            const targetRadius = (isTargetRoot ? 22.5 : 13.5) + 4;
             const x2 = cX - targetRadius * Math.cos(angle);
             const y2 = cY - targetRadius * Math.sin(angle);
 
@@ -368,23 +368,23 @@ export function GlobalGrimoireView({
             className={cn(
               "spell-node absolute flex items-center justify-center rounded-full border bg-card/90 transition-all cursor-grab pointer-events-auto select-none",
               (dragMode === 'node' || Object.keys(draggingNodesPos).length > 0) && "transition-none",
-              isSelected ? "node-selected ring-2 ring-accent z-30 scale-125" : "border-border hover:border-accent/60",
-              isPrereq && !isSelected && "border-[#22c55e] ring-2 ring-[#22c55e] z-20 scale-110",
-              isChild && !isSelected && "border-[#f97316] ring-2 ring-[#f97316]/50 z-20 scale-110",
-              isRoot && "border-accent bg-accent/5 scale-125 z-10 shadow-[0_0_15px_hsl(var(--accent)/0.2)]",
+              isSelected ? "node-selected ring-2 ring-accent z-30 scale-110" : "border-border hover:border-accent/60",
+              isPrereq && !isSelected && "border-[#22c55e] ring-2 ring-[#22c55e] z-20 scale-105",
+              isChild && !isSelected && "border-[#f97316] ring-2 ring-[#f97316]/50 z-20 scale-105",
+              isRoot && "border-accent bg-accent/5 z-10 shadow-[0_0_15px_hsl(var(--accent)/0.2)]",
               isMatch && "ring-4 ring-yellow-400 scale-150 z-40",
-              draggingNodesPos[node.formId] && "cursor-grabbing opacity-70 scale-110",
+              draggingNodesPos[node.formId] && "cursor-grabbing opacity-70 scale-105",
               node.isLocked && "cursor-default"
             )}
             style={{
               left: x, top: y,
-              width: isRoot ? 36 : 27, height: isRoot ? 36 : 27,
+              width: isRoot ? 45 : 27, height: isRoot ? 45 : 27,
               transform: 'translate(-50%, -50%)'
             }}
           >
             <span className={cn(
               "font-bold text-center px-0.5 truncate leading-tight pointer-events-none",
-              isRoot ? "text-[7px]" : "text-[6px]"
+              isRoot ? "text-[8px]" : "text-[6px]"
             )}>
               {node.name}
             </span>
