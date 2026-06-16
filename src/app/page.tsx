@@ -76,8 +76,10 @@ export default function HoMTreeEditor() {
   // Detect Tauri and dynamic import plugins
   useEffect(() => {
     const checkTauri = async () => {
-      // Robust Tauri detection
-      const isRunningInTauri = typeof window !== 'undefined' && (!!(window as any).__TAURI_INTERNALS__ || !!(window as any).__TAURI__);
+      // Robust Tauri detection for v2
+      const isRunningInTauri = typeof window !== 'undefined' && 
+        (!!(window as any).__TAURI_INTERNALS__ || !!(window as any).__TAURI__);
+      
       setIsTauri(isRunningInTauri);
 
       if (isRunningInTauri) {
@@ -88,6 +90,8 @@ export default function HoMTreeEditor() {
           
           tauriFs = fs;
           tauriDialog = dialog;
+          
+          console.log("Tauri environment detected and plugins loaded.");
         } catch (e) {
           console.error("Failed to load Tauri plugins:", e);
         }
@@ -217,11 +221,15 @@ export default function HoMTreeEditor() {
     if (!treeData) return
     const jsonString = JSON.stringify(treeData, null, 2);
 
-    if (isTauri && tauriFs) {
+    // Explicitly check for Tauri context again to ensure we don't fall back unnecessarily
+    const isStandalone = isTauri && tauriFs;
+
+    if (isStandalone) {
       try {
         const fileName = `spell_tree_v${treeData.version || '1.0'}_${Date.now()}.json`;
         
-        // Ensure we are using BaseDirectory.AppData for standard folder structure
+        // In Tauri 2.0, paths are relative to the BaseDirectory if provided
+        // We write to AppData/exports/filename
         await tauriFs.writeTextFile(
           `exports/${fileName}`, 
           jsonString, 
@@ -230,31 +238,32 @@ export default function HoMTreeEditor() {
         
         toast({
           title: "Grimoire Sealed",
-          description: `Spell tree saved to appdata/exports/${fileName}`
-        })
+          description: `Spell tree saved to your internal exports folder.`
+        });
+        return; // Success! Exit early.
       } catch (e) {
-        console.error("Export error:", e);
+        console.error("Native export failed:", e);
         toast({
           variant: "destructive",
-          title: "Export Error",
-          description: "Could not manifest the file in the exports folder."
-        })
+          title: "Export Failed",
+          description: "Falling back to browser download due to filesystem error."
+        });
       }
-    } else {
-      // Browser fallback
-      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(jsonString)
-      const downloadAnchorNode = document.createElement('a')
-      downloadAnchorNode.setAttribute("href", dataStr)
-      downloadAnchorNode.setAttribute("download", `spell_tree_v${treeData.version}.json`)
-      document.body.appendChild(downloadAnchorNode)
-      downloadAnchorNode.click()
-      downloadAnchorNode.remove()
-      
-      toast({
-        title: "Grimoire Sealed",
-        description: "Exported successfully to your Downloads folder."
-      })
     }
+
+    // Browser fallback
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(jsonString)
+    const downloadAnchorNode = document.createElement('a')
+    downloadAnchorNode.setAttribute("href", dataStr)
+    downloadAnchorNode.setAttribute("download", `spell_tree_v${treeData.version || '1.0'}.json`)
+    document.body.appendChild(downloadAnchorNode)
+    downloadAnchorNode.click()
+    downloadAnchorNode.remove()
+    
+    toast({
+      title: "Grimoire Sealed",
+      description: "Exported successfully to your Downloads folder."
+    })
   }
 
   const findSchoolForNode = useCallback((nodeId: string): string | null => {

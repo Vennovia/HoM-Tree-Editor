@@ -18,14 +18,18 @@ pub fn run() {
 
       // Automatically create the app data directory if it doesn't exist
       let app_data_dir = app.path().app_data_dir().expect("Failed to get app data dir");
+      
+      // Ensure the root app data directory exists
       fs::create_dir_all(&app_data_dir).ok();
       
-      // Create dedicated subfolders for data management
+      // Create dedicated subfolders for managed grimoire data
       let import_dir = app_data_dir.join("imports");
       let export_dir = app_data_dir.join("exports");
 
       fs::create_dir_all(&import_dir).ok();
       fs::create_dir_all(&export_dir).ok();
+
+      println!("Grimoire data folders initialized at: {:?}", app_data_dir);
 
       Ok(())
     })
