@@ -49,16 +49,10 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion"
 
-// Dynamically import Tauri APIs to avoid SSR/Browser issues
+// Holders for Tauri plugins
 let tauriFs: any = null;
 let tauriPath: any = null;
 let tauriDialog: any = null;
-
-if (typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__) {
-  import('@tauri-apps/plugin-fs').then(m => tauriFs = m);
-  import('@tauri-apps/api/path').then(m => tauriPath = m);
-  import('@tauri-apps/plugin-dialog').then(m => tauriDialog = m);
-}
 
 const STORAGE_KEY = 'hom-tree-editor-data'
 const MAX_HISTORY = 20
@@ -80,8 +74,27 @@ export default function HoMTreeEditor() {
 
   const selectedNodeId = selectedNodeIds.length > 0 ? selectedNodeIds[0] : null;
 
+  // Detect Tauri and dynamic import plugins
   useEffect(() => {
-    setIsTauri(typeof window !== 'undefined' && !!(window as any).__TAURI_INTERNALS__);
+    const checkTauri = async () => {
+      const isRunningInTauri = typeof window !== 'undefined' && !!(window as any).__TAURI_INTERNALS__;
+      setIsTauri(isRunningInTauri);
+
+      if (isRunningInTauri) {
+        try {
+          const fs = await import('@tauri-apps/plugin-fs');
+          const path = await import('@tauri-apps/api/path');
+          const dialog = await import('@tauri-apps/plugin-dialog');
+          
+          tauriFs = fs;
+          tauriPath = path;
+          tauriDialog = dialog;
+        } catch (e) {
+          console.error("Failed to load Tauri plugins:", e);
+        }
+      }
+    };
+    checkTauri();
   }, []);
 
   const migrateGrimoireData = useCallback((data: any) => {
@@ -172,7 +185,14 @@ export default function HoMTreeEditor() {
   }
 
   const handleNativeImport = async () => {
-    if (!isTauri || !tauriDialog || !tauriFs) return;
+    if (!isTauri || !tauriDialog || !tauriFs) {
+       toast({
+        variant: "destructive",
+        title: "Native Import Unavailable",
+        description: "Standard standalone environment not detected or plugins failed to load."
+      });
+      return;
+    }
     
     try {
       const selected = await tauriDialog.open({
