@@ -351,7 +351,8 @@ export function TreeCanvas({
           const dy = tY - sY;
           const angle = Math.atan2(dy, dx);
           const isRoot = schoolRoots.includes(childNode.formId);
-          const targetRadius = (isRoot ? 15 : 13.5) + 4;
+          // Roots are 30px (15px radius), Spells are 18px (9px radius)
+          const targetRadius = (isRoot ? 15 : 9) + 4;
           const x2 = tX - targetRadius * Math.cos(angle);
           const y2 = tY - targetRadius * Math.sin(angle);
 
@@ -402,8 +403,8 @@ export function TreeCanvas({
             left: x, 
             top: y, 
             transform: 'translate(-50%, -50%)',
-            width: isRoot ? 30 : 27,
-            height: isRoot ? 30 : 27,
+            width: isRoot ? 30 : 18,
+            height: isRoot ? 30 : 18,
           }}
         >
           <span className={cn(
@@ -431,6 +432,7 @@ export function TreeCanvas({
   const activeDragInfo = useMemo(() => {
     if (dragMode !== 'node' || !dragNodeId || !draggingNodesPos[dragNodeId]) return null;
     const { x, y } = draggingNodesPos[dragNodeId];
+    // Coordinate HUD logic: 360 is UP
     let deg = (Math.atan2(y, x) * (180 / Math.PI)) + 90;
     if (deg < 0) deg += 360;
     if (deg >= 360) deg -= 360;

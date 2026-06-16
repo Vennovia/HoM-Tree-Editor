@@ -330,7 +330,8 @@ export function GlobalGrimoireView({
             const dy = cY - nY;
             const angle = Math.atan2(dy, dx);
             const isTargetRoot = schoolRoots.includes(childNode.formId);
-            const targetRadius = (isTargetRoot ? 15 : 13.5) + 4;
+            // targetRadius: Roots are 30px (15px radius), Spells are 18px (9px radius)
+            const targetRadius = (isTargetRoot ? 15 : 9) + 4;
             const x2 = cX - targetRadius * Math.cos(angle);
             const y2 = cY - targetRadius * Math.sin(angle);
 
@@ -378,7 +379,7 @@ export function GlobalGrimoireView({
             )}
             style={{
               left: x, top: y,
-              width: isRoot ? 30 : 27, height: isRoot ? 30 : 27,
+              width: isRoot ? 30 : 18, height: isRoot ? 30 : 18,
               transform: 'translate(-50%, -50%)'
             }}
           >
@@ -399,6 +400,7 @@ export function GlobalGrimoireView({
   const activeDragInfo = useMemo(() => {
     if (dragMode !== 'node' || !dragNodeId || !draggingNodesPos[dragNodeId]) return null;
     const { x, y } = draggingNodesPos[dragNodeId];
+    // Coordinate HUD logic: 360 is UP
     let deg = (Math.atan2(y, x) * (180 / Math.PI)) + 90;
     if (deg < 0) deg += 360;
     if (deg >= 360) deg -= 360;
