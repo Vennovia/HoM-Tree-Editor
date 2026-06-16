@@ -58,9 +58,12 @@ You don't need to build locally! Every time you push to GitHub, a build starts a
 
 ---
 
-## 🌐 Option 2: Web App Installation (PWA)
-The simplest way to use this as a standalone application without installing Rust.
+## 🛠 Git Troubleshooting
+### Error: `[rejected] (non-fast-forward)`
+This happens when the online version of your code (GitHub) has changes that your local computer doesn't have yet.
 
-1.  Start the local server (`npm run dev`).
-2.  Open `http://localhost:3000` in a Chromium browser.
-3.  Click the **Install Icon** in the address bar.
+**To fix this, run these commands in your terminal:**
+1. `git pull origin standalone-build`
+2. `git push origin standalone-build`
+
+*Note: If a text editor opens asking for a "merge message", just save and close it.*
