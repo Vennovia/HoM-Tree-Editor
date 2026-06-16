@@ -1,0 +1,9 @@
+
+{
+  "identifier": "main-commands",
+  "description": "Allows the custom commands defined in the main application crate.",
+  "commands": [
+    "save_grimoire_to_disk",
+    "get_install_dir_path"
+  ]
+}
