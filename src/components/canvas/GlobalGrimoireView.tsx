@@ -366,7 +366,7 @@ export function GlobalGrimoireView({
             key={`${sName}-${node.formId}`}
             data-node-id={node.formId}
             className={cn(
-              "spell-node absolute flex items-center justify-center rounded-full border bg-card/90 transition-all cursor-grab pointer-events-auto select-none",
+              "spell-node absolute flex items-center justify-center rounded-full border bg-card/90 transition-all cursor-grab pointer-events-auto select-none group",
               (dragMode === 'node' || Object.keys(draggingNodesPos).length > 0) && "transition-none",
               isSelected ? "node-selected ring-2 ring-accent z-30 scale-110" : "border-border hover:border-accent/60",
               isPrereq && !isSelected && "border-[#22c55e] ring-2 ring-[#22c55e] z-20 scale-105",
@@ -383,8 +383,8 @@ export function GlobalGrimoireView({
             }}
           >
             <span className={cn(
-              "font-bold text-center px-0.5 truncate leading-tight pointer-events-none",
-              isRoot ? "text-[8px]" : "text-[6px]"
+              "font-bold text-center px-0.5 truncate leading-tight pointer-events-none group-hover:whitespace-normal group-hover:bg-card/95 group-hover:absolute group-hover:z-50 group-hover:p-1 group-hover:rounded group-hover:border group-hover:border-border",
+              isRoot ? "text-[8px]" : "text-[7px]"
             )}>
               {node.name}
             </span>

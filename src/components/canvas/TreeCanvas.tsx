@@ -389,7 +389,7 @@ export function TreeCanvas({
         >
           <span className={cn(
             "text-center font-bold truncate leading-tight w-full px-0.5 pointer-events-none group-hover:whitespace-normal group-hover:bg-card/95 group-hover:absolute group-hover:z-50 group-hover:p-1 group-hover:rounded group-hover:border group-hover:border-border",
-            isRoot ? "text-[8px]" : "text-[6px]"
+            isRoot ? "text-[8px]" : "text-[7px]"
           )}>
             {node.name}
           </span>
