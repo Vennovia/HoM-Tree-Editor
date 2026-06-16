@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
@@ -20,7 +21,8 @@ import {
   LayoutDashboard,
   Target,
   Globe,
-  Compass
+  Compass,
+  Undo2
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
@@ -34,10 +36,12 @@ import {
 } from "@/components/ui/popover"
 
 const STORAGE_KEY = 'hom-tree-editor-data'
+const MAX_HISTORY = 20
 
 export default function HoMTreeEditor() {
   const { toast } = useToast()
   const [treeData, setTreeData] = useState<SpellTreeData | null>(null)
+  const [history, setHistory] = useState<SpellTreeData[]>([])
   const [selectedSchool, setSelectedSchool] = useState<string | null>(null)
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
@@ -100,9 +104,44 @@ export default function HoMTreeEditor() {
     }
   }, [treeData])
 
+  const pushHistory = useCallback((state: SpellTreeData) => {
+    setHistory(prev => {
+      const newHistory = [...prev, JSON.parse(JSON.stringify(state))]
+      if (newHistory.length > MAX_HISTORY) return newHistory.slice(1)
+      return newHistory
+    })
+  }, [])
+
+  const handleUndo = useCallback(() => {
+    if (history.length === 0) return
+    const prevStates = [...history]
+    const lastState = prevStates.pop()
+    if (lastState) {
+      setTreeData(lastState)
+      setHistory(prevStates)
+      toast({
+        title: "Arcane Rewind",
+        description: "Reverted to previous state."
+      })
+    }
+  }, [history, toast])
+
+  // Keyboard shortcut for Undo (Ctrl+Z or Cmd+Z)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+        e.preventDefault()
+        handleUndo()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [handleUndo])
+
   const handleImport = (data: SpellTreeData) => {
     const migrated = migrateGrimoireData(data)
     setTreeData(migrated)
+    setHistory([]) // Clear history on fresh import
     setSelectedSchool(null) 
     setIsGlobalView(false)
     toast({
@@ -143,6 +182,7 @@ export default function HoMTreeEditor() {
 
     setTreeData(prev => {
       if (!prev) return prev
+      pushHistory(prev)
       const school = prev.schools[schoolName]
       const nodeIndex = school.nodes.findIndex(n => n.formId === nodeId)
       if (nodeIndex === -1) return prev
@@ -161,11 +201,12 @@ export default function HoMTreeEditor() {
         }
       }
     })
-  }, [findSchoolForNode])
+  }, [findSchoolForNode, pushHistory])
 
   const handleUpdateSchool = useCallback((schoolName: string, updates: Partial<SpellSchool>) => {
     setTreeData(prev => {
       if (!prev || !prev.schools[schoolName]) return prev
+      pushHistory(prev)
       return {
         ...prev,
         schools: {
@@ -177,7 +218,7 @@ export default function HoMTreeEditor() {
         }
       }
     })
-  }, [])
+  }, [pushHistory])
 
   const handleToggleRelationship = useCallback((nodeId: string, targetId: string, type: 'hard' | 'soft' | 'child' | 'pool') => {
     const schoolName = findSchoolForNode(nodeId)
@@ -185,6 +226,7 @@ export default function HoMTreeEditor() {
 
     setTreeData(prev => {
       if (!prev) return prev
+      pushHistory(prev)
       
       const school = prev.schools[schoolName]
       const nodes = [...school.nodes]
@@ -201,13 +243,6 @@ export default function HoMTreeEditor() {
       const ensurePoolLink = (n: SpellNode, t: SpellNode) => {
         if (!(n.prerequisites || []).includes(t.formId)) n.prerequisites = [...(n.prerequisites || []), t.formId]
         if (!(t.children || []).includes(n.formId)) t.children = [...(t.children || []), n.formId]
-      }
-
-      const removePoolLink = (n: SpellNode, t: SpellNode) => {
-        n.prerequisites = (n.prerequisites || []).filter(id => id !== t.formId)
-        n.hardPrereqs = (n.hardPrereqs || []).filter(id => id !== t.formId)
-        n.softPrereqs = (n.softPrereqs || []).filter(id => id !== t.formId)
-        t.children = (t.children || []).filter(id => id !== n.formId)
       }
 
       if (type === 'pool') {
@@ -257,7 +292,7 @@ export default function HoMTreeEditor() {
         }
       }
     })
-  }, [findSchoolForNode])
+  }, [findSchoolForNode, pushHistory])
 
   const handleLinkNodes = (sourceId: string, targetId: string) => {
     handleToggleRelationship(targetId, sourceId, 'pool')
@@ -269,6 +304,7 @@ export default function HoMTreeEditor() {
 
     setTreeData(prev => {
       if (!prev) return prev
+      pushHistory(prev)
       
       const newSchools = { ...prev.schools }
       
@@ -304,6 +340,7 @@ export default function HoMTreeEditor() {
 
     setTreeData(prev => {
       if (!prev) return prev
+      pushHistory(prev)
       const school = prev.schools[selectedSchool]
       const firstRoot = school.roots?.[0]
       const referenceNode = school.nodes.find(n => n.formId === firstRoot) || school.nodes[0]
@@ -444,6 +481,14 @@ export default function HoMTreeEditor() {
             </div>
 
             <div className="mt-auto p-4 border-t border-border space-y-2">
+              <Button 
+                variant="outline" 
+                className="w-full justify-start gap-2 text-xs" 
+                onClick={handleUndo} 
+                disabled={history.length === 0}
+              >
+                <Undo2 className="w-3.5 h-3.5" /> Undo Action
+              </Button>
               <Button variant="outline" className="w-full justify-start gap-2 text-xs" onClick={() => setIsImportOpen(true)}>
                 <Code className="w-3.5 h-3.5" /> Import
               </Button>
