@@ -421,6 +421,9 @@ export function TreeCanvas({
               node.skillLevel === 'Apprentice' ? "bg-green-500" : "bg-gray-500"
             )} 
           />
+          {node.isLocked && (
+            <Lock className="w-2.5 h-2.5 text-accent absolute -bottom-1 -left-1 bg-card rounded-full p-0.5 border border-accent/40 shadow-sm z-50" />
+          )}
         </div>
       );
     });
