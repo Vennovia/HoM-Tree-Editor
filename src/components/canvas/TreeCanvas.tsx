@@ -368,10 +368,10 @@ export function TreeCanvas({
           key={node.formId}
           data-node-id={node.formId}
           className={cn(
-            "spell-node absolute flex items-center justify-center p-1 rounded-full border bg-card cursor-grab hover:scale-110 pointer-events-auto arcane-glow select-none group transition-transform duration-200 ease-out",
+            "spell-node absolute flex items-center justify-center rounded-full border bg-card cursor-grab pointer-events-auto arcane-glow select-none group transition-all",
             (dragMode === 'node' || Object.keys(draggingNodesPos).length > 0) && "transition-none",
-            node.isLocked && "cursor-default hover:scale-100",
-            isSelected ? "node-selected ring-2 ring-accent ring-offset-1 ring-offset-background z-30" : "border-primary/40",
+            node.isLocked && "cursor-default",
+            isSelected ? "node-selected ring-2 ring-accent ring-offset-1 ring-offset-background z-30 scale-110" : "border-primary/40",
             isPrereq && !isSelected && "border-[#22c55e] ring-2 ring-[#22c55e]/50 z-20 scale-105",
             isChild && !isSelected && "border-[#f97316] ring-2 ring-[#f97316]/50 z-20 scale-105",
             isRoot && "border-accent shadow-[0_0_15px_hsl(var(--accent))] z-10",
@@ -388,7 +388,7 @@ export function TreeCanvas({
           }}
         >
           <span className={cn(
-            "text-center font-bold truncate leading-tight w-full px-0.5 pointer-events-none group-hover:whitespace-normal group-hover:bg-card/95 group-hover:absolute group-hover:z-50 group-hover:p-1 group-hover:rounded group-hover:border group-hover:border-border",
+            "text-center font-bold truncate leading-tight px-0.5 pointer-events-none group-hover:whitespace-normal group-hover:bg-card/95 group-hover:absolute group-hover:z-50 group-hover:p-1 group-hover:rounded group-hover:border group-hover:border-border transition-all",
             isRoot ? "text-[8px]" : "text-[7px]"
           )}>
             {node.name}
