@@ -314,6 +314,8 @@ export function GlobalGrimoireView({
       });
 
       school.nodes.forEach(node => {
+        const isRoot = schoolRoots.includes(node.formId);
+
         (node.children || []).forEach(childId => {
           const childNode = school.nodes.find(n => n.formId === childId);
           if (childNode) {
@@ -349,7 +351,6 @@ export function GlobalGrimoireView({
           }
         });
 
-        const isRoot = schoolRoots.includes(node.formId);
         const isSelected = selectedNodeIds.includes(node.formId);
         const isPrereq = prereqNodeIds.has(node.formId);
         const isChild = childNodeIds.has(node.formId);
@@ -385,7 +386,7 @@ export function GlobalGrimoireView({
           >
             <span className={cn(
               "font-bold text-center px-0.5 truncate leading-tight pointer-events-none group-hover:whitespace-normal group-hover:bg-card/95 group-hover:absolute group-hover:z-50 group-hover:p-1 group-hover:rounded group-hover:border group-hover:border-border",
-              isRoot ? "text-[8px]" : "text-[7px]"
+              isRoot ? "text-[8px]" : "text-[4px]"
             )}>
               {node.name}
             </span>
