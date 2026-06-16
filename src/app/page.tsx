@@ -68,9 +68,9 @@ export default function HoMTreeEditor() {
   
   // Tauri API state
   const [tauriApi, setTauriApi] = useState<{
-    invoke: any;
     fs: any;
     dialog: any;
+    path: any;
   } | null>(null);
 
   const isTauri = !!tauriApi;
@@ -84,11 +84,11 @@ export default function HoMTreeEditor() {
       
       if (isRunningInTauri) {
         try {
-          const { invoke } = await import('@tauri-apps/api/core');
           const fs = await import('@tauri-apps/plugin-fs');
           const dialog = await import('@tauri-apps/plugin-dialog');
+          const path = await import('@tauri-apps/api/path');
           
-          setTauriApi({ invoke, fs, dialog });
+          setTauriApi({ fs, dialog, path });
           console.log("Tauri environment detected and plugins linked.");
         } catch (e) {
           console.error("Failed to load Tauri plugins:", e);
@@ -184,10 +184,8 @@ export default function HoMTreeEditor() {
     }
     
     try {
-      const installPath = await tauriApi.invoke('get_install_dir_path');
       const selected = await tauriApi.dialog.open({
         multiple: false,
-        defaultPath: `${installPath}/imports`,
         filters: [{ name: 'JSON', extensions: ['json'] }]
       });
 
@@ -209,8 +207,10 @@ export default function HoMTreeEditor() {
     if (tauriApi) {
       try {
         const fileName = `spell_tree_v${treeData.version || '1.0'}_${Date.now()}.json`;
-        // Use the native Rust command to save to the install directory
-        await tauriApi.invoke('save_grimoire_to_disk', { content: jsonString, filename: fileName });
+        // Save directly to the exports folder in the install location
+        await tauriApi.fs.writeTextFile(`exports/${fileName}`, jsonString, { 
+          baseDir: tauriApi.fs.BaseDirectory.Exe 
+        });
         
         toast({ title: "Grimoire Sealed", description: `Spell tree saved to the 'exports' folder in your install location.` });
         return;
@@ -220,7 +220,7 @@ export default function HoMTreeEditor() {
       }
     }
 
-    // Fallback for browser or if Tauri invoke fails
+    // Fallback for browser or if Tauri fails
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(jsonString)
     const downloadAnchorNode = document.createElement('a')
     downloadAnchorNode.setAttribute("href", dataStr)
