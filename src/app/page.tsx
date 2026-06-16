@@ -49,9 +49,10 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion"
 
-// Global holders for Tauri plugins to avoid complex re-passing
+// Global holders for Tauri logic
 let tauriFs: any = null;
 let tauriDialog: any = null;
+let tauriInvoke: any = null;
 
 const STORAGE_KEY = 'hom-tree-editor-data'
 const MAX_HISTORY = 20
@@ -73,10 +74,8 @@ export default function HoMTreeEditor() {
 
   const selectedNodeId = selectedNodeIds.length > 0 ? selectedNodeIds[0] : null;
 
-  // Detect Tauri and dynamic import plugins
   useEffect(() => {
     const checkTauri = async () => {
-      // Robust Tauri detection for v2
       const isRunningInTauri = typeof window !== 'undefined' && 
         (!!(window as any).__TAURI_INTERNALS__ || !!(window as any).__TAURI__);
       
@@ -84,12 +83,13 @@ export default function HoMTreeEditor() {
 
       if (isRunningInTauri) {
         try {
-          // Dynamic imports to prevent SSR/Build failures
           const fs = await import('@tauri-apps/plugin-fs');
           const dialog = await import('@tauri-apps/plugin-dialog');
+          const { invoke } = await import('@tauri-apps/api/core');
           
           tauriFs = fs;
           tauriDialog = dialog;
+          tauriInvoke = invoke;
           
           console.log("Tauri environment detected and plugins loaded.");
         } catch (e) {
@@ -102,7 +102,6 @@ export default function HoMTreeEditor() {
 
   const migrateGrimoireData = useCallback((data: any) => {
     if (!data.schools) return data;
-    
     Object.values(data.schools).forEach((school: any) => {
       const rootsSet = new Set<string>();
       if (school.root) rootsSet.add(school.root);
@@ -116,7 +115,6 @@ export default function HoMTreeEditor() {
       }
       school.roots = Array.from(rootsSet);
     });
-    
     return data;
   }, []);
 
@@ -157,10 +155,7 @@ export default function HoMTreeEditor() {
     if (lastState) {
       setTreeData(lastState)
       setHistory(prevStates)
-      toast({
-        title: "Arcane Rewind",
-        description: "Reverted to previous state."
-      })
+      toast({ title: "Arcane Rewind", description: "Reverted to previous state." })
     }
   }, [history, toast])
 
@@ -181,25 +176,20 @@ export default function HoMTreeEditor() {
     setHistory([])
     setSelectedSchool(null) 
     setIsGlobalView(false)
-    toast({
-      title: "Knowledge Absorbed",
-      description: "Successfully imported arcane data structures."
-    })
+    toast({ title: "Knowledge Absorbed", description: "Successfully imported arcane data structures." })
   }
 
   const handleNativeImport = async () => {
-    if (!isTauri || !tauriDialog || !tauriFs) {
-       toast({
-        variant: "destructive",
-        title: "Native Import Unavailable",
-        description: "Grimoire synchronization requires the standalone editor."
-      });
-      return;
+    if (!isTauri || !tauriDialog || !tauriInvoke) {
+       toast({ variant: "destructive", title: "Native Import Unavailable", description: "Grimoire synchronization requires the standalone editor." });
+       return;
     }
     
     try {
+      const installPath = await tauriInvoke('get_install_dir_path');
       const selected = await tauriDialog.open({
         multiple: false,
+        defaultPath: `${installPath}/imports`,
         filters: [{ name: 'JSON', extensions: ['json'] }]
       });
 
@@ -209,11 +199,7 @@ export default function HoMTreeEditor() {
         handleImport(parsed);
       }
     } catch (e) {
-      toast({
-        variant: "destructive",
-        title: "Import Failed",
-        description: "Could not read the arcane file."
-      });
+      toast({ variant: "destructive", title: "Import Failed", description: "Could not read the arcane file." });
     }
   };
 
@@ -221,37 +207,19 @@ export default function HoMTreeEditor() {
     if (!treeData) return
     const jsonString = JSON.stringify(treeData, null, 2);
 
-    // Explicitly check for Tauri context again to ensure we don't fall back unnecessarily
-    const isStandalone = isTauri && tauriFs;
-
-    if (isStandalone) {
+    if (isTauri && tauriInvoke) {
       try {
         const fileName = `spell_tree_v${treeData.version || '1.0'}_${Date.now()}.json`;
+        await tauriInvoke('save_grimoire_to_disk', { content: jsonString, filename: fileName });
         
-        // In Tauri 2.0, paths are relative to the BaseDirectory if provided
-        // We write to AppData/exports/filename
-        await tauriFs.writeTextFile(
-          `exports/${fileName}`, 
-          jsonString, 
-          { baseDir: tauriFs.BaseDirectory.AppData }
-        );
-        
-        toast({
-          title: "Grimoire Sealed",
-          description: `Spell tree saved to your internal exports folder.`
-        });
-        return; // Success! Exit early.
+        toast({ title: "Grimoire Sealed", description: `Spell tree saved to the local 'exports' folder.` });
+        return;
       } catch (e) {
         console.error("Native export failed:", e);
-        toast({
-          variant: "destructive",
-          title: "Export Failed",
-          description: "Falling back to browser download due to filesystem error."
-        });
+        toast({ variant: "destructive", title: "Export Failed", description: "Falling back to browser download due to filesystem error." });
       }
     }
 
-    // Browser fallback
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(jsonString)
     const downloadAnchorNode = document.createElement('a')
     downloadAnchorNode.setAttribute("href", dataStr)
@@ -260,18 +228,13 @@ export default function HoMTreeEditor() {
     downloadAnchorNode.click()
     downloadAnchorNode.remove()
     
-    toast({
-      title: "Grimoire Sealed",
-      description: "Exported successfully to your Downloads folder."
-    })
+    toast({ title: "Grimoire Sealed", description: "Exported successfully to your Downloads folder." })
   }
 
   const findSchoolForNode = useCallback((nodeId: string): string | null => {
     if (!treeData) return null
     for (const schoolName in treeData.schools) {
-      if (treeData.schools[schoolName].nodes.some(n => n.formId === nodeId)) {
-        return schoolName
-      }
+      if (treeData.schools[schoolName].nodes.some(n => n.formId === nodeId)) return schoolName
     }
     return null
   }, [treeData])
@@ -286,7 +249,6 @@ export default function HoMTreeEditor() {
       
       const oldId = nodeId
       const newId = updates.formId
-      
       let newSchools = { ...prev.schools }
 
       if (newId && newId !== oldId) {
@@ -296,7 +258,6 @@ export default function HoMTreeEditor() {
           const newNodes = school.nodes.map(n => {
             const isTargetNode = n.formId === oldId
             const replaceId = (arr: string[] = []) => arr.map(id => id === oldId ? newId : id)
-
             return {
               ...n,
               formId: isTargetNode ? newId : n.formId,
@@ -307,14 +268,8 @@ export default function HoMTreeEditor() {
               softPrereqs: replaceId(n.softPrereqs)
             }
           })
-          
-          newSchools[sName] = {
-            ...school,
-            roots: newRoots,
-            nodes: newNodes
-          }
+          newSchools[sName] = { ...school, roots: newRoots, nodes: newNodes }
         })
-        
         setSelectedNodeIds(prevIds => prevIds.map(id => id === oldId ? newId! : id));
       } else {
         const school = newSchools[schoolName]
@@ -325,11 +280,7 @@ export default function HoMTreeEditor() {
           newSchools[schoolName] = { ...school, nodes: newNodes }
         }
       }
-      
-      return {
-        ...prev,
-        schools: newSchools
-      }
+      return { ...prev, schools: newSchools }
     })
   }, [findSchoolForNode, pushHistory])
 
@@ -337,13 +288,10 @@ export default function HoMTreeEditor() {
     setTreeData(prev => {
       if (!prev) return prev;
       pushHistory(prev);
-
       const newSchools = { ...prev.schools };
-
       Object.entries(updates).forEach(([nodeId, nodeUpdates]) => {
         const schoolName = findSchoolForNode(nodeId);
         if (!schoolName) return;
-
         const school = newSchools[schoolName];
         const nodeIndex = school.nodes.findIndex(n => n.formId === nodeId);
         if (nodeIndex !== -1) {
@@ -352,11 +300,7 @@ export default function HoMTreeEditor() {
           newSchools[schoolName] = { ...school, nodes: newNodes };
         }
       });
-
-      return {
-        ...prev,
-        schools: newSchools
-      };
+      return { ...prev, schools: newSchools };
     });
   }, [findSchoolForNode, pushHistory]);
 
@@ -364,59 +308,40 @@ export default function HoMTreeEditor() {
     setTreeData(prev => {
       if (!prev || !prev.schools[schoolName]) return prev
       pushHistory(prev)
-      return {
-        ...prev,
-        schools: {
-          ...prev.schools,
-          [schoolName]: {
-            ...prev.schools[schoolName],
-            ...updates
-          }
-        }
-      }
+      return { ...prev, schools: { ...prev.schools, [schoolName]: { ...prev.schools[schoolName], ...updates } } }
     })
   }, [pushHistory])
 
   const handleToggleRelationship = useCallback((nodeId: string, targetId: string, type: 'hard' | 'soft' | 'child' | 'pool') => {
     const schoolName = findSchoolForNode(nodeId)
     if (!schoolName) return
-
     setTreeData(prev => {
       if (!prev) return prev
       pushHistory(prev)
-      
       const school = prev.schools[schoolName]
       const nodes = [...school.nodes]
-      
       const nodeIdx = nodes.findIndex(n => n.formId === nodeId)
       const targetIdx = nodes.findIndex(n => n.formId === targetId)
-      
       if (nodeIdx === -1 || targetIdx === -1) return prev
-
       const node = { ...nodes[nodeIdx] }
       const target = { ...nodes[targetIdx] }
-
       const ensurePoolLink = (n: SpellNode, t: SpellNode) => {
         if (!(n.prerequisites || []).includes(t.formId)) n.prerequisites = [...(n.prerequisites || []), t.formId]
         if (!(t.children || []).includes(n.formId)) t.children = [...(t.children || []), n.formId]
       }
-
-      if (type === 'pool') {
-        ensurePoolLink(node, target)
-      } else if (type === 'hard') {
+      if (type === 'pool') ensurePoolLink(node, target)
+      else if (type === 'hard') {
         const exists = (node.hardPrereqs || []).includes(targetId)
-        if (exists) {
-          node.hardPrereqs = (node.hardPrereqs || []).filter(id => id !== targetId)
-        } else {
+        if (exists) node.hardPrereqs = (node.hardPrereqs || []).filter(id => id !== targetId)
+        else {
           node.hardPrereqs = [...(node.hardPrereqs || []), targetId]
           node.softPrereqs = (node.softPrereqs || []).filter(id => id !== targetId)
           ensurePoolLink(node, target)
         }
       } else if (type === 'soft') {
         const exists = (node.softPrereqs || []).includes(targetId)
-        if (exists) {
-          node.softPrereqs = (node.softPrereqs || []).filter(id => id !== targetId)
-        } else {
+        if (exists) node.softPrereqs = (node.softPrereqs || []).filter(id => id !== targetId)
+        else {
           node.softPrereqs = [...(node.softPrereqs || []), targetId]
           node.hardPrereqs = (node.hardPrereqs || []).filter(id => id !== targetId)
           ensurePoolLink(node, target)
@@ -433,43 +358,22 @@ export default function HoMTreeEditor() {
           if (!(target.prerequisites || []).includes(nodeId)) target.prerequisites = [...(target.prerequisites || []), nodeId]
         }
       }
-
       nodes[nodeIdx] = node
       nodes[targetIdx] = target
-
-      return {
-        ...prev,
-        schools: {
-          ...prev.schools,
-          [schoolName]: {
-            ...school,
-            nodes
-          }
-        }
-      }
+      return { ...prev, schools: { ...prev.schools, [schoolName]: { ...school, nodes } } }
     })
   }, [findSchoolForNode, pushHistory])
 
-  const handleLinkNodes = (sourceId: string, targetId: string) => {
-    handleToggleRelationship(targetId, sourceId, 'pool')
-  }
+  const handleLinkNodes = (sourceId: string, targetId: string) => handleToggleRelationship(targetId, sourceId, 'pool')
 
   const handleDeleteNode = (nodeId: string) => {
     const schoolName = findSchoolForNode(nodeId)
     if (!schoolName) return
-
     setTreeData(prev => {
       if (!prev) return prev
       pushHistory(prev)
-      
       const newSchools = { ...prev.schools }
-      
-      newSchools[schoolName] = {
-        ...newSchools[schoolName],
-        roots: (newSchools[schoolName].roots || []).filter(id => id !== nodeId),
-        nodes: newSchools[schoolName].nodes.filter(n => n.formId !== nodeId)
-      }
-      
+      newSchools[schoolName] = { ...newSchools[schoolName], roots: (newSchools[schoolName].roots || []).filter(id => id !== nodeId), nodes: newSchools[schoolName].nodes.filter(n => n.formId !== nodeId) }
       Object.keys(newSchools).forEach(sName => {
         newSchools[sName] = {
           ...newSchools[sName],
@@ -482,67 +386,29 @@ export default function HoMTreeEditor() {
           }))
         }
       })
-      
-      return {
-        ...prev,
-        schools: newSchools
-      }
+      return { ...prev, schools: newSchools }
     })
     setSelectedNodeIds(prev => prev.filter(id => id !== nodeId));
   }
 
-  const handleAddNode = () => {
-    if (!treeData || !selectedSchool) return
-    setIsAddNodeOpen(true)
-  }
+  const handleAddNode = () => { if (treeData && selectedSchool) setIsAddNodeOpen(true) }
 
   const handleConfirmAddNode = (details: Partial<SpellNode>) => {
     if (!treeData || !selectedSchool) return
-
     setTreeData(prev => {
       if (!prev) return prev
       pushHistory(prev)
       const school = prev.schools[selectedSchool]
       const firstRoot = school.roots?.[0]
       const referenceNode = school.nodes.find(n => n.formId === firstRoot) || school.nodes[0]
-      
       const newNodeId = details.formId || ("0x" + Math.random().toString(16).slice(2, 10).toUpperCase())
-      const newNode: SpellNode = {
-        formId: newNodeId,
-        name: details.name || "New Spell",
-        theme: details.theme || "_misc",
-        tier: details.tier || 1,
-        skillLevel: details.skillLevel || "Novice",
-        x: (referenceNode?.x || 0) + 100,
-        y: (referenceNode?.y || 0) + 100,
-        children: [],
-        prerequisites: [],
-        hardPrereqs: [],
-        softPrereqs: [],
-        softNeeded: 0
-      }
-      
-      return {
-        ...prev,
-        schools: {
-          ...prev.schools,
-          [selectedSchool]: {
-            ...school,
-            nodes: [...school.nodes, newNode]
-          }
-        }
-      }
+      const newNode: SpellNode = { formId: newNodeId, name: details.name || "New Spell", theme: details.theme || "_misc", tier: details.tier || 1, skillLevel: details.skillLevel || "Novice", x: (referenceNode?.x || 0) + 100, y: (referenceNode?.y || 0) + 100, children: [], prerequisites: [], hardPrereqs: [], softPrereqs: [], softNeeded: 0 }
+      return { ...prev, schools: { ...prev.schools, [selectedSchool]: { ...school, nodes: [...school.nodes, newNode] } } }
     })
-
-    toast({
-      title: "Spell Manifested",
-      description: `${details.name} has been added to the ${selectedSchool} tree.`
-    })
+    toast({ title: "Spell Manifested", description: `${details.name} has been added.` })
   }
 
-  const filteredSchools = treeData ? Object.keys(treeData.schools).filter(s => 
-    s.toLowerCase().includes(searchQuery.toLowerCase())
-  ) : []
+  const filteredSchools = treeData ? Object.keys(treeData.schools).filter(s => s.toLowerCase().includes(searchQuery.toLowerCase())) : []
 
   const selectedNode = useMemo(() => {
     if (!treeData || !selectedNodeId) return null
@@ -559,34 +425,19 @@ export default function HoMTreeEditor() {
     const schoolsToSearch = selectedSchool === null ? Object.values(treeData.schools) : [treeData.schools[selectedSchool]]
     schoolsToSearch.forEach(school => {
       school.nodes.forEach(node => {
-        if (node.name.toLowerCase().includes(nodeSearchQuery.toLowerCase()) || 
-            node.formId.toLowerCase().includes(nodeSearchQuery.toLowerCase())) {
-          results.push(node)
-        }
+        if (node.name.toLowerCase().includes(nodeSearchQuery.toLowerCase()) || node.formId.toLowerCase().includes(nodeSearchQuery.toLowerCase())) results.push(node)
       })
     })
     return results.slice(0, 10)
   }, [treeData, selectedSchool, nodeSearchQuery])
 
   return (
-    <div className="flex h-screen w-full bg-background overflow-hidden">
+    <div className="flex h-screen w-full bg-background overflow-hidden text-foreground">
       <Toaster />
-      <JSONImporter 
-        isOpen={isImportOpen} 
-        onOpenChange={setIsImportOpen} 
-        onImport={handleImport} 
-      />
-      
-      <AddNodeDialog 
-        isOpen={isAddNodeOpen} 
-        onOpenChange={setIsAddNodeOpen} 
-        onConfirm={handleConfirmAddNode} 
-      />
+      <JSONImporter isOpen={isImportOpen} onOpenChange={setIsImportOpen} onImport={handleImport} />
+      <AddNodeDialog isOpen={isAddNodeOpen} onOpenChange={setIsAddNodeOpen} onConfirm={handleConfirmAddNode} />
 
-      <aside className={cn(
-        "flex flex-col border-r border-border transition-all bg-card/50 backdrop-blur-md relative z-30",
-        isSidebarCollapsed ? "w-16" : "w-72"
-      )}>
+      <aside className={cn("flex flex-col border-r border-border bg-card/50 transition-all relative z-30", isSidebarCollapsed ? "w-16" : "w-72")}>
         <div className="p-4 border-b border-border flex items-center justify-between">
           {!isSidebarCollapsed && (
             <div className="flex items-center gap-2">
@@ -594,10 +445,7 @@ export default function HoMTreeEditor() {
               <h1 className="font-bold text-lg">HoM Tree Editor</h1>
             </div>
           )}
-          <button 
-            className="p-2 hover:bg-secondary rounded-md transition-colors" 
-            onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-          >
+          <button className="p-2 hover:bg-secondary rounded-md" onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}>
             {isSidebarCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
           </button>
         </div>
@@ -607,203 +455,103 @@ export default function HoMTreeEditor() {
             <div className="p-4 space-y-6">
               <div className="relative">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                <input 
-                  placeholder="Filter schools..." 
-                  className="w-full bg-background border border-border rounded-md pl-9 pr-3 py-1.5 text-xs focus:ring-1 focus:ring-accent outline-none"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
+                <input placeholder="Filter schools..." className="w-full bg-background border border-border rounded-md pl-9 pr-3 py-1.5 text-xs outline-none focus:ring-1 focus:ring-accent" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
               </div>
-
               <div className="space-y-1">
-                <Label className="text-[10px] uppercase text-muted-foreground tracking-widest px-2">Navigation</Label>
-                <button
-                  onClick={() => { setSelectedSchool(null); setSelectedNodeIds([]); setIsGlobalView(false); }}
-                  className={cn("w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md transition-all", (!selectedSchool && !isGlobalView) ? "bg-primary text-accent" : "text-muted-foreground hover:bg-secondary")}
-                >
+                <Label className="text-[10px] uppercase text-muted-foreground px-2">Navigation</Label>
+                <button onClick={() => { setSelectedSchool(null); setSelectedNodeIds([]); setIsGlobalView(false); }} className={cn("w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md", (!selectedSchool && !isGlobalView) ? "bg-primary text-accent" : "text-muted-foreground hover:bg-secondary")}>
                   <LayoutDashboard className="w-3.5 h-3.5" /> Dashboard
                 </button>
-                <button
-                  onClick={() => { setSelectedSchool(null); setSelectedNodeIds([]); setIsGlobalView(true); }}
-                  className={cn("w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md transition-all", isGlobalView ? "bg-primary text-accent" : "text-muted-foreground hover:bg-secondary")}
-                >
+                <button onClick={() => { setSelectedSchool(null); setSelectedNodeIds([]); setIsGlobalView(true); }} className={cn("w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md", isGlobalView ? "bg-primary text-accent" : "text-muted-foreground hover:bg-secondary")}>
                   <Globe className="w-3.5 h-3.5" /> Arch-Grimoire Hub
                 </button>
               </div>
-
               <Accordion type="single" collapsible className="w-full">
                 <AccordionItem value="controls" className="border-none">
-                  <AccordionTrigger className="hover:no-underline py-2 px-0">
-                    <Label className="text-[10px] uppercase text-muted-foreground tracking-widest px-2 cursor-pointer">Grimoire Controls</Label>
-                  </AccordionTrigger>
+                  <AccordionTrigger className="hover:no-underline py-2 px-0 text-[10px] uppercase text-muted-foreground px-2">Grimoire Controls</AccordionTrigger>
                   <AccordionContent className="pt-2">
                     <div className="px-2 py-2 space-y-2.5 bg-secondary/20 rounded-lg border border-border/40">
                       <ControlHint icon={<MousePointer2 className="w-3 h-3" />} text="Select Spell" hint="Click" />
                       <ControlHint icon={<Command className="w-3 h-3" />} text="Multi Select" hint="Cmd+Click" />
                       <ControlHint icon={<SquareDashedMousePointer className="w-3 h-3" />} text="Marquee" hint="Shift+Drag Bg" />
-                      <ControlHint icon={<Link className="w-3 h-3" />} text="Establish Link" hint="Shift+Drag Node" />
-                      <ControlHint icon={<Move className="w-3 h-3" />} text="Pan Canvas" hint="Mid Click / Alt+Drag" />
-                      <ControlHint icon={<Maximize className="w-3 h-3" />} text="Zoom View" hint="Scroll" />
-                      <ControlHint icon={<Undo2 className="w-3 h-3" />} text="Undo Action" hint="Ctrl+Z" />
+                      <ControlHint icon={<Link className="w-3 h-3" />} text="Link Nodes" hint="Shift+Drag Node" />
+                      <ControlHint icon={<Move className="w-3 h-3" />} text="Pan View" hint="Alt+Drag" />
+                      <ControlHint icon={<Undo2 className="w-3 h-3" />} text="Undo" hint="Ctrl+Z" />
                     </div>
                   </AccordionContent>
                 </AccordionItem>
               </Accordion>
-
               <div className="space-y-1">
-                <Label className="text-[10px] uppercase text-muted-foreground tracking-widest px-2">Schools</Label>
+                <Label className="text-[10px] uppercase text-muted-foreground px-2">Schools</Label>
                 <div className="space-y-1 mt-2">
                   {filteredSchools.map(school => (
-                    <button
-                      key={school}
-                      onClick={() => { setSelectedSchool(school); setSelectedNodeIds([]); setIsGlobalView(false); }}
-                      className={cn("w-full flex items-center justify-between px-3 py-2 text-sm rounded-md transition-all", selectedSchool === school ? "bg-primary text-accent" : "text-muted-foreground hover:bg-secondary")}
-                    >
-                      <div className="flex items-center gap-2">
-                        <Database className="w-3.5 h-3.5" /> {school}
-                      </div>
+                    <button key={school} onClick={() => { setSelectedSchool(school); setSelectedNodeIds([]); setIsGlobalView(false); }} className={cn("w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md", selectedSchool === school ? "bg-primary text-accent" : "text-muted-foreground hover:bg-secondary")}>
+                      <Database className="w-3.5 h-3.5" /> {school}
                     </button>
                   ))}
                 </div>
               </div>
             </div>
-
             <div className="mt-auto p-4 border-t border-border space-y-2">
-              <Button 
-                variant="outline" 
-                className="w-full justify-start gap-2 text-xs" 
-                onClick={handleUndo} 
-                disabled={history.length === 0}
-              >
-                <Undo2 className="w-3.5 h-3.5" /> Undo Action
-              </Button>
-              
+              <Button variant="outline" className="w-full justify-start gap-2 text-xs" onClick={handleUndo} disabled={history.length === 0}><Undo2 className="w-3.5 h-3.5" /> Undo Action</Button>
               {isTauri ? (
-                <Button variant="outline" className="w-full justify-start gap-2 text-xs" onClick={handleNativeImport}>
-                  <FolderOpen className="w-3.5 h-3.5" /> Open From Grimoire
-                </Button>
+                <Button variant="outline" className="w-full justify-start gap-2 text-xs" onClick={handleNativeImport}><FolderOpen className="w-3.5 h-3.5" /> Open From Grimoire</Button>
               ) : (
-                <Button variant="outline" className="w-full justify-start gap-2 text-xs" onClick={() => setIsImportOpen(true)}>
-                  <Code className="w-3.5 h-3.5" /> Import JSON
-                </Button>
+                <Button variant="outline" className="w-full justify-start gap-2 text-xs" onClick={() => setIsImportOpen(true)}><Code className="w-3.5 h-3.5" /> Import JSON</Button>
               )}
-
-              <Button className="w-full justify-start gap-2 text-xs" onClick={handleExport} disabled={!treeData}>
-                <Download className="w-3.5 h-3.5" /> Export Grimoire
-              </Button>
+              <Button className="w-full justify-start gap-2 text-xs" onClick={handleExport} disabled={!treeData}><Download className="w-3.5 h-3.5" /> Export Grimoire</Button>
             </div>
           </div>
         )}
       </aside>
 
-      <main className="flex-1 flex flex-col min-0 bg-background relative overflow-hidden">
-        <header className="h-16 border-b border-border flex items-center justify-between px-6 bg-card/30 backdrop-blur-sm relative z-20">
+      <main className="flex-1 flex flex-col min-w-0 bg-background relative overflow-hidden">
+        <header className="h-16 border-b border-border flex items-center justify-between px-6 bg-card/30 backdrop-blur-sm z-20">
           <div className="flex items-center gap-6">
-            <h2 className="font-bold">
-              {selectedSchool || (isGlobalView ? "Arch-Grimoire Hub" : "Dashboard")}
-            </h2>
-
+            <h2 className="font-bold">{selectedSchool || (isGlobalView ? "Arch-Grimoire Hub" : "Dashboard")}</h2>
             {(selectedSchool || isGlobalView) && (
-              <>
-                <Popover open={nodeSearchResults.length > 0}>
-                  <PopoverTrigger asChild>
-                    <div className="relative">
-                      <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-                      <Input 
-                        placeholder="Search spell..." 
-                        className="pl-8 h-8 w-48 text-xs rounded-full"
-                        value={nodeSearchQuery}
-                        onChange={(e) => setNodeSearchQuery(e.target.value)}
-                      />
-                    </div>
-                  </PopoverTrigger>
-                  <PopoverContent 
-                    className="p-0 w-64" 
-                    align="start"
-                    onOpenAutoFocus={(e) => e.preventDefault()}
-                  >
-                    <div className="max-h-64 overflow-y-auto">
-                      {nodeSearchResults.map(n => (
-                        <button
-                          key={n.formId}
-                          onClick={() => { setSelectedNodeIds([n.formId]); setNodeSearchQuery(''); }}
-                          className="w-full flex items-center justify-between px-4 py-2 text-xs hover:bg-accent/10 border-b border-border"
-                        >
-                          <div className="flex flex-col items-start">
-                            <span className="font-bold">{n.name}</span>
-                            <span className="text-[9px] opacity-40">{n.formId}</span>
-                          </div>
-                          <Target className="w-3 h-3 text-accent" />
-                        </button>
-                      ))}
-                    </div>
-                  </PopoverContent>
-                </Popover>
-
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  className={cn("gap-2 text-xs", showRadialGuides ? "text-accent bg-accent/10" : "text-muted-foreground")}
-                  onClick={() => setShowRadialGuides(!showRadialGuides)}
-                >
-                  <Compass className="w-4 h-4" /> {showRadialGuides ? "Radial On" : "Radial Off"}
-                </Button>
-              </>
+              <Popover open={nodeSearchResults.length > 0}>
+                <PopoverTrigger asChild>
+                  <div className="relative">
+                    <Search className="absolute left-2 top-2 h-3.5 w-3.5 text-muted-foreground" />
+                    <Input placeholder="Search spell..." className="pl-8 h-8 w-48 text-xs rounded-full" value={nodeSearchQuery} onChange={(e) => setNodeSearchQuery(e.target.value)} />
+                  </div>
+                </PopoverTrigger>
+                <PopoverContent className="p-0 w-64" align="start" onOpenAutoFocus={(e) => e.preventDefault()}>
+                  <div className="max-h-64 overflow-y-auto">
+                    {nodeSearchResults.map(n => (
+                      <button key={n.formId} onClick={() => { setSelectedNodeIds([n.formId]); setNodeSearchQuery(''); }} className="w-full flex items-center justify-between px-4 py-2 text-xs hover:bg-accent/10 border-b border-border">
+                        <div className="flex flex-col items-start"><span className="font-bold">{n.name}</span><span className="text-[9px] opacity-40">{n.formId}</span></div>
+                        <Target className="w-3 h-3 text-accent" />
+                      </button>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
             )}
-          </div>
-          <div className="flex items-center gap-2">
-            {selectedSchool && (
-              <Button size="sm" onClick={handleAddNode}>
-                <Plus className="w-4 h-4" /> Add Spell
+            {(selectedSchool || isGlobalView) && (
+              <Button variant="ghost" size="sm" className={cn("gap-2 text-xs", showRadialGuides ? "text-accent bg-accent/10" : "text-muted-foreground")} onClick={() => setShowRadialGuides(!showRadialGuides)}>
+                <Compass className="w-4 h-4" /> {showRadialGuides ? "Radial On" : "Radial Off"}
               </Button>
             )}
           </div>
+          {selectedSchool && <Button size="sm" onClick={handleAddNode}><Plus className="w-4 h-4" /> Add Spell</Button>}
         </header>
 
         <div className="flex-1 relative">
-          {treeData ? (
-            selectedSchool ? (
-              <TreeCanvas 
-                schoolName={selectedSchool}
-                allSchools={treeData.schools}
-                selectedNodeIds={selectedNodeIds}
-                onSelectNodes={setSelectedNodeIds}
-                onNodesMove={handleUpdateNodes}
-                onLinkNodes={handleLinkNodes}
-                searchQuery={nodeSearchQuery}
-                showRadialGuides={showRadialGuides}
-              />
-            ) : isGlobalView ? (
-              <GlobalGrimoireView 
-                schools={treeData.schools}
-                selectedNodeIds={selectedNodeIds}
-                onSelectNodes={setSelectedNodeIds}
-                onNodesMove={handleUpdateNodes}
-                onLinkNodes={handleLinkNodes}
-                searchQuery={nodeSearchQuery}
-                showRadialGuides={showRadialGuides}
-              />
-            ) : (
-              <DashboardView data={treeData} onSelectSchool={setSelectedSchool} />
-            )
-          ) : null}
+          {treeData && (selectedSchool ? (
+            <TreeCanvas schoolName={selectedSchool} allSchools={treeData.schools} selectedNodeIds={selectedNodeIds} onSelectNodes={setSelectedNodeIds} onNodesMove={handleUpdateNodes} onLinkNodes={handleLinkNodes} searchQuery={nodeSearchQuery} showRadialGuides={showRadialGuides} />
+          ) : isGlobalView ? (
+            <GlobalGrimoireView schools={treeData.schools} selectedNodeIds={selectedNodeIds} onSelectNodes={setSelectedNodeIds} onNodesMove={handleUpdateNodes} onLinkNodes={handleLinkNodes} searchQuery={nodeSearchQuery} showRadialGuides={showRadialGuides} />
+          ) : (
+            <DashboardView data={treeData} onSelectSchool={setSelectedSchool} />
+          ))}
         </div>
       </main>
 
       {selectedNode && (
-        <aside className="w-96 border-l border-border bg-card/80 backdrop-blur-md relative z-30">
-          <NodeEditor 
-            schoolName={selectedNode.schoolName}
-            school={treeData!.schools[selectedNode.schoolName]}
-            node={selectedNode.node}
-            selectedNodeIds={selectedNodeIds}
-            onUpdate={handleUpdateNode}
-            onUpdateNodes={handleUpdateNodes}
-            onUpdateSchool={handleUpdateSchool}
-            onToggleRelationship={handleToggleRelationship}
-            onDelete={handleDeleteNode}
-            onSelectNode={(id) => setSelectedNodeIds([id])}
-          />
+        <aside className="w-96 border-l border-border bg-card/80 backdrop-blur-md z-30 overflow-y-auto">
+          <NodeEditor schoolName={selectedNode.schoolName} school={treeData!.schools[selectedNode.schoolName]} node={selectedNode.node} selectedNodeIds={selectedNodeIds} onUpdate={handleUpdateNode} onUpdateNodes={handleUpdateNodes} onUpdateSchool={handleUpdateSchool} onToggleRelationship={handleToggleRelationship} onDelete={handleDeleteNode} onSelectNode={(id) => setSelectedNodeIds([id])} />
         </aside>
       )}
     </div>
@@ -813,11 +561,8 @@ export default function HoMTreeEditor() {
 function ControlHint({ icon, text, hint }: { icon: React.ReactNode, text: string, hint: string }) {
   return (
     <div className="flex items-center justify-between gap-2">
-      <div className="flex items-center gap-2 min-w-0">
-        <span className="text-accent shrink-0">{icon}</span>
-        <span className="text-[10px] text-muted-foreground truncate leading-none">{text}</span>
-      </div>
-      <span className="text-[9px] font-mono bg-background/50 px-1 py-0.5 rounded border border-border/30 text-foreground/70 shrink-0">{hint}</span>
+      <div className="flex items-center gap-2"><span className="text-accent">{icon}</span><span className="text-[10px] text-muted-foreground">{text}</span></div>
+      <span className="text-[9px] font-mono bg-background/50 px-1 py-0.5 rounded border border-border/30">{hint}</span>
     </div>
   )
 }

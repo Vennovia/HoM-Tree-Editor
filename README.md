@@ -1,38 +1,25 @@
+
 # HoM Editor - Standalone Setup
 
 This application is a specialized visual editor for Heart of Magic spell structures. It is optimized for performance and can be exported as a standalone desktop application.
 
-## 📂 Project Structure & Assets
+## 📂 Project Structure & Data Locations
 
-### Web Assets
-- **Location**: `public/`
-- **Contents**: Static assets like `manifest.json`, logos, and images.
-- **Custom Icon**: To use the "HoM Editor" icon, save your provided image as `public/icon.png`.
+### Managed Grimoire Folders (Standalone App Only)
+When running as a standalone app, the editor uses dedicated folders located **in the same folder as the program itself**:
 
-### Desktop Icons (Tauri)
-- **Location**: `src-tauri/icons/`
-- **Contents**: Native icon formats (`.ico`, `.icns`, `.png`) required for the standalone app installer and taskbar.
-
-### Spell Image Data
-- **Location**: `src/app/lib/placeholder-images.json`
-- **Usage**: Centralized registry for all image URLs and hints used within the spell nodes.
+- **Location**: `[Install Directory]/exports` and `[Install Directory]/imports`
+- **Usage**: Use these folders to keep your spell data organized and portable.
 
 ---
 
 ## 💾 File Management (Export/Import)
-When running as a standalone app, the editor uses dedicated folders on your computer:
-
-- **Windows**: `%APPDATA%\com.hom.editor\exports`
-- **macOS**: `~/Library/Application Support/com.hom.editor/exports`
-- **Linux**: `~/.local/share/com.hom.editor/exports`
-
-**Exporting**: Clicking the "Export" button in the standalone app saves the `.json` file directly to the **exports** folder above.
-**Importing**: Use the "Import" button to select a `.json` file. The "Open From Grimoire" button (Tauri only) specifically looks in your **imports** folder.
+**Exporting**: Clicking the "Export" button in the standalone app saves the `.json` file directly to the **exports** folder next to your app.
+**Importing**: Use the "Import" button to select a `.json` file. The "Open From Grimoire" button specifically starts looking in your local **imports** folder.
 
 ---
 
 ## 🚀 Local Development (Frontend Only)
-If you just want to run the editor in your browser:
 1.  Open your terminal in the project folder.
 2.  Install dependencies: `npm install`
 3.  Start the development server: `npm run dev`
@@ -40,11 +27,9 @@ If you just want to run the editor in your browser:
 
 ---
 
-## 📦 Option 1: Standalone Build (Tauri)
-Tauri allows you to compile the editor into a native executable (.exe, .app, .deb) that is extremely lightweight and fast.
-
+## 📦 Building the Standalone App (Tauri)
 ### Prerequisites
-1.  **Rust**: You must have the Rust toolchain installed. [Install Rust here](https://www.rust-lang.org/tools/install).
+1.  **Rust**: [Install Rust here](https://www.rust-lang.org/tools/install).
 2.  **OS Dependencies**:
     *   **Windows**: [WebView2](https://developer.microsoft.com/en-us/microsoft-edge/webview2/).
     *   **macOS**: Xcode Command Line Tools.
@@ -55,25 +40,18 @@ Tauri allows you to compile the editor into a native executable (.exe, .app, .de
     *The standalone program will be found in `src-tauri/target/release/bundle/`.*
 
 ### 🤖 GitHub Automated Builds (Recommended)
-You don't need to build locally! Every time you push to GitHub, a build starts automatically:
-1.  Go to your GitHub repository.
-2.  Click the **"Actions"** tab.
-3.  Select the latest workflow run.
-4.  Scroll down to **"Artifacts"** to download your `.exe` or `.dmg`.
-5.  Alternatively, check the **"Releases"** section on the right sidebar for draft versions.
+Every time you push to GitHub, a build starts automatically:
+1.  Go to your GitHub repository **Actions** tab.
+2.  Download the latest artifacts for your OS.
 
 ---
 
 ## 🛠 Git Troubleshooting
 
 ### Error: `[rejected] (non-fast-forward)`
-This happens when the online version of your code (GitHub) has changes that your local computer doesn't have yet.
-**To fix this:**
 1. `git pull origin standalone-build`
 2. `git push origin standalone-build`
 
 ### Error: `You have not concluded your merge (MERGE_HEAD exists)`
-This happens if a previous `git pull` was interrupted or contains conflicts that weren't resolved.
-**To fix this:**
-1. Run `git merge --abort` to reset the stuck state.
+1. Run `git merge --abort`
 2. Run `git pull origin standalone-build` again.
