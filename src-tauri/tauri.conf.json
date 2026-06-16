@@ -2,7 +2,7 @@
   "productName": "HoM Editor",
   "version": "1.0.0",
   "identifier": "com.hom.editor",
-  "build": {
+  "build": {"0.1.10",
     "beforeDevCommand": "npm run dev",
     "devPath": "http://localhost:3000",
     "beforeBuildCommand": "npm run build",
