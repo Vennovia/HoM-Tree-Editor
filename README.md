@@ -19,6 +19,12 @@ This application is a specialized visual editor for Heart of Magic spell structu
 
 ---
 
+## 💾 File Management (Export/Import)
+- **Exporting**: When you click the "Export" button in the standalone app, the `.json` file is saved to your system's default **Downloads** folder.
+- **Importing**: Use the "Import" button to select a previously exported `.json` file from any folder on your computer to load that specific grimoire structure.
+
+---
+
 ## 🚀 Local Development (Frontend Only)
 If you just want to run the editor in your browser:
 1.  Open your terminal in the project folder.

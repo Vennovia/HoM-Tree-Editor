@@ -178,7 +178,7 @@ export default function HoMTreeEditor() {
     
     toast({
       title: "Grimoire Sealed",
-      description: "Successfully exported your grimoire."
+      description: "Exported successfully to your Downloads folder."
     })
   }
 
