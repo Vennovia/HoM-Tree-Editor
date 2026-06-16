@@ -1,4 +1,4 @@
-# HoM Tree Editor - Standalone Setup
+# HoM Editor - Standalone Setup
 
 This application is a specialized visual editor for Heart of Magic spell structures. It is optimized for performance and can be exported as a standalone desktop application.
 
@@ -6,8 +6,8 @@ This application is a specialized visual editor for Heart of Magic spell structu
 
 ### Web Assets
 - **Location**: `public/`
-- **Contents**: Static assets like `manifest.json`, logos, and images served by the Next.js frontend.
-- **Reference**: Use absolute paths like `/my-image.png` in your code.
+- **Contents**: Static assets like `manifest.json`, logos, and images.
+- **Custom Icon**: To use the "HoM Editor" icon, save your provided image as `public/icon.png`.
 
 ### Desktop Icons (Tauri)
 - **Location**: `src-tauri/icons/`

@@ -1,5 +1,5 @@
 {
-  "productName": "HoM Tree Editor",
+  "productName": "HoM Editor",
   "version": "1.0.0",
   "identifier": "com.hom.editor",
   "build": {
@@ -11,7 +11,7 @@
   "app": {
     "windows": [
       {
-        "title": "HoM Tree Editor",
+        "title": "HoM Editor",
         "width": 1280,
         "height": 800,
         "resizable": true,
