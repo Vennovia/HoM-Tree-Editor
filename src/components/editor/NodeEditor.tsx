@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
-import { Trash2, Link as LinkIcon, Lock, Unlock, MapPin, X, Star, StarOff, PlusCircle } from 'lucide-react'
+import { Trash2, Link as LinkIcon, Lock, Unlock, MapPin, X, Star, StarOff, PlusCircle, Fingerprint } from 'lucide-react'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
@@ -124,7 +124,10 @@ export function NodeEditor({
       <div className="p-6 border-b border-border flex justify-between items-center bg-primary/20">
         <div>
           <h2 className="text-xl font-headline font-bold text-accent">Node Editor</h2>
-          <p className="text-xs text-muted-foreground font-mono">{node.formId}</p>
+          <div className="flex items-center gap-1.5 mt-1 opacity-60">
+            <Fingerprint className="w-3 h-3" />
+            <span className="text-[10px] font-mono tracking-tighter uppercase">Reference Data</span>
+          </div>
         </div>
         <Button variant="destructive" size="icon" onClick={() => onDelete(node.formId)}>
           <Trash2 className="w-4 h-4" />
@@ -133,33 +136,6 @@ export function NodeEditor({
 
       <ScrollArea className="flex-1">
         <div className="p-6 space-y-6">
-          {/* School Status */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between p-3 bg-accent/5 rounded-lg border border-accent/20">
-              <div className="flex items-center gap-2">
-                {isRootNode ? <Star className="w-3.5 h-3.5 text-yellow-500 fill-yellow-500" /> : <StarOff className="w-3.5 h-3.5 text-muted-foreground" />}
-                <Label htmlFor="root-toggle" className="text-xs font-bold uppercase tracking-wider">School Root</Label>
-              </div>
-              <Switch 
-                id="root-toggle" 
-                checked={isRootNode} 
-                onCheckedChange={handleToggleRoot}
-              />
-            </div>
-
-            <div className="flex items-center justify-between p-3 bg-secondary/30 rounded-lg border border-border">
-              <div className="flex items-center gap-2">
-                {node.isLocked ? <Lock className="w-3.5 h-3.5 text-accent" /> : <Unlock className="w-3.5 h-3.5 text-muted-foreground" />}
-                <Label htmlFor="lock-toggle" className="text-xs font-bold uppercase tracking-wider">Lock Position</Label>
-              </div>
-              <Switch 
-                id="lock-toggle" 
-                checked={node.isLocked || false} 
-                onCheckedChange={(checked) => onUpdate(node.formId, { isLocked: checked })}
-              />
-            </div>
-          </div>
-
           {/* Basic Info */}
           <div className="space-y-4">
             <div className="space-y-2">
@@ -170,6 +146,17 @@ export function NodeEditor({
                 onChange={handleChange} 
                 className="bg-background border-border focus:ring-accent" 
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-xs uppercase text-muted-foreground tracking-widest font-bold">Form ID</Label>
+              <Input 
+                name="formId" 
+                value={node.formId} 
+                onChange={handleChange} 
+                className="bg-background border-border font-mono text-xs focus:ring-accent" 
+              />
+              <p className="text-[9px] text-muted-foreground opacity-60 leading-tight">Changing this will update all arcane references throughout the grimoire.</p>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -197,6 +184,35 @@ export function NodeEditor({
             <div className="space-y-2">
               <Label className="text-xs uppercase text-muted-foreground tracking-widest font-bold">Theme (Glyph)</Label>
               <Input name="theme" value={node.theme} onChange={handleChange} className="bg-background border-border" />
+            </div>
+          </div>
+
+          <Separator className="bg-border" />
+
+          {/* School Status */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between p-3 bg-accent/5 rounded-lg border border-accent/20">
+              <div className="flex items-center gap-2">
+                {isRootNode ? <Star className="w-3.5 h-3.5 text-yellow-500 fill-yellow-500" /> : <StarOff className="w-3.5 h-3.5 text-muted-foreground" />}
+                <Label htmlFor="root-toggle" className="text-xs font-bold uppercase tracking-wider">School Root</Label>
+              </div>
+              <Switch 
+                id="root-toggle" 
+                checked={isRootNode} 
+                onCheckedChange={handleToggleRoot}
+              />
+            </div>
+
+            <div className="flex items-center justify-between p-3 bg-secondary/30 rounded-lg border border-border">
+              <div className="flex items-center gap-2">
+                {node.isLocked ? <Lock className="w-3.5 h-3.5 text-accent" /> : <Unlock className="w-3.5 h-3.5 text-muted-foreground" />}
+                <Label htmlFor="lock-toggle" className="text-xs font-bold uppercase tracking-wider">Lock Position</Label>
+              </div>
+              <Switch 
+                id="lock-toggle" 
+                checked={node.isLocked || false} 
+                onCheckedChange={(checked) => onUpdate(node.formId, { isLocked: checked })}
+              />
             </div>
           </div>
 
@@ -350,26 +366,6 @@ export function NodeEditor({
               </p>
             </div>
           </div>
-
-          {node.locks && node.locks.length > 0 && (
-            <>
-              <Separator className="bg-border" />
-              <div className="space-y-4 pb-8">
-                <h3 className="text-sm font-semibold flex items-center gap-2">
-                  <Lock className="w-4 h-4 text-accent" />
-                  Locks
-                </h3>
-                {node.locks.map((lock, idx) => (
-                  <div key={idx} className="p-3 bg-secondary/50 rounded border border-border space-y-2">
-                    <div className="flex justify-between items-center">
-                      <span className="text-[10px] font-mono">{lock.nodeId}</span>
-                      <span className="text-[10px] font-bold text-accent">Score: {lock.score}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
         </div>
       </ScrollArea>
     </div>

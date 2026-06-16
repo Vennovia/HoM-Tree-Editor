@@ -17,6 +17,7 @@ interface AddNodeDialogProps {
 
 export function AddNodeDialog({ isOpen, onOpenChange, onConfirm }: AddNodeDialogProps) {
   const [name, setName] = useState('')
+  const [formId, setFormId] = useState('')
   const [tier, setTier] = useState(1)
   const [skillLevel, setSkillLevel] = useState('Novice')
   const [theme, setTheme] = useState('_misc')
@@ -26,6 +27,7 @@ export function AddNodeDialog({ isOpen, onOpenChange, onConfirm }: AddNodeDialog
     
     onConfirm({
       name: name.trim(),
+      formId: formId.trim() || undefined,
       tier,
       skillLevel,
       theme: theme.trim() || "_misc"
@@ -34,6 +36,7 @@ export function AddNodeDialog({ isOpen, onOpenChange, onConfirm }: AddNodeDialog
     onOpenChange(false)
     // Reset state for next time
     setName('')
+    setFormId('')
     setTier(1)
     setSkillLevel('Novice')
     setTheme('_misc')
@@ -62,6 +65,17 @@ export function AddNodeDialog({ isOpen, onOpenChange, onConfirm }: AddNodeDialog
               onChange={(e) => setName(e.target.value)}
               className="bg-background"
               autoFocus
+            />
+          </div>
+
+          <div className="grid gap-2">
+            <Label htmlFor="formId" className="text-xs uppercase tracking-widest text-muted-foreground font-bold">Form ID (Optional)</Label>
+            <Input
+              id="formId"
+              placeholder="e.g. 0x01A2B3C4"
+              value={formId}
+              onChange={(e) => setFormId(e.target.value)}
+              className="bg-background font-mono text-xs"
             />
           </div>
 

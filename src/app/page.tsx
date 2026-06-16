@@ -184,25 +184,65 @@ export default function HoMTreeEditor() {
     setTreeData(prev => {
       if (!prev) return prev
       pushHistory(prev)
-      const school = prev.schools[schoolName]
-      const nodeIndex = school.nodes.findIndex(n => n.formId === nodeId)
-      if (nodeIndex === -1) return prev
       
-      const newNodes = [...school.nodes]
-      newNodes[nodeIndex] = { ...newNodes[nodeIndex], ...updates }
+      const oldId = nodeId
+      const newId = updates.formId
+      
+      let newSchools = { ...prev.schools }
+
+      // If ID is changing, we need a cascading update across ALL references in ALL schools
+      if (newId && newId !== oldId) {
+        Object.keys(newSchools).forEach(sName => {
+          const school = newSchools[sName]
+          
+          // Update roots array
+          const newRoots = (school.roots || []).map(id => id === oldId ? newId : id)
+          
+          // Update nodes and their internal relationship lists
+          const newNodes = school.nodes.map(n => {
+            const isTargetNode = n.formId === oldId
+            
+            // Map function to replace oldId with newId in arrays
+            const replaceId = (arr: string[] = []) => arr.map(id => id === oldId ? newId : id)
+
+            return {
+              ...n,
+              formId: isTargetNode ? newId : n.formId,
+              // Apply other updates if this is the specific node being edited
+              ...(isTargetNode ? updates : {}),
+              children: replaceId(n.children),
+              prerequisites: replaceId(n.prerequisites),
+              hardPrereqs: replaceId(n.hardPrereqs),
+              softPrereqs: replaceId(n.softPrereqs)
+            }
+          })
+          
+          newSchools[sName] = {
+            ...school,
+            roots: newRoots,
+            nodes: newNodes
+          }
+        })
+        
+        // Update selection state to follow the new ID
+        if (selectedNodeId === oldId) setSelectedNodeId(newId)
+      } else {
+        // Normal property update (no ID change)
+        const school = newSchools[schoolName]
+        const nodeIndex = school.nodes.findIndex(n => n.formId === nodeId)
+        if (nodeIndex !== -1) {
+          const newNodes = [...school.nodes]
+          newNodes[nodeIndex] = { ...newNodes[nodeIndex], ...updates }
+          newSchools[schoolName] = { ...school, nodes: newNodes }
+        }
+      }
       
       return {
         ...prev,
-        schools: {
-          ...prev.schools,
-          [schoolName]: {
-            ...school,
-            nodes: newNodes
-          }
-        }
+        schools: newSchools
       }
     })
-  }, [findSchoolForNode, pushHistory])
+  }, [findSchoolForNode, pushHistory, selectedNodeId])
 
   const handleUpdateSchool = useCallback((schoolName: string, updates: Partial<SpellSchool>) => {
     setTreeData(prev => {
@@ -351,7 +391,7 @@ export default function HoMTreeEditor() {
       const firstRoot = school.roots?.[0]
       const referenceNode = school.nodes.find(n => n.formId === firstRoot) || school.nodes[0]
       
-      const newNodeId = "0x" + Math.random().toString(16).slice(2, 10).toUpperCase()
+      const newNodeId = details.formId || ("0x" + Math.random().toString(16).slice(2, 10).toUpperCase())
       const newNode: SpellNode = {
         formId: newNodeId,
         name: details.name || "New Spell",
