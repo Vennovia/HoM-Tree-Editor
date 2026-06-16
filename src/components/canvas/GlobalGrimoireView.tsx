@@ -206,7 +206,7 @@ export function GlobalGrimoireView({
       }
     }
 
-    // Add Arcane Spokes (every 15 degrees)
+    // Add Arcane Spokes (every 15 degrees) - White Color
     for (let angle = 0; angle < 360; angle += 15) {
       const rad = (angle * Math.PI) / 180;
       const length = 10000;
@@ -220,7 +220,7 @@ export function GlobalGrimoireView({
           key={`spoke-${angle}`}
           x1={0} y1={0}
           x2={x2} y2={y2}
-          stroke={isMajor ? "hsl(var(--accent) / 0.25)" : isSemiMajor ? "hsl(var(--accent) / 0.15)" : "hsl(var(--accent) / 0.08)"}
+          stroke={isMajor ? "rgba(255, 255, 255, 0.2)" : isSemiMajor ? "rgba(255, 255, 255, 0.12)" : "rgba(255, 255, 255, 0.06)"}
           strokeWidth={isMajor ? "1.5" : "1"}
           strokeDasharray={isMajor ? "" : "8,8"}
           pointerEvents="none"
