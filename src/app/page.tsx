@@ -209,21 +209,14 @@ export default function HoMTreeEditor() {
       if (newId && newId !== oldId) {
         Object.keys(newSchools).forEach(sName => {
           const school = newSchools[sName]
-          
-          // Update roots array
           const newRoots = (school.roots || []).map(id => id === oldId ? newId : id)
-          
-          // Update nodes and their internal relationship lists
           const newNodes = school.nodes.map(n => {
             const isTargetNode = n.formId === oldId
-            
-            // Map function to replace oldId with newId in arrays
             const replaceId = (arr: string[] = []) => arr.map(id => id === oldId ? newId : id)
 
             return {
               ...n,
               formId: isTargetNode ? newId : n.formId,
-              // Apply other updates if this is the specific node being edited
               ...(isTargetNode ? updates : {}),
               children: replaceId(n.children),
               prerequisites: replaceId(n.prerequisites),
@@ -239,10 +232,8 @@ export default function HoMTreeEditor() {
           }
         })
         
-        // Update selection state to follow the new ID
         setSelectedNodeIds(prevIds => prevIds.map(id => id === oldId ? newId! : id));
       } else {
-        // Normal property update (no ID change)
         const school = newSchools[schoolName]
         const nodeIndex = school.nodes.findIndex(n => n.formId === nodeId)
         if (nodeIndex !== -1) {
@@ -322,7 +313,6 @@ export default function HoMTreeEditor() {
       const node = { ...nodes[nodeIdx] }
       const target = { ...nodes[targetIdx] }
 
-      // Helper to ensure 'prerequisites' and 'children' pool sync
       const ensurePoolLink = (n: SpellNode, t: SpellNode) => {
         if (!(n.prerequisites || []).includes(t.formId)) n.prerequisites = [...(n.prerequisites || []), t.formId]
         if (!(t.children || []).includes(n.formId)) t.children = [...(t.children || []), n.formId]
@@ -336,7 +326,7 @@ export default function HoMTreeEditor() {
           node.hardPrereqs = (node.hardPrereqs || []).filter(id => id !== targetId)
         } else {
           node.hardPrereqs = [...(node.hardPrereqs || []), targetId]
-          node.softPrereqs = (node.softPrereqs || []).filter(id => id !== targetId) // Mutually exclusive
+          node.softPrereqs = (node.softPrereqs || []).filter(id => id !== targetId)
           ensurePoolLink(node, target)
         }
       } else if (type === 'soft') {
@@ -345,7 +335,7 @@ export default function HoMTreeEditor() {
           node.softPrereqs = (node.softPrereqs || []).filter(id => id !== targetId)
         } else {
           node.softPrereqs = [...(node.softPrereqs || []), targetId]
-          node.hardPrereqs = (node.hardPrereqs || []).filter(id => id !== targetId) // Mutually exclusive
+          node.hardPrereqs = (node.hardPrereqs || []).filter(id => id !== targetId)
           ensurePoolLink(node, target)
         }
       } else if (type === 'child') {
@@ -688,7 +678,7 @@ export default function HoMTreeEditor() {
             selectedSchool ? (
               <TreeCanvas 
                 schoolName={selectedSchool}
-                school={treeData.schools[selectedSchool]}
+                allSchools={treeData.schools}
                 selectedNodeIds={selectedNodeIds}
                 onSelectNodes={setSelectedNodeIds}
                 onNodesMove={handleUpdateNodes}

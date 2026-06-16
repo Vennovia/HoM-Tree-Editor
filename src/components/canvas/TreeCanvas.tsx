@@ -7,7 +7,7 @@ import { Lock, Move } from 'lucide-react'
 
 interface TreeCanvasProps {
   schoolName: string;
-  school: SpellSchool;
+  allSchools: Record<string, SpellSchool>;
   selectedNodeIds: string[];
   onSelectNodes: (nodeIds: string[]) => void;
   onNodesMove: (updates: Record<string, Partial<SpellNode>>) => void;
@@ -18,7 +18,7 @@ interface TreeCanvasProps {
 
 export function TreeCanvas({ 
   schoolName, 
-  school, 
+  allSchools, 
   selectedNodeIds, 
   onSelectNodes, 
   onNodesMove,
@@ -42,6 +42,8 @@ export function TreeCanvas({
 
   const lastCenteredId = useRef<string | null>(null);
   const currentSchoolName = useRef<string | null>(null);
+
+  const school = allSchools[schoolName];
 
   useEffect(() => {
     if (school && schoolName !== currentSchoolName.current) {
@@ -277,6 +279,7 @@ export function TreeCanvas({
       }
     }
 
+    // 1. Spoke Guides
     for (let angle = 0; angle < 360; angle += 15) {
       const rad = (angle * Math.PI) / 180;
       const length = 5000;
@@ -298,6 +301,7 @@ export function TreeCanvas({
       );
     }
 
+    // 2. Radial Guides
     if (showRadialGuides) {
       for (let r = 25; r <= 4000; r += 25) {
         const isMajor = r % 100 === 0;
@@ -315,6 +319,7 @@ export function TreeCanvas({
       }
     }
 
+    // 3. Hub Lines (Connections from 0,0 to School Roots)
     schoolRoots.forEach(rootId => {
       const rootNode = school.nodes.find(n => n.formId === rootId);
       if (rootNode) {
@@ -333,6 +338,38 @@ export function TreeCanvas({
       }
     });
 
+    // 4. Ghost Nodes from other schools
+    Object.entries(allSchools).forEach(([name, s]) => {
+      if (name === schoolName) return;
+      s.nodes.forEach(n => {
+        const isRoot = (s.roots || []).includes(n.formId);
+        nodes.push(
+          <div
+            key={`ghost-${n.formId}`}
+            className={cn(
+              "absolute flex items-center justify-center rounded-full border border-border bg-card/20 pointer-events-none opacity-20",
+              isRoot && "border-accent/30"
+            )}
+            style={{ 
+              left: n.x, 
+              top: n.y, 
+              transform: 'translate(-50%, -50%)',
+              width: isRoot ? 30 : 18,
+              height: isRoot ? 30 : 18,
+            }}
+          >
+            <span className={cn(
+              "text-center font-bold truncate leading-tight px-0.5",
+              isRoot ? "text-[8px]" : "text-[7px]"
+            )}>
+              {n.name}
+            </span>
+          </div>
+        );
+      });
+    });
+
+    // 5. Active School Nodes and Connections
     school.nodes.forEach(node => {
       (node.children || []).forEach(childId => {
         const childNode = school.nodes.find(n => n.formId === childId);
@@ -350,7 +387,6 @@ export function TreeCanvas({
           const dy = tY - sY;
           const angle = Math.atan2(dy, dx);
           const isRoot = schoolRoots.includes(childNode.formId);
-          // Roots are 30px (15px radius), Spells are 18px (9px radius)
           const targetRadius = (isRoot ? 15 : 9) + 4;
           const x2 = tX - targetRadius * Math.cos(angle);
           const y2 = tY - targetRadius * Math.sin(angle);
@@ -429,12 +465,11 @@ export function TreeCanvas({
     });
 
     return { nodes, connections, hubLines, radialGuides, spokes };
-  }, [school, selectedNodeIds, dragMode, searchQuery, showRadialGuides, draggingNodesPos]);
+  }, [allSchools, schoolName, school, selectedNodeIds, dragMode, searchQuery, showRadialGuides, draggingNodesPos]);
 
   const activeDragInfo = useMemo(() => {
     if (dragMode !== 'node' || !dragNodeId || !draggingNodesPos[dragNodeId]) return null;
     const { x, y } = draggingNodesPos[dragNodeId];
-    // Coordinate HUD logic: 360 is UP
     let deg = (Math.atan2(y, x) * (180 / Math.PI)) + 90;
     if (deg < 0) deg += 360;
     if (deg >= 360) deg -= 360;
