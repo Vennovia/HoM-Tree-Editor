@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState, useRef, useEffect, useMemo } from 'react'
@@ -385,8 +384,8 @@ export function GlobalGrimoireView({
             }}
           >
             <span className={cn(
-              "font-bold text-center px-0.5 truncate leading-tight pointer-events-none group-hover:whitespace-normal group-hover:bg-card/95 group-hover:absolute group-hover:z-50 group-hover:p-1 group-hover:rounded group-hover:border group-hover:border-border",
-              isRoot ? "text-[8px]" : "text-[4px]"
+              "font-bold text-center px-0.5 truncate leading-tight pointer-events-none group-hover:whitespace-normal group-hover:bg-card/95 group-hover:absolute group-hover:z-50 group-hover:p-1 group-hover:rounded group-hover:border group-hover:border-border transition-all",
+              isRoot ? "text-[8px]" : "text-[7px]"
             )}>
               {node.name}
             </span>
@@ -426,8 +425,8 @@ export function GlobalGrimoireView({
         <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-4 px-6 py-2 bg-accent/90 text-accent-foreground font-mono text-xs rounded-full shadow-2xl backdrop-blur-sm border border-white/20 animate-in fade-in slide-in-from-top-4">
           <Move className="w-3 h-3" />
           <div className="flex gap-4">
-            <span className="flex gap-1.5"><span className="opacity-60">Small X:</span>{activeDragInfo.x}</span>
-            <span className="flex gap-1.5"><span className="opacity-60">Small Y:</span>{activeDragInfo.y}</span>
+            <span className="flex gap-1.5"><span className="opacity-60">X:</span>{activeDragInfo.x}</span>
+            <span className="flex gap-1.5"><span className="opacity-60">Y:</span>{activeDragInfo.y}</span>
             <span className="flex gap-1.5"><span className="opacity-60">DEG:</span>{activeDragInfo.deg}°</span>
           </div>
         </div>

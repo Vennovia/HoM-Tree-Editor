@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState, useRef, useEffect, useMemo } from 'react'
@@ -409,7 +408,7 @@ export function TreeCanvas({
         >
           <span className={cn(
             "text-center font-bold truncate leading-tight px-0.5 pointer-events-none group-hover:whitespace-normal group-hover:bg-card/95 group-hover:absolute group-hover:z-50 group-hover:p-1 group-hover:rounded group-hover:border group-hover:border-border transition-all",
-            isRoot ? "text-[8px]" : "text-[4px]"
+            isRoot ? "text-[8px]" : "text-[7px]"
           )}>
             {node.name}
           </span>
