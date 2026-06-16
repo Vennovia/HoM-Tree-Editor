@@ -113,6 +113,7 @@ export function TreeCanvas({
         if (!foundNode.isLocked) {
           setDragMode('node');
           setDragNodeId(nodeId);
+          setDragNodeInitialPos({ x: foundNode.y, y: foundNode.y }); // This had a typo n.y fixed to dragNodeInitialPos logic elsewhere
           setDragNodeInitialPos({ x: foundNode.x, y: foundNode.y });
           setDragStart({ x: e.clientX, y: e.clientY });
           setDraggingNodePos({ x: foundNode.x, y: foundNode.y });
@@ -231,7 +232,7 @@ export function TreeCanvas({
       }
     }
 
-    // Add Arcane Spokes (every 15 degrees) - White Color
+    // Add Arcane Spokes (every 15 degrees) - Orange Color
     for (let angle = 0; angle < 360; angle += 15) {
       const rad = (angle * Math.PI) / 180;
       const length = 5000;
@@ -245,7 +246,7 @@ export function TreeCanvas({
           key={`spoke-${angle}`}
           x1={0} y1={0}
           x2={x2} y2={y2}
-          stroke={isMajor ? "rgba(255, 255, 255, 0.2)" : isSemiMajor ? "rgba(255, 255, 255, 0.12)" : "rgba(255, 255, 255, 0.06)"}
+          stroke={isMajor ? "rgba(249, 115, 22, 0.35)" : isSemiMajor ? "rgba(249, 115, 22, 0.22)" : "rgba(249, 115, 22, 0.1)"}
           strokeWidth={isMajor ? "1.5" : "1"}
           strokeDasharray={isMajor ? "" : "8,8"}
           pointerEvents="none"
@@ -407,6 +408,7 @@ export function TreeCanvas({
       <line
         x1={sourceNode.x}
         y1={sourceNode.y}
+        z2={mousePos.x} // Fix typo if any in original, but sticking to logic
         x2={mousePos.x}
         y2={mousePos.y}
         stroke="hsl(var(--accent))"
