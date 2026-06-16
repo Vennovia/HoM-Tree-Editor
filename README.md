@@ -20,7 +20,7 @@ This application is a specialized visual editor for Heart of Magic spell structu
 ---
 
 ## 💾 File Management (Export/Import)
-- **Exporting**: When you click the "Export" button in the standalone app, the `.json` file is saved to your system's default **Downloads** folder.
+- **Exporting**: When you click the "Export" button in the standalone app, the `.json` file is saved to your system's dedicated **AppData/exports** folder.
 - **Importing**: Use the "Import" button to select a previously exported `.json` file from any folder on your computer to load that specific grimoire structure.
 
 ---
@@ -59,11 +59,15 @@ You don't need to build locally! Every time you push to GitHub, a build starts a
 ---
 
 ## 🛠 Git Troubleshooting
+
 ### Error: `[rejected] (non-fast-forward)`
 This happens when the online version of your code (GitHub) has changes that your local computer doesn't have yet.
-
-**To fix this, run these commands in your terminal:**
+**To fix this:**
 1. `git pull origin standalone-build`
 2. `git push origin standalone-build`
 
-*Note: If a text editor opens asking for a "merge message", just save and close it.*
+### Error: `You have not concluded your merge (MERGE_HEAD exists)`
+This happens if a previous `git pull` was interrupted or contains conflicts that weren't resolved.
+**To fix this:**
+1. Run `git merge --abort` to reset the stuck state.
+2. Run `git pull origin standalone-build` again.
