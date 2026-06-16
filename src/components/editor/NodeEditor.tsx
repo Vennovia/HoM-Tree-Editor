@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
-import { Trash2, Link as LinkIcon, Lock, Unlock, MapPin, X, Star, StarOff } from 'lucide-react'
+import { Trash2, Link as LinkIcon, Lock, Unlock, MapPin, X, Star, StarOff, PlusCircle } from 'lucide-react'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
@@ -18,7 +18,7 @@ interface NodeEditorProps {
   node: SpellNode;
   onUpdate: (nodeId: string, updates: Partial<SpellNode>) => void;
   onUpdateSchool: (schoolName: string, updates: Partial<SpellSchool>) => void;
-  onToggleRelationship: (nodeId: string, targetId: string, type: 'hard' | 'soft' | 'child') => void;
+  onToggleRelationship: (nodeId: string, targetId: string, type: 'hard' | 'soft' | 'child' | 'pool') => void;
   onDelete: (nodeId: string) => void;
   onSelectNode: (nodeId: string) => void;
 }
@@ -76,36 +76,37 @@ export function NodeEditor({
 
   const isRootNode = (school.roots || []).includes(node.formId)
 
-  // Filter logic for valid prerequisites and children
+  // ONLY show linked spells (those already in the prerequisites pool but not yet assigned to this category)
   const validHardPrereqs = useMemo(() => {
-    const existingIds = new Set([
-      node.formId,
-      ...(node.hardPrereqs || []),
-      ...(node.softPrereqs || []),
-      ...(node.children || []) // Prevent direct circular link
-    ]);
-    return school.nodes.filter(n => !existingIds.has(n.formId));
-  }, [school.nodes, node.formId, node.hardPrereqs, node.softPrereqs, node.children]);
+    const pool = node.prerequisites || [];
+    const hard = node.hardPrereqs || [];
+    return school.nodes.filter(n => pool.includes(n.formId) && !hard.includes(n.formId));
+  }, [school.nodes, node.prerequisites, node.hardPrereqs]);
 
   const validSoftPrereqs = useMemo(() => {
+    const pool = node.prerequisites || [];
+    const soft = node.softPrereqs || [];
+    return school.nodes.filter(n => pool.includes(n.formId) && !soft.includes(n.formId));
+  }, [school.nodes, node.prerequisites, node.softPrereqs]);
+
+  // For the Master Linker: show all nodes that aren't already connected in any way
+  const availableToLink = useMemo(() => {
     const existingIds = new Set([
       node.formId,
-      ...(node.hardPrereqs || []),
-      ...(node.softPrereqs || []),
-      ...(node.children || []) // Prevent direct circular link
+      ...(node.prerequisites || []),
+      ...(node.children || [])
     ]);
     return school.nodes.filter(n => !existingIds.has(n.formId));
-  }, [school.nodes, node.formId, node.hardPrereqs, node.softPrereqs, node.children]);
+  }, [school.nodes, node.formId, node.prerequisites, node.children]);
 
   const validChildren = useMemo(() => {
     const existingIds = new Set([
       node.formId,
       ...(node.children || []),
-      ...(node.hardPrereqs || []), // Already a parent
-      ...(node.softPrereqs || [])  // Already a parent
+      ...(node.prerequisites || []) 
     ]);
     return school.nodes.filter(n => !existingIds.has(n.formId));
-  }, [school.nodes, node.formId, node.children, node.hardPrereqs, node.softPrereqs]);
+  }, [school.nodes, node.formId, node.children, node.prerequisites]);
 
   const handleToggleRoot = (checked: boolean) => {
     const currentRoots = school.roots || [];
@@ -240,7 +241,7 @@ export function NodeEditor({
           <div className="space-y-6">
             <h3 className="text-sm font-semibold flex items-center gap-2">
               <LinkIcon className="w-4 h-4 text-accent" />
-              Logic & Requirements
+              Arcane Connections
             </h3>
 
             {/* Hard Prereqs */}
@@ -249,11 +250,11 @@ export function NodeEditor({
                 <Label className="text-[10px] uppercase text-muted-foreground tracking-widest font-bold">Hard Prerequisites</Label>
                 <Select onValueChange={(val) => onToggleRelationship(node.formId, val, 'hard')}>
                   <SelectTrigger className="w-32 h-7 text-[9px] bg-secondary/50">
-                    <SelectValue placeholder="Add Prereq" />
+                    <SelectValue placeholder="Assign Linked" />
                   </SelectTrigger>
                   <SelectContent>
                     {validHardPrereqs.length === 0 ? (
-                      <div className="p-2 text-[9px] text-muted-foreground text-center italic">No valid spells</div>
+                      <div className="p-2 text-[9px] text-muted-foreground text-center italic">No unassigned links</div>
                     ) : (
                       validHardPrereqs.map(n => (
                         <SelectItem key={n.formId} value={n.formId}>{n.name}</SelectItem>
@@ -271,11 +272,11 @@ export function NodeEditor({
                 <Label className="text-[10px] uppercase text-muted-foreground tracking-widest font-bold">Soft Prerequisites</Label>
                 <Select onValueChange={(val) => onToggleRelationship(node.formId, val, 'soft')}>
                   <SelectTrigger className="w-32 h-7 text-[9px] bg-secondary/50">
-                    <SelectValue placeholder="Add Prereq" />
+                    <SelectValue placeholder="Assign Linked" />
                   </SelectTrigger>
                   <SelectContent>
                     {validSoftPrereqs.length === 0 ? (
-                      <div className="p-2 text-[9px] text-muted-foreground text-center italic">No valid spells</div>
+                      <div className="p-2 text-[9px] text-muted-foreground text-center italic">No unassigned links</div>
                     ) : (
                       validSoftPrereqs.map(n => (
                         <SelectItem key={n.formId} value={n.formId}>{n.name}</SelectItem>
@@ -319,6 +320,35 @@ export function NodeEditor({
                 </Select>
               </div>
               {renderRelationList(node.children || [], 'child')}
+            </div>
+
+            <Separator className="bg-border/50" />
+
+            {/* Master Link Pool Dropdown */}
+            <div className="p-3 bg-accent/5 rounded-lg border border-accent/10 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 text-accent">
+                  <PlusCircle className="w-3.5 h-3.5" />
+                  <span className="text-[10px] font-bold uppercase tracking-tight">Establish New Link</span>
+                </div>
+                <Select onValueChange={(val) => onToggleRelationship(node.formId, val, 'pool')}>
+                  <SelectTrigger className="w-32 h-7 text-[9px] bg-background border-accent/20">
+                    <SelectValue placeholder="Pick a Spell" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableToLink.length === 0 ? (
+                      <div className="p-2 text-[9px] text-muted-foreground text-center italic">All spells linked</div>
+                    ) : (
+                      availableToLink.map(n => (
+                        <SelectItem key={n.formId} value={n.formId}>{n.name}</SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+              <p className="text-[9px] text-muted-foreground leading-relaxed italic">
+                Links establish a base connection. Use the menus above to define them as Hard or Soft requirements.
+              </p>
             </div>
           </div>
 

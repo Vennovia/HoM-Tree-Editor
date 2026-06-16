@@ -179,7 +179,7 @@ export default function HoMTreeEditor() {
     })
   }, [])
 
-  const handleToggleRelationship = useCallback((nodeId: string, targetId: string, type: 'hard' | 'soft' | 'child') => {
+  const handleToggleRelationship = useCallback((nodeId: string, targetId: string, type: 'hard' | 'soft' | 'child' | 'pool') => {
     const schoolName = findSchoolForNode(nodeId)
     if (!schoolName) return
 
@@ -197,27 +197,38 @@ export default function HoMTreeEditor() {
       const node = { ...nodes[nodeIdx] }
       const target = { ...nodes[targetIdx] }
 
-      if (type === 'hard') {
+      // Helper to ensure 'prerequisites' and 'children' pool sync
+      const ensurePoolLink = (n: SpellNode, t: SpellNode) => {
+        if (!(n.prerequisites || []).includes(t.formId)) n.prerequisites = [...(n.prerequisites || []), t.formId]
+        if (!(t.children || []).includes(n.formId)) t.children = [...(t.children || []), n.formId]
+      }
+
+      const removePoolLink = (n: SpellNode, t: SpellNode) => {
+        n.prerequisites = (n.prerequisites || []).filter(id => id !== t.formId)
+        n.hardPrereqs = (n.hardPrereqs || []).filter(id => id !== t.formId)
+        n.softPrereqs = (n.softPrereqs || []).filter(id => id !== t.formId)
+        t.children = (t.children || []).filter(id => id !== n.formId)
+      }
+
+      if (type === 'pool') {
+        ensurePoolLink(node, target)
+      } else if (type === 'hard') {
         const exists = (node.hardPrereqs || []).includes(targetId)
         if (exists) {
           node.hardPrereqs = (node.hardPrereqs || []).filter(id => id !== targetId)
-          node.prerequisites = (node.prerequisites || []).filter(id => id !== targetId)
-          target.children = (target.children || []).filter(id => id !== nodeId)
         } else {
           node.hardPrereqs = [...(node.hardPrereqs || []), targetId]
-          if (!(node.prerequisites || []).includes(targetId)) node.prerequisites = [...(node.prerequisites || []), targetId]
-          if (!(target.children || []).includes(nodeId)) target.children = [...(target.children || []), nodeId]
+          node.softPrereqs = (node.softPrereqs || []).filter(id => id !== targetId) // Mutually exclusive
+          ensurePoolLink(node, target)
         }
       } else if (type === 'soft') {
         const exists = (node.softPrereqs || []).includes(targetId)
         if (exists) {
           node.softPrereqs = (node.softPrereqs || []).filter(id => id !== targetId)
-          node.prerequisites = (node.prerequisites || []).filter(id => id !== targetId)
-          target.children = (target.children || []).filter(id => id !== nodeId)
         } else {
           node.softPrereqs = [...(node.softPrereqs || []), targetId]
-          if (!(node.prerequisites || []).includes(targetId)) node.prerequisites = [...(node.prerequisites || []), targetId]
-          if (!(target.children || []).includes(nodeId)) target.children = [...(target.children || []), nodeId]
+          node.hardPrereqs = (node.hardPrereqs || []).filter(id => id !== targetId) // Mutually exclusive
+          ensurePoolLink(node, target)
         }
       } else if (type === 'child') {
         const exists = (node.children || []).includes(targetId)
@@ -229,7 +240,6 @@ export default function HoMTreeEditor() {
         } else {
           node.children = [...(node.children || []), targetId]
           if (!(target.prerequisites || []).includes(nodeId)) target.prerequisites = [...(target.prerequisites || []), nodeId]
-          if (!(target.hardPrereqs || []).includes(nodeId)) target.hardPrereqs = [...(target.hardPrereqs || []), nodeId]
         }
       }
 
@@ -250,7 +260,7 @@ export default function HoMTreeEditor() {
   }, [findSchoolForNode])
 
   const handleLinkNodes = (sourceId: string, targetId: string) => {
-    handleToggleRelationship(targetId, sourceId, 'hard')
+    handleToggleRelationship(targetId, sourceId, 'pool')
   }
 
   const handleDeleteNode = (nodeId: string) => {
@@ -411,7 +421,7 @@ export default function HoMTreeEditor() {
                   onClick={() => { setSelectedSchool(null); setSelectedNodeId(null); setIsGlobalView(true); }}
                   className={cn("w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md transition-all", isGlobalView ? "bg-primary text-accent" : "text-muted-foreground hover:bg-secondary")}
                 >
-                  <Globe className="w-3.5 h-3.5" /> Arch-Grimoire
+                  <Globe className="w-3.5 h-3.5" /> Arch-Grimoire Hub
                 </button>
               </div>
 
