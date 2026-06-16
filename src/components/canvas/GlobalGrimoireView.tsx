@@ -399,8 +399,6 @@ export function GlobalGrimoireView({
   const activeDragInfo = useMemo(() => {
     if (dragMode !== 'node' || !dragNodeId || !draggingNodesPos[dragNodeId]) return null;
     const { x, y } = draggingNodesPos[dragNodeId];
-    // Adjust degrees so 0/360 is Up. atan2 returns -PI/2 for Up (0, -1). 
-    // Adding 90 degrees (PI/2) maps -90 to 0.
     let deg = (Math.atan2(y, x) * (180 / Math.PI)) + 90;
     if (deg < 0) deg += 360;
     if (deg >= 360) deg -= 360;
@@ -478,11 +476,6 @@ export function GlobalGrimoireView({
             }}
           />
         )}
-      </div>
-      
-      <div className="absolute top-6 left-6 p-4 bg-card/60 backdrop-blur-md border border-border rounded-xl shadow-2xl pointer-events-none">
-        <h2 className="text-sm font-bold uppercase tracking-widest text-accent">Arch-Grimoire Hub</h2>
-        <p className="text-[10px] text-muted-foreground mt-1">Convergence View: Shift + Drag on background for Marquee Selection.</p>
       </div>
     </div>
   )

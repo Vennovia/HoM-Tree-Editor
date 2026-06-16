@@ -518,21 +518,6 @@ export function TreeCanvas({
           />
         )}
       </div>
-
-      <div className="absolute top-4 right-4 flex flex-col gap-2 p-3 bg-card/80 border border-border rounded-lg backdrop-blur-sm shadow-xl">
-        <p className="text-[9px] text-muted-foreground uppercase font-semibold border-b border-border pb-1">Controls</p>
-        <div className="space-y-1.5">
-          <p className="text-[10px] text-foreground flex items-center gap-2">
-            <span className="bg-secondary px-1.5 py-0.5 rounded text-[8px] font-mono border border-border">Shift + Drag Bg</span> Marquee Select
-          </p>
-          <p className="text-[10px] text-foreground flex items-center gap-2">
-            <span className="bg-secondary px-1.5 py-0.5 rounded text-[8px] font-mono border border-border">Ctrl + Click</span> Multi Select
-          </p>
-          <p className="text-[10px] text-foreground flex items-center gap-2">
-            <span className="bg-secondary px-1.5 py-0.5 rounded text-[8px] font-mono border border-border">Drag Selected</span> Move Selection
-          </p>
-        </div>
-      </div>
     </div>
   )
 }
