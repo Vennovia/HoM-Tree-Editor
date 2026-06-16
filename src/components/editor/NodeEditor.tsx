@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useMemo } from 'react'
@@ -7,7 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
-import { Trash2, Link as LinkIcon, Lock, Unlock, MapPin, X, Star, StarOff, PlusCircle, Fingerprint } from 'lucide-react'
+import { Trash2, Link as LinkIcon, Lock, Unlock, MapPin, X, Star, StarOff, PlusCircle, Fingerprint, Layers } from 'lucide-react'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
@@ -21,6 +22,7 @@ interface NodeEditorProps {
   onToggleRelationship: (nodeId: string, targetId: string, type: 'hard' | 'soft' | 'child' | 'pool') => void;
   onDelete: (nodeId: string) => void;
   onSelectNode: (nodeId: string) => void;
+  selectedCount?: number;
 }
 
 export function NodeEditor({ 
@@ -31,7 +33,8 @@ export function NodeEditor({
   onUpdateSchool,
   onToggleRelationship, 
   onDelete, 
-  onSelectNode 
+  onSelectNode,
+  selectedCount = 1
 }: NodeEditorProps) {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -76,7 +79,6 @@ export function NodeEditor({
 
   const isRootNode = (school.roots || []).includes(node.formId)
 
-  // ONLY show linked spells (those already in the prerequisites pool but not yet assigned to this category)
   const validHardPrereqs = useMemo(() => {
     const pool = node.prerequisites || [];
     const hard = node.hardPrereqs || [];
@@ -89,7 +91,6 @@ export function NodeEditor({
     return school.nodes.filter(n => pool.includes(n.formId) && !soft.includes(n.formId));
   }, [school.nodes, node.prerequisites, node.softPrereqs]);
 
-  // For the Master Linker: show all nodes that aren't already connected in any way
   const availableToLink = useMemo(() => {
     const existingIds = new Set([
       node.formId,
@@ -124,9 +125,17 @@ export function NodeEditor({
       <div className="p-6 border-b border-border flex justify-between items-center bg-primary/20">
         <div>
           <h2 className="text-xl font-headline font-bold text-accent">Node Editor</h2>
-          <div className="flex items-center gap-1.5 mt-1 opacity-60">
-            <Fingerprint className="w-3 h-3" />
-            <span className="text-[10px] font-mono tracking-tighter uppercase">Reference Data</span>
+          <div className="flex items-center gap-2 mt-1">
+            <div className="flex items-center gap-1.5 opacity-60">
+              <Fingerprint className="w-3 h-3" />
+              <span className="text-[10px] font-mono tracking-tighter uppercase">Reference Data</span>
+            </div>
+            {selectedCount > 1 && (
+              <div className="flex items-center gap-1.5 px-2 py-0.5 bg-accent/20 rounded-full border border-accent/30 text-accent animate-pulse">
+                <Layers className="w-2.5 h-2.5" />
+                <span className="text-[9px] font-bold uppercase">{selectedCount} Selected</span>
+              </div>
+            )}
           </div>
         </div>
         <Button variant="destructive" size="icon" onClick={() => onDelete(node.formId)}>
@@ -136,26 +145,15 @@ export function NodeEditor({
 
       <ScrollArea className="flex-1">
         <div className="p-6 space-y-6">
-          {/* Basic Info */}
           <div className="space-y-4">
             <div className="space-y-2">
               <Label className="text-xs uppercase text-muted-foreground tracking-widest font-bold">Display Name</Label>
-              <Input 
-                name="name" 
-                value={node.name} 
-                onChange={handleChange} 
-                className="bg-background border-border focus:ring-accent" 
-              />
+              <Input name="name" value={node.name} onChange={handleChange} className="bg-background border-border focus:ring-accent" />
             </div>
 
             <div className="space-y-2">
               <Label className="text-xs uppercase text-muted-foreground tracking-widest font-bold">Form ID</Label>
-              <Input 
-                name="formId" 
-                value={node.formId} 
-                onChange={handleChange} 
-                className="bg-background border-border font-mono text-xs focus:ring-accent" 
-              />
+              <Input name="formId" value={node.formId} onChange={handleChange} className="bg-background border-border font-mono text-xs focus:ring-accent" />
               <p className="text-[9px] text-muted-foreground opacity-60 leading-tight">Changing this will update all arcane references throughout the grimoire.</p>
             </div>
 
@@ -163,9 +161,7 @@ export function NodeEditor({
               <div className="space-y-2">
                 <Label className="text-xs uppercase text-muted-foreground tracking-widest font-bold">Skill Level</Label>
                 <Select value={node.skillLevel} onValueChange={(val) => onUpdate(node.formId, { skillLevel: val })}>
-                  <SelectTrigger className="bg-background border-border">
-                    <SelectValue />
-                  </SelectTrigger>
+                  <SelectTrigger className="bg-background border-border"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="Novice">Novice</SelectItem>
                     <SelectItem value="Apprentice">Apprentice</SelectItem>
@@ -189,18 +185,13 @@ export function NodeEditor({
 
           <Separator className="bg-border" />
 
-          {/* School Status */}
           <div className="space-y-4">
             <div className="flex items-center justify-between p-3 bg-accent/5 rounded-lg border border-accent/20">
               <div className="flex items-center gap-2">
                 {isRootNode ? <Star className="w-3.5 h-3.5 text-yellow-500 fill-yellow-500" /> : <StarOff className="w-3.5 h-3.5 text-muted-foreground" />}
                 <Label htmlFor="root-toggle" className="text-xs font-bold uppercase tracking-wider">School Root</Label>
               </div>
-              <Switch 
-                id="root-toggle" 
-                checked={isRootNode} 
-                onCheckedChange={handleToggleRoot}
-              />
+              <Switch id="root-toggle" checked={isRootNode} onCheckedChange={handleToggleRoot} />
             </div>
 
             <div className="flex items-center justify-between p-3 bg-secondary/30 rounded-lg border border-border">
@@ -208,129 +199,74 @@ export function NodeEditor({
                 {node.isLocked ? <Lock className="w-3.5 h-3.5 text-accent" /> : <Unlock className="w-3.5 h-3.5 text-muted-foreground" />}
                 <Label htmlFor="lock-toggle" className="text-xs font-bold uppercase tracking-wider">Lock Position</Label>
               </div>
-              <Switch 
-                id="lock-toggle" 
-                checked={node.isLocked || false} 
-                onCheckedChange={(checked) => onUpdate(node.formId, { isLocked: checked })}
-              />
+              <Switch id="lock-toggle" checked={node.isLocked || false} onCheckedChange={(checked) => onUpdate(node.formId, { isLocked: checked })} />
             </div>
           </div>
 
           <Separator className="bg-border" />
 
-          {/* Positioning */}
           <div className="space-y-4">
             <h3 className="text-sm font-semibold flex items-center gap-2">
-              <MapPin className="w-4 h-4 text-accent" />
-              Coordinates
+              <MapPin className="w-4 h-4 text-accent" /> Coordinates
             </h3>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label className="text-xs text-muted-foreground">X Axis</Label>
-                <Input 
-                  type="number" 
-                  name="x" 
-                  value={node.x} 
-                  onChange={handleChange} 
-                  disabled={node.isLocked}
-                  className="bg-background border-border" 
-                />
+                <Input type="number" name="x" value={node.x} onChange={handleChange} disabled={node.isLocked} className="bg-background border-border" />
               </div>
               <div className="space-y-2">
                 <Label className="text-xs text-muted-foreground">Y Axis</Label>
-                <Input 
-                  type="number" 
-                  name="y" 
-                  value={node.y} 
-                  onChange={handleChange} 
-                  disabled={node.isLocked}
-                  className="bg-background border-border" 
-                />
+                <Input type="number" name="y" value={node.y} onChange={handleChange} disabled={node.isLocked} className="bg-background border-border" />
               </div>
             </div>
           </div>
 
           <Separator className="bg-border" />
 
-          {/* Logic & Requirements */}
           <div className="space-y-6">
             <h3 className="text-sm font-semibold flex items-center gap-2">
-              <LinkIcon className="w-4 h-4 text-accent" />
-              Arcane Connections
+              <LinkIcon className="w-4 h-4 text-accent" /> Arcane Connections
             </h3>
 
-            {/* Hard Prereqs */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <Label className="text-[10px] uppercase text-muted-foreground tracking-widest font-bold">Hard Prerequisites</Label>
                 <Select onValueChange={(val) => onToggleRelationship(node.formId, val, 'hard')}>
-                  <SelectTrigger className="w-32 h-7 text-[9px] bg-secondary/50">
-                    <SelectValue placeholder="Assign Linked" />
-                  </SelectTrigger>
+                  <SelectTrigger className="w-32 h-7 text-[9px] bg-secondary/50"><SelectValue placeholder="Assign Linked" /></SelectTrigger>
                   <SelectContent>
-                    {validHardPrereqs.length === 0 ? (
-                      <div className="p-2 text-[9px] text-muted-foreground text-center italic">No unassigned links</div>
-                    ) : (
-                      validHardPrereqs.map(n => (
-                        <SelectItem key={n.formId} value={n.formId}>{n.name}</SelectItem>
-                      ))
-                    )}
+                    {validHardPrereqs.length === 0 ? <div className="p-2 text-[9px] text-muted-foreground text-center italic">No unassigned links</div> : validHardPrereqs.map(n => <SelectItem key={n.formId} value={n.formId}>{n.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
               {renderRelationList(node.hardPrereqs || [], 'hard')}
             </div>
 
-            {/* Soft Prereqs */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <Label className="text-[10px] uppercase text-muted-foreground tracking-widest font-bold">Soft Prerequisites</Label>
                 <Select onValueChange={(val) => onToggleRelationship(node.formId, val, 'soft')}>
-                  <SelectTrigger className="w-32 h-7 text-[9px] bg-secondary/50">
-                    <SelectValue placeholder="Assign Linked" />
-                  </SelectTrigger>
+                  <SelectTrigger className="w-32 h-7 text-[9px] bg-secondary/50"><SelectValue placeholder="Assign Linked" /></SelectTrigger>
                   <SelectContent>
-                    {validSoftPrereqs.length === 0 ? (
-                      <div className="p-2 text-[9px] text-muted-foreground text-center italic">No unassigned links</div>
-                    ) : (
-                      validSoftPrereqs.map(n => (
-                        <SelectItem key={n.formId} value={n.formId}>{n.name}</SelectItem>
-                      ))
-                    )}
+                    {validSoftPrereqs.length === 0 ? <div className="p-2 text-[9px] text-muted-foreground text-center italic">No unassigned links</div> : validSoftPrereqs.map(n => <SelectItem key={n.formId} value={n.formId}>{n.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
                   <Label className="text-[10px] text-muted-foreground shrink-0">Required Count:</Label>
-                  <Input 
-                    type="number" 
-                    name="softNeeded" 
-                    value={node.softNeeded} 
-                    onChange={handleChange} 
-                    className="h-6 w-16 text-[10px] bg-background" 
-                  />
+                  <Input type="number" name="softNeeded" value={node.softNeeded} onChange={handleChange} className="h-6 w-16 text-[10px] bg-background" />
                 </div>
                 {renderRelationList(node.softPrereqs || [], 'soft')}
               </div>
             </div>
 
-            {/* Children */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <Label className="text-[10px] uppercase text-muted-foreground tracking-widest font-bold">Children (Unlocks)</Label>
                 <Select onValueChange={(val) => onToggleRelationship(node.formId, val, 'child')}>
-                  <SelectTrigger className="w-32 h-7 text-[9px] bg-secondary/50">
-                    <SelectValue placeholder="Add Child" />
-                  </SelectTrigger>
+                  <SelectTrigger className="w-32 h-7 text-[9px] bg-secondary/50"><SelectValue placeholder="Add Child" /></SelectTrigger>
                   <SelectContent>
-                    {validChildren.length === 0 ? (
-                      <div className="p-2 text-[9px] text-muted-foreground text-center italic">No valid spells</div>
-                    ) : (
-                      validChildren.map(n => (
-                        <SelectItem key={n.formId} value={n.formId}>{n.name}</SelectItem>
-                      ))
-                    )}
+                    {validChildren.length === 0 ? <div className="p-2 text-[9px] text-muted-foreground text-center italic">No valid spells</div> : validChildren.map(n => <SelectItem key={n.formId} value={n.formId}>{n.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
@@ -339,7 +275,6 @@ export function NodeEditor({
 
             <Separator className="bg-border/50" />
 
-            {/* Master Link Pool Dropdown */}
             <div className="p-3 bg-accent/5 rounded-lg border border-accent/10 space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5 text-accent">
@@ -347,23 +282,12 @@ export function NodeEditor({
                   <span className="text-[10px] font-bold uppercase tracking-tight">Establish New Link</span>
                 </div>
                 <Select onValueChange={(val) => onToggleRelationship(node.formId, val, 'pool')}>
-                  <SelectTrigger className="w-32 h-7 text-[9px] bg-background border-accent/20">
-                    <SelectValue placeholder="Pick a Spell" />
-                  </SelectTrigger>
+                  <SelectTrigger className="w-32 h-7 text-[9px] bg-background border-accent/20"><SelectValue placeholder="Pick a Spell" /></SelectTrigger>
                   <SelectContent>
-                    {availableToLink.length === 0 ? (
-                      <div className="p-2 text-[9px] text-muted-foreground text-center italic">All spells linked</div>
-                    ) : (
-                      availableToLink.map(n => (
-                        <SelectItem key={n.formId} value={n.formId}>{n.name}</SelectItem>
-                      ))
-                    )}
+                    {availableToLink.length === 0 ? <div className="p-2 text-[9px] text-muted-foreground text-center italic">All spells linked</div> : availableToLink.map(n => <SelectItem key={n.formId} value={n.formId}>{n.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
-              <p className="text-[9px] text-muted-foreground leading-relaxed italic">
-                Links establish a base connection. Use the menus above to define them as Hard or Soft requirements.
-              </p>
             </div>
           </div>
         </div>

@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
@@ -43,7 +44,7 @@ export default function HoMTreeEditor() {
   const [treeData, setTreeData] = useState<SpellTreeData | null>(null)
   const [history, setHistory] = useState<SpellTreeData[]>([])
   const [selectedSchool, setSelectedSchool] = useState<string | null>(null)
-  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
+  const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([])
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
   const [isImportOpen, setIsImportOpen] = useState(false)
   const [isAddNodeOpen, setIsAddNodeOpen] = useState(false)
@@ -51,6 +52,8 @@ export default function HoMTreeEditor() {
   const [searchQuery, setSearchQuery] = useState('')
   const [nodeSearchQuery, setNodeSearchQuery] = useState('')
   const [showRadialGuides, setShowRadialGuides] = useState(false)
+
+  const selectedNodeId = selectedNodeIds.length > 0 ? selectedNodeIds[0] : null;
 
   // Robust migration function to handle multiple root sources
   const migrateGrimoireData = useCallback((data: any) => {
@@ -225,7 +228,7 @@ export default function HoMTreeEditor() {
         })
         
         // Update selection state to follow the new ID
-        if (selectedNodeId === oldId) setSelectedNodeId(newId)
+        setSelectedNodeIds(prevIds => prevIds.map(id => id === oldId ? newId! : id));
       } else {
         // Normal property update (no ID change)
         const school = newSchools[schoolName]
@@ -242,7 +245,34 @@ export default function HoMTreeEditor() {
         schools: newSchools
       }
     })
-  }, [findSchoolForNode, pushHistory, selectedNodeId])
+  }, [findSchoolForNode, pushHistory])
+
+  const handleUpdateNodes = useCallback((updates: Record<string, Partial<SpellNode>>) => {
+    setTreeData(prev => {
+      if (!prev) return prev;
+      pushHistory(prev);
+
+      const newSchools = { ...prev.schools };
+
+      Object.entries(updates).forEach(([nodeId, nodeUpdates]) => {
+        const schoolName = findSchoolForNode(nodeId);
+        if (!schoolName) return;
+
+        const school = newSchools[schoolName];
+        const nodeIndex = school.nodes.findIndex(n => n.formId === nodeId);
+        if (nodeIndex !== -1) {
+          const newNodes = [...school.nodes];
+          newNodes[nodeIndex] = { ...newNodes[nodeIndex], ...nodeUpdates };
+          newSchools[schoolName] = { ...school, nodes: newNodes };
+        }
+      });
+
+      return {
+        ...prev,
+        schools: newSchools
+      };
+    });
+  }, [findSchoolForNode, pushHistory]);
 
   const handleUpdateSchool = useCallback((schoolName: string, updates: Partial<SpellSchool>) => {
     setTreeData(prev => {
@@ -373,7 +403,7 @@ export default function HoMTreeEditor() {
         schools: newSchools
       }
     })
-    setSelectedNodeId(null)
+    setSelectedNodeIds(prev => prev.filter(id => id !== nodeId));
   }
 
   const handleAddNode = () => {
@@ -506,13 +536,13 @@ export default function HoMTreeEditor() {
 
               <div className="space-y-1">
                 <button
-                  onClick={() => { setSelectedSchool(null); setSelectedNodeId(null); setIsGlobalView(false); }}
+                  onClick={() => { setSelectedSchool(null); setSelectedNodeIds([]); setIsGlobalView(false); }}
                   className={cn("w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md transition-all", (!selectedSchool && !isGlobalView) ? "bg-primary text-accent" : "text-muted-foreground hover:bg-secondary")}
                 >
                   <LayoutDashboard className="w-3.5 h-3.5" /> Dashboard
                 </button>
                 <button
-                  onClick={() => { setSelectedSchool(null); setSelectedNodeId(null); setIsGlobalView(true); }}
+                  onClick={() => { setSelectedSchool(null); setSelectedNodeIds([]); setIsGlobalView(true); }}
                   className={cn("w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md transition-all", isGlobalView ? "bg-primary text-accent" : "text-muted-foreground hover:bg-secondary")}
                 >
                   <Globe className="w-3.5 h-3.5" /> Arch-Grimoire Hub
@@ -525,7 +555,7 @@ export default function HoMTreeEditor() {
                   {filteredSchools.map(school => (
                     <button
                       key={school}
-                      onClick={() => { setSelectedSchool(school); setSelectedNodeId(null); setIsGlobalView(false); }}
+                      onClick={() => { setSelectedSchool(school); setSelectedNodeIds([]); setIsGlobalView(false); }}
                       className={cn("w-full flex items-center justify-between px-3 py-2 text-sm rounded-md transition-all", selectedSchool === school ? "bg-primary text-accent" : "text-muted-foreground hover:bg-secondary")}
                     >
                       <div className="flex items-center gap-2">
@@ -583,7 +613,7 @@ export default function HoMTreeEditor() {
                       {nodeSearchResults.map(n => (
                         <button
                           key={n.formId}
-                          onClick={() => { setSelectedNodeId(n.formId); setNodeSearchQuery(''); }}
+                          onClick={() => { setSelectedNodeIds([n.formId]); setNodeSearchQuery(''); }}
                           className="w-full flex items-center justify-between px-4 py-2 text-xs hover:bg-accent/10 border-b border-border"
                         >
                           <div className="flex flex-col items-start">
@@ -623,9 +653,9 @@ export default function HoMTreeEditor() {
               <TreeCanvas 
                 schoolName={selectedSchool}
                 school={treeData.schools[selectedSchool]}
-                selectedNodeId={selectedNodeId}
-                onSelectNode={setSelectedNodeId}
-                onNodeMove={handleUpdateNode}
+                selectedNodeIds={selectedNodeIds}
+                onSelectNodes={setSelectedNodeIds}
+                onNodesMove={handleUpdateNodes}
                 onLinkNodes={handleLinkNodes}
                 searchQuery={nodeSearchQuery}
                 showRadialGuides={showRadialGuides}
@@ -633,9 +663,9 @@ export default function HoMTreeEditor() {
             ) : isGlobalView ? (
               <GlobalGrimoireView 
                 schools={treeData.schools}
-                selectedNodeId={selectedNodeId}
-                onSelectNode={setSelectedNodeId}
-                onNodeMove={handleUpdateNode}
+                selectedNodeIds={selectedNodeIds}
+                onSelectNodes={setSelectedNodeIds}
+                onNodesMove={handleUpdateNodes}
                 onLinkNodes={handleLinkNodes}
                 searchQuery={nodeSearchQuery}
                 showRadialGuides={showRadialGuides}
@@ -657,7 +687,8 @@ export default function HoMTreeEditor() {
             onUpdateSchool={handleUpdateSchool}
             onToggleRelationship={handleToggleRelationship}
             onDelete={handleDeleteNode}
-            onSelectNode={setSelectedNodeId}
+            onSelectNode={(id) => setSelectedNodeIds([id])}
+            selectedCount={selectedNodeIds.length}
           />
         </aside>
       )}

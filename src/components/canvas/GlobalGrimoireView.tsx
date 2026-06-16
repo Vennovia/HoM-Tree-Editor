@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState, useRef, useEffect, useMemo } from 'react'
@@ -7,9 +8,9 @@ import { Lock } from 'lucide-react'
 
 interface GlobalGrimoireViewProps {
   schools: Record<string, SpellSchool>;
-  selectedNodeId: string | null;
-  onSelectNode: (nodeId: string) => void;
-  onNodeMove: (nodeId: string, updates: Partial<SpellNode>, schoolName: string) => void;
+  selectedNodeIds: string[];
+  onSelectNodes: (nodeIds: string[]) => void;
+  onNodesMove: (updates: Record<string, Partial<SpellNode>>) => void;
   onLinkNodes: (sourceId: string, targetId: string) => void;
   searchQuery?: string;
   showRadialGuides?: boolean;
@@ -17,9 +18,9 @@ interface GlobalGrimoireViewProps {
 
 export function GlobalGrimoireView({ 
   schools, 
-  selectedNodeId, 
-  onSelectNode, 
-  onNodeMove,
+  selectedNodeIds, 
+  onSelectNodes, 
+  onNodesMove,
   onLinkNodes,
   searchQuery = '',
   showRadialGuides = false
@@ -27,13 +28,13 @@ export function GlobalGrimoireView({
   const containerRef = useRef<HTMLDivElement>(null);
   const [transform, setTransform] = useState({ x: 0, y: 0, scale: 0.25 });
   
-  const [dragMode, setDragMode] = useState<'canvas' | 'node' | 'linking' | null>(null);
+  const [dragMode, setDragMode] = useState<'canvas' | 'node' | 'linking' | 'selection' | null>(null);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [dragNodeId, setDragNodeId] = useState<string | null>(null);
-  const [dragNodeInitialPos, setDragNodeInitialPos] = useState({ x: 0, y: 0 });
-  const [dragSchoolName, setDragSchoolName] = useState<string | null>(null);
+  const [dragNodesInitialPos, setDragNodesInitialPos] = useState<Record<string, { x: number, y: number }>>({});
   
-  const [draggingNodePos, setDraggingNodePos] = useState<{ x: number, y: number } | null>(null);
+  const [selectionRect, setSelectionRect] = useState<{ x1: number, y1: number, x2: number, y2: number } | null>(null);
+  const [draggingNodesPos, setDraggingNodesPos] = useState<Record<string, { x: number, y: number }>>({});
 
   const [linkingSourceId, setLinkingSourceId] = useState<string | null>(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
@@ -62,40 +63,63 @@ export function GlobalGrimoireView({
     const nodeEl = target.closest('.spell-node');
     const nodeId = nodeEl?.getAttribute('data-node-id');
 
+    const canvasCoords = getCanvasCoords(e.clientX, e.clientY);
+
     if (e.shiftKey && nodeId) {
       setDragMode('linking');
       setLinkingSourceId(nodeId);
-      const coords = getCanvasCoords(e.clientX, e.clientY);
-      setMousePos(coords);
+      setMousePos(canvasCoords);
       return;
     }
 
     if (nodeId) {
-      let foundNode: SpellNode | undefined;
-      let schoolName: string | undefined;
-      for (const sName in schools) {
-        foundNode = schools[sName].nodes.find(n => n.formId === nodeId);
-        if (foundNode) {
-          schoolName = sName;
-          break;
+      const isAlreadySelected = selectedNodeIds.includes(nodeId);
+      let newSelection = isAlreadySelected ? selectedNodeIds : [nodeId];
+      
+      if (e.ctrlKey || e.metaKey || e.shiftKey) {
+        if (isAlreadySelected) {
+          newSelection = selectedNodeIds.filter(id => id !== nodeId);
+        } else {
+          newSelection = [...selectedNodeIds, nodeId];
         }
       }
+      
+      onSelectNodes(newSelection);
 
-      if (foundNode && schoolName) {
-        if (!foundNode.isLocked) {
-          setDragMode('node');
-          setDragNodeId(nodeId);
-          setDragSchoolName(schoolName);
-          setDragNodeInitialPos({ x: foundNode.x, y: foundNode.y });
-          setDragStart({ x: e.clientX, y: e.clientY });
-          setDraggingNodePos({ x: foundNode.x, y: foundNode.y });
-        }
-        onSelectNode(nodeId);
+      let foundNode: SpellNode | undefined;
+      for (const sName in schools) {
+        foundNode = schools[sName].nodes.find(n => n.formId === nodeId);
+        if (foundNode) break;
+      }
+
+      if (foundNode && !foundNode.isLocked) {
+        setDragMode('node');
+        setDragNodeId(nodeId);
+        
+        const nodesToMove = newSelection.includes(nodeId) ? newSelection : [nodeId];
+        const initialPositions: Record<string, { x: number, y: number }> = {};
+        
+        nodesToMove.forEach(id => {
+          for (const sName in schools) {
+            const n = schools[sName].nodes.find(node => node.formId === id);
+            if (n) {
+              initialPositions[id] = { x: n.x, y: n.y };
+              break;
+            }
+          }
+        });
+        
+        setDragNodesInitialPos(initialPositions);
+        setDragStart({ x: e.clientX, y: e.clientY });
+        setDraggingNodesPos(initialPositions);
       }
       return;
     }
 
-    if (e.button === 0 || e.button === 1) {
+    if (e.shiftKey) {
+      setDragMode('selection');
+      setSelectionRect({ x1: canvasCoords.x, y1: canvasCoords.y, x2: canvasCoords.x, y2: canvasCoords.y });
+    } else if (e.button === 0 || e.button === 1) {
       setDragMode('canvas');
       setDragStart({ x: e.clientX - transform.x, y: e.clientY - transform.y });
     }
@@ -114,35 +138,39 @@ export function GlobalGrimoireView({
       const dx = (e.clientX - dragStart.x) / transform.scale;
       const dy = (e.clientY - dragStart.y) / transform.scale;
       
-      let x = Math.round(dragNodeInitialPos.x + dx);
-      let y = Math.round(dragNodeInitialPos.y + dy);
+      const updates: Record<string, { x: number, y: number }> = {};
+      Object.entries(dragNodesInitialPos).forEach(([id, initial]) => {
+        let x = Math.round(initial.x + dx);
+        let y = Math.round(initial.y + dy);
 
-      // Adaptive Snapping
-      if (e.ctrlKey || e.metaKey) {
-        if (showRadialGuides) {
-          // Snap to Rings
-          const r = Math.sqrt(x * x + y * y);
-          const rSnap = Math.round(r / 25) * 25;
-          const theta = Math.atan2(y, x);
-          x = Math.round(rSnap * Math.cos(theta));
-          y = Math.round(rSnap * Math.sin(theta));
-        } else {
-          // Snap to Square Grid
-          x = Math.round(x / 25) * 25;
-          y = Math.round(y / 25) * 25;
+        if (e.ctrlKey || e.metaKey) {
+          if (showRadialGuides) {
+            const r = Math.sqrt(x * x + y * y);
+            const rSnap = Math.round(r / 25) * 25;
+            const theta = Math.atan2(y, x);
+            x = Math.round(rSnap * Math.cos(theta));
+            y = Math.round(rSnap * Math.sin(theta));
+          } else {
+            x = Math.round(x / 25) * 25;
+            y = Math.round(y / 25) * 25;
+          }
         }
-      }
-      
-      setDraggingNodePos({ x, y });
+        updates[id] = { x, y };
+      });
+
+      setDraggingNodesPos(updates);
     } else if (dragMode === 'linking') {
       const coords = getCanvasCoords(e.clientX, e.clientY);
       setMousePos(coords);
+    } else if (dragMode === 'selection' && selectionRect) {
+      const coords = getCanvasCoords(e.clientX, e.clientY);
+      setSelectionRect(prev => prev ? { ...prev, x2: coords.x, y2: coords.y } : null);
     }
   };
 
   const handleMouseUp = (e: React.MouseEvent) => {
-    if (dragMode === 'node' && dragNodeId && draggingNodePos && dragSchoolName) {
-      onNodeMove(dragNodeId, draggingNodePos, dragSchoolName);
+    if (dragMode === 'node' && Object.keys(draggingNodesPos).length > 0) {
+      onNodesMove(draggingNodesPos);
     }
 
     if (dragMode === 'linking' && linkingSourceId) {
@@ -154,12 +182,29 @@ export function GlobalGrimoireView({
         onLinkNodes(linkingSourceId, targetId);
       }
     }
+
+    if (dragMode === 'selection' && selectionRect) {
+      const xMin = Math.min(selectionRect.x1, selectionRect.x2);
+      const xMax = Math.max(selectionRect.x1, selectionRect.x2);
+      const yMin = Math.min(selectionRect.y1, selectionRect.y2);
+      const yMax = Math.max(selectionRect.y1, selectionRect.y2);
+
+      const inRect: string[] = [];
+      Object.values(schools).forEach(school => {
+        school.nodes.forEach(n => {
+          if (n.x >= xMin && n.x <= xMax && n.y >= yMin && n.y <= yMax) {
+            inRect.push(n.formId);
+          }
+        });
+      });
+      onSelectNodes(inRect);
+    }
     
     setDragMode(null);
     setDragNodeId(null);
     setLinkingSourceId(null);
-    setDraggingNodePos(null);
-    setDragSchoolName(null);
+    setDraggingNodesPos({});
+    setSelectionRect(null);
   };
 
   const handleWheel = (e: React.WheelEvent) => {
@@ -192,10 +237,13 @@ export function GlobalGrimoireView({
 
     const prereqNodeIds = new Set<string>();
     const childNodeIds = new Set<string>();
-    if (selectedNodeId) {
+    
+    const primarySelectedId = selectedNodeIds.length > 0 ? selectedNodeIds[0] : null;
+
+    if (primarySelectedId) {
       let selectedNode: SpellNode | undefined;
       for (const sName in schools) {
-        selectedNode = schools[sName].nodes.find(n => n.formId === selectedNodeId);
+        selectedNode = schools[sName].nodes.find(n => n.formId === primarySelectedId);
         if (selectedNode) break;
       }
       if (selectedNode) {
@@ -206,7 +254,6 @@ export function GlobalGrimoireView({
       }
     }
 
-    // Add Arcane Spokes (every 15 degrees) - Bright Red Color
     for (let angle = 0; angle < 360; angle += 15) {
       const rad = (angle * Math.PI) / 180;
       const length = 10000;
@@ -251,8 +298,8 @@ export function GlobalGrimoireView({
       schoolRoots.forEach(rootId => {
         const schoolRoot = school.nodes.find(n => n.formId === rootId);
         if (schoolRoot) {
-          const rootX = (dragNodeId === rootId && draggingNodePos) ? draggingNodePos.x : schoolRoot.x;
-          const rootY = (dragNodeId === rootId && draggingNodePos) ? draggingNodePos.y : schoolRoot.y;
+          const rootX = draggingNodesPos[rootId]?.x ?? schoolRoot.x;
+          const rootY = draggingNodesPos[rootId]?.y ?? schoolRoot.y;
 
           hubLines.push(
             <line
@@ -260,10 +307,7 @@ export function GlobalGrimoireView({
               x1={0} y1={0}
               x2={rootX} y2={rootY}
               stroke="hsl(var(--accent))"
-              strokeWidth="4"
-              strokeOpacity="0.15"
-              strokeDasharray="12,12"
-              className="animate-pulse"
+              strokeWidth="4" strokeOpacity="0.15" strokeDasharray="12,12" className="animate-pulse"
             />
           );
         }
@@ -273,43 +317,39 @@ export function GlobalGrimoireView({
         (node.children || []).forEach(childId => {
           const childNode = school.nodes.find(n => n.formId === childId);
           if (childNode) {
-            const isChildPath = selectedNodeId === node.formId;
-            const isPrereqPath = selectedNodeId === childId;
+            const isChildPath = selectedNodeIds.includes(node.formId);
+            const isPrereqPath = selectedNodeIds.includes(childId);
             const isHighlighted = isChildPath || isPrereqPath;
             
-            const nX = (dragNodeId === node.formId && draggingNodePos) ? draggingNodePos.x : node.x;
-            const nY = (dragNodeId === node.formId && draggingNodePos) ? draggingNodePos.y : node.y;
-            const cX = (dragNodeId === childId && draggingNodePos) ? draggingNodePos.x : childNode.x;
-            const cY = (dragNodeId === childId && draggingNodePos) ? draggingNodePos.y : childNode.y;
+            const nX = draggingNodesPos[node.formId]?.x ?? node.x;
+            const nY = draggingNodesPos[node.formId]?.y ?? node.y;
+            const cX = draggingNodesPos[childId]?.x ?? childNode.x;
+            const cY = draggingNodesPos[childId]?.y ?? childNode.y;
 
             const dx = cX - nX;
             const dy = cY - nY;
             const angle = Math.atan2(dy, dx);
             const isTargetRoot = schoolRoots.includes(childNode.formId);
             const targetRadius = (isTargetRoot ? 27 : 16) + 4;
-            
             const x2 = cX - targetRadius * Math.cos(angle);
             const y2 = cY - targetRadius * Math.sin(angle);
-
-            const strokeColor = isPrereqPath ? "#22c55e" : (isChildPath ? "#f97316" : "hsl(var(--primary))");
-            const markerId = isPrereqPath ? "url(#arrow-prereq)" : (isChildPath ? "url(#arrow-child)" : "url(#arrow-default)");
 
             connections.push(
               <line
                 key={`${sName}-${node.formId}-${childId}`}
                 x1={nX} y1={nY}
                 x2={x2} y2={y2}
-                stroke={strokeColor}
+                stroke={isPrereqPath ? "#22c55e" : (isChildPath ? "#f97316" : "hsl(var(--primary))")}
                 strokeWidth={isHighlighted ? "3" : "1"}
                 strokeOpacity={isHighlighted ? "0.8" : "0.2"}
-                markerEnd={markerId}
+                markerEnd={isPrereqPath ? "url(#arrow-prereq)" : (isChildPath ? "url(#arrow-child)" : "url(#arrow-default)")}
               />
             );
           }
         });
 
         const isRoot = schoolRoots.includes(node.formId);
-        const isSelected = selectedNodeId === node.formId;
+        const isSelected = selectedNodeIds.includes(node.formId);
         const isPrereq = prereqNodeIds.has(node.formId);
         const isChild = childNodeIds.has(node.formId);
         
@@ -318,30 +358,27 @@ export function GlobalGrimoireView({
           node.formId.toLowerCase().includes(searchQuery.toLowerCase())
         );
 
-        const x = (dragNodeId === node.formId && draggingNodePos) ? draggingNodePos.x : node.x;
-        const y = (dragNodeId === node.formId && draggingNodePos) ? draggingNodePos.y : node.y;
+        const x = draggingNodesPos[node.formId]?.x ?? node.x;
+        const y = draggingNodesPos[node.formId]?.y ?? node.y;
 
         nodes.push(
           <div
             key={`${sName}-${node.formId}`}
             data-node-id={node.formId}
-            onClick={() => onSelectNode(node.formId)}
             className={cn(
               "spell-node absolute flex items-center justify-center rounded-full border bg-card/90 transition-all cursor-grab pointer-events-auto select-none",
-              (dragMode === 'node' || draggingNodePos) && "transition-none",
+              (dragMode === 'node' || Object.keys(draggingNodesPos).length > 0) && "transition-none",
               isSelected ? "node-selected ring-2 ring-accent z-30 scale-125" : "border-border hover:border-accent/60",
               isPrereq && !isSelected && "border-[#22c55e] ring-2 ring-[#22c55e] z-20 scale-110",
               isChild && !isSelected && "border-[#f97316] ring-2 ring-[#f97316]/50 z-20 scale-110",
               isRoot && "border-accent bg-accent/5 scale-125 z-10 shadow-[0_0_15px_hsl(var(--accent)/0.2)]",
               isMatch && "ring-4 ring-yellow-400 scale-150 z-40",
-              dragNodeId === node.formId && "cursor-grabbing opacity-70 scale-110",
+              draggingNodesPos[node.formId] && "cursor-grabbing opacity-70 scale-110",
               node.isLocked && "cursor-default"
             )}
             style={{
-              left: x,
-              top: y,
-              width: isRoot ? 54 : 32,
-              height: isRoot ? 54 : 32,
+              left: x, top: y,
+              width: isRoot ? 54 : 32, height: isRoot ? 54 : 32,
               transform: 'translate(-50%, -50%)'
             }}
           >
@@ -351,48 +388,21 @@ export function GlobalGrimoireView({
             )}>
               {node.name}
             </span>
-            {node.isLocked && (
-              <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-background/80 rounded-full p-0.5 border border-border">
-                <Lock className="w-1.5 h-1.5 text-muted-foreground" />
-              </div>
-            )}
           </div>
         );
       });
     });
 
     return { nodes, connections, hubLines, radialGuides, spokes };
-  }, [schools, selectedNodeId, searchQuery, showRadialGuides, onSelectNode, dragNodeId, draggingNodePos, dragMode]);
-
-  const activeLinkingLine = useMemo(() => {
-    if (dragMode !== 'linking' || !linkingSourceId) return null;
-    let sourceNode: SpellNode | undefined;
-    for (const sName in schools) {
-      sourceNode = schools[sName].nodes.find(n => n.formId === linkingSourceId);
-      if (sourceNode) break;
-    }
-    if (!sourceNode) return null;
-
-    return (
-      <line
-        x1={sourceNode.x}
-        y1={sourceNode.y}
-        x2={mousePos.x}
-        y2={mousePos.y}
-        stroke="hsl(var(--accent))"
-        strokeWidth="2"
-        strokeDasharray="4,4"
-        className="animate-pulse"
-      />
-    );
-  }, [dragMode, linkingSourceId, mousePos, schools]);
+  }, [schools, selectedNodeIds, searchQuery, showRadialGuides, draggingNodesPos, dragMode]);
 
   return (
     <div 
       ref={containerRef}
       className={cn(
         "relative w-full h-full overflow-hidden bg-background cursor-grab active:cursor-grabbing",
-        dragMode === 'linking' && "cursor-alias"
+        dragMode === 'linking' && "cursor-alias",
+        dragMode === 'selection' && "cursor-cell"
       )}
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
@@ -421,7 +431,6 @@ export function GlobalGrimoireView({
           {renderContent.radialGuides}
           {renderContent.hubLines}
           {renderContent.connections}
-          {activeLinkingLine}
         </svg>
 
         <div 
@@ -435,15 +444,23 @@ export function GlobalGrimoireView({
         </div>
 
         {renderContent.nodes}
+
+        {dragMode === 'selection' && selectionRect && (
+          <div 
+            className="absolute border-2 border-accent/60 bg-accent/10 pointer-events-none z-50"
+            style={{
+              left: Math.min(selectionRect.x1, selectionRect.x2),
+              top: Math.min(selectionRect.y1, selectionRect.y2),
+              width: Math.abs(selectionRect.x2 - selectionRect.x1),
+              height: Math.abs(selectionRect.y2 - selectionRect.y1),
+            }}
+          />
+        )}
       </div>
       
       <div className="absolute top-6 left-6 p-4 bg-card/60 backdrop-blur-md border border-border rounded-xl shadow-2xl pointer-events-none">
         <h2 className="text-sm font-bold uppercase tracking-widest text-accent">Arch-Grimoire Hub</h2>
-        <p className="text-[10px] text-muted-foreground mt-1">Convergence View: Snap to {showRadialGuides ? 'Rings' : 'Grid'} with Ctrl.</p>
-        <div className="flex gap-2 mt-3">
-          <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-[#22c55e]"></div><span className="text-[9px] text-muted-foreground">Prerequisites</span></div>
-          <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-[#f97316]"></div><span className="text-[9px] text-muted-foreground">Unlocks</span></div>
-        </div>
+        <p className="text-[10px] text-muted-foreground mt-1">Convergence View: Shift + Drag on background for Marquee Selection.</p>
       </div>
     </div>
   )

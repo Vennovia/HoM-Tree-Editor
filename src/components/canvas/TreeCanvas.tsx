@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState, useRef, useEffect, useMemo } from 'react'
@@ -8,9 +9,9 @@ import { Lock } from 'lucide-react'
 interface TreeCanvasProps {
   schoolName: string;
   school: SpellSchool;
-  selectedNodeId: string | null;
-  onSelectNode: (nodeId: string) => void;
-  onNodeMove: (nodeId: string, updates: Partial<SpellNode>, schoolName: string) => void;
+  selectedNodeIds: string[];
+  onSelectNodes: (nodeIds: string[]) => void;
+  onNodesMove: (updates: Record<string, Partial<SpellNode>>) => void;
   onLinkNodes: (sourceId: string, targetId: string) => void;
   searchQuery?: string;
   showRadialGuides?: boolean;
@@ -19,9 +20,9 @@ interface TreeCanvasProps {
 export function TreeCanvas({ 
   schoolName, 
   school, 
-  selectedNodeId, 
-  onSelectNode, 
-  onNodeMove,
+  selectedNodeIds, 
+  onSelectNodes, 
+  onNodesMove,
   onLinkNodes,
   searchQuery = '',
   showRadialGuides = false
@@ -29,12 +30,13 @@ export function TreeCanvas({
   const containerRef = useRef<HTMLDivElement>(null);
   const [transform, setTransform] = useState({ x: 0, y: 0, scale: 0.5 });
   
-  const [dragMode, setDragMode] = useState<'canvas' | 'node' | 'linking' | null>(null);
+  const [dragMode, setDragMode] = useState<'canvas' | 'node' | 'linking' | 'selection' | null>(null);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [dragNodeId, setDragNodeId] = useState<string | null>(null);
-  const [dragNodeInitialPos, setDragNodeInitialPos] = useState({ x: 0, y: 0 });
+  const [dragNodesInitialPos, setDragNodesInitialPos] = useState<Record<string, { x: number, y: number }>>({});
   
-  const [draggingNodePos, setDraggingNodePos] = useState<{ x: number, y: number } | null>(null);
+  const [selectionRect, setSelectionRect] = useState<{ x1: number, y1: number, x2: number, y2: number } | null>(null);
+  const [draggingNodesPos, setDraggingNodesPos] = useState<Record<string, { x: number, y: number }>>({});
 
   const [linkingSourceId, setLinkingSourceId] = useState<string | null>(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
@@ -42,7 +44,6 @@ export function TreeCanvas({
   const lastCenteredId = useRef<string | null>(null);
   const currentSchoolName = useRef<string | null>(null);
 
-  // Only center the view when the school actually changes
   useEffect(() => {
     if (school && schoolName !== currentSchoolName.current) {
       const firstRootId = school.roots?.[0];
@@ -59,8 +60,8 @@ export function TreeCanvas({
     }
   }, [schoolName, school]);
 
-  // Center on selected node only if it was selected via search/external and we aren't dragging
   useEffect(() => {
+    const selectedNodeId = selectedNodeIds.length === 1 ? selectedNodeIds[0] : null;
     if (
       selectedNodeId && 
       selectedNodeId !== lastCenteredId.current && 
@@ -80,10 +81,10 @@ export function TreeCanvas({
       }
     }
     
-    if (!selectedNodeId) {
+    if (selectedNodeIds.length !== 1) {
       lastCenteredId.current = null;
     }
-  }, [selectedNodeId, school, dragMode]);
+  }, [selectedNodeIds, school, dragMode]);
 
   const getCanvasCoords = (clientX: number, clientY: number) => {
     const rect = containerRef.current?.getBoundingClientRect();
@@ -99,32 +100,56 @@ export function TreeCanvas({
     const isNode = target.closest('.spell-node');
     const nodeId = isNode?.getAttribute('data-node-id');
 
+    const canvasCoords = getCanvasCoords(e.clientX, e.clientY);
+
     if (e.shiftKey && nodeId) {
       setDragMode('linking');
       setLinkingSourceId(nodeId);
-      const coords = getCanvasCoords(e.clientX, e.clientY);
-      setMousePos(coords);
+      setMousePos(canvasCoords);
       return;
     }
 
     if (nodeId) {
-      const foundNode = school.nodes.find(n => n.formId === nodeId);
-      if (foundNode) {
-        if (!foundNode.isLocked) {
-          setDragMode('node');
-          setDragNodeId(nodeId);
-          setDragNodeInitialPos({ x: foundNode.x, y: foundNode.y });
-          setDragStart({ x: e.clientX, y: e.clientY });
-          setDraggingNodePos({ x: foundNode.x, y: foundNode.y });
+      const isAlreadySelected = selectedNodeIds.includes(nodeId);
+      let newSelection = isAlreadySelected ? selectedNodeIds : [nodeId];
+      
+      if (e.ctrlKey || e.metaKey || e.shiftKey) {
+        if (isAlreadySelected) {
+          newSelection = selectedNodeIds.filter(id => id !== nodeId);
+        } else {
+          newSelection = [...selectedNodeIds, nodeId];
         }
-        // Mark as already handled centering for this click
-        lastCenteredId.current = nodeId;
-        onSelectNode(nodeId);
+      }
+      
+      onSelectNodes(newSelection);
+
+      const node = school.nodes.find(n => n.formId === nodeId);
+      if (node && !node.isLocked) {
+        setDragMode('node');
+        setDragNodeId(nodeId);
+        
+        const nodesToMove = newSelection.includes(nodeId) ? newSelection : [nodeId];
+        const initialPositions: Record<string, { x: number, y: number }> = {};
+        nodesToMove.forEach(id => {
+          const n = school.nodes.find(node => node.formId === id);
+          if (n) initialPositions[id] = { x: n.x, y: n.y };
+        });
+        
+        setDragNodesInitialPos(initialPositions);
+        setDragStart({ x: e.clientX, y: e.clientY });
+        setDraggingNodesPos(initialPositions);
       }
       return;
     }
 
-    if (e.button === 1 || (e.button === 0 && e.altKey)) {
+    if (e.shiftKey) {
+      setDragMode('selection');
+      setSelectionRect({ x1: canvasCoords.x, y1: canvasCoords.y, x2: canvasCoords.x, y2: canvasCoords.y });
+    } else if (e.button === 1 || (e.button === 0 && e.altKey)) {
+      setDragMode('canvas');
+      setDragStart({ x: e.clientX - transform.x, y: e.clientY - transform.y });
+    } else {
+      onSelectNodes([]);
       setDragMode('canvas');
       setDragStart({ x: e.clientX - transform.x, y: e.clientY - transform.y });
     }
@@ -143,35 +168,39 @@ export function TreeCanvas({
       const dx = (e.clientX - dragStart.x) / transform.scale;
       const dy = (e.clientY - dragStart.y) / transform.scale;
       
-      let x = Math.round(dragNodeInitialPos.x + dx);
-      let y = Math.round(dragNodeInitialPos.y + dy);
+      const updates: Record<string, { x: number, y: number }> = {};
+      Object.entries(dragNodesInitialPos).forEach(([id, initial]) => {
+        let x = Math.round(initial.x + dx);
+        let y = Math.round(initial.y + dy);
 
-      // Adaptive Snapping
-      if (e.ctrlKey || e.metaKey) {
-        if (showRadialGuides) {
-          // Snap to Rings
-          const r = Math.sqrt(x * x + y * y);
-          const rSnap = Math.round(r / 25) * 25;
-          const theta = Math.atan2(y, x);
-          x = Math.round(rSnap * Math.cos(theta));
-          y = Math.round(rSnap * Math.sin(theta));
-        } else {
-          // Snap to Square Grid
-          x = Math.round(x / 25) * 25;
-          y = Math.round(y / 25) * 25;
+        if (e.ctrlKey || e.metaKey) {
+          if (showRadialGuides) {
+            const r = Math.sqrt(x * x + y * y);
+            const rSnap = Math.round(r / 25) * 25;
+            const theta = Math.atan2(y, x);
+            x = Math.round(rSnap * Math.cos(theta));
+            y = Math.round(rSnap * Math.sin(theta));
+          } else {
+            x = Math.round(x / 25) * 25;
+            y = Math.round(y / 25) * 25;
+          }
         }
-      }
+        updates[id] = { x, y };
+      });
 
-      setDraggingNodePos({ x, y });
+      setDraggingNodesPos(updates);
     } else if (dragMode === 'linking') {
       const coords = getCanvasCoords(e.clientX, e.clientY);
       setMousePos(coords);
+    } else if (dragMode === 'selection' && selectionRect) {
+      const coords = getCanvasCoords(e.clientX, e.clientY);
+      setSelectionRect(prev => prev ? { ...prev, x2: coords.x, y2: coords.y } : null);
     }
   };
 
   const handleMouseUp = (e: React.MouseEvent) => {
-    if (dragMode === 'node' && dragNodeId && draggingNodePos) {
-      onNodeMove(dragNodeId, draggingNodePos, schoolName);
+    if (dragMode === 'node' && Object.keys(draggingNodesPos).length > 0) {
+      onNodesMove(draggingNodesPos);
     }
 
     if (dragMode === 'linking' && linkingSourceId) {
@@ -183,11 +212,25 @@ export function TreeCanvas({
         onLinkNodes(linkingSourceId, targetId);
       }
     }
+
+    if (dragMode === 'selection' && selectionRect) {
+      const xMin = Math.min(selectionRect.x1, selectionRect.x2);
+      const xMax = Math.max(selectionRect.x1, selectionRect.x2);
+      const yMin = Math.min(selectionRect.y1, selectionRect.y2);
+      const yMax = Math.max(selectionRect.y1, selectionRect.y2);
+
+      const inRect = school.nodes
+        .filter(n => n.x >= xMin && n.x <= xMax && n.y >= yMin && n.y <= yMax)
+        .map(n => n.formId);
+      
+      onSelectNodes(inRect);
+    }
     
     setDragMode(null);
     setDragNodeId(null);
     setLinkingSourceId(null);
-    setDraggingNodePos(null);
+    setDraggingNodesPos({});
+    setSelectionRect(null);
   };
 
   const handleWheel = (e: React.WheelEvent) => {
@@ -221,8 +264,11 @@ export function TreeCanvas({
     const schoolRoots = school.roots || [];
     const prereqNodeIds = new Set<string>();
     const childNodeIds = new Set<string>();
-    if (selectedNodeId) {
-      const selectedNode = school.nodes.find(n => n.formId === selectedNodeId);
+    
+    const primarySelectedId = selectedNodeIds.length > 0 ? selectedNodeIds[0] : null;
+
+    if (primarySelectedId) {
+      const selectedNode = school.nodes.find(n => n.formId === primarySelectedId);
       if (selectedNode) {
         selectedNode.children?.forEach(id => childNodeIds.add(id));
         selectedNode.prerequisites?.forEach(id => prereqNodeIds.add(id));
@@ -231,7 +277,6 @@ export function TreeCanvas({
       }
     }
 
-    // Add Arcane Spokes (every 15 degrees) - Bright Red Color
     for (let angle = 0; angle < 360; angle += 15) {
       const rad = (angle * Math.PI) / 180;
       const length = 5000;
@@ -270,82 +315,53 @@ export function TreeCanvas({
       }
     }
 
-    const connectionsData: Array<{ source: SpellNode, target: SpellNode, isHighlighted: boolean, isPrereqPath: boolean, isChildPath: boolean }> = [];
     school.nodes.forEach(node => {
       (node.children || []).forEach(childId => {
         const childNode = school.nodes.find(n => n.formId === childId);
         if (childNode) {
-          const isChildPath = selectedNodeId === node.formId;
-          const isPrereqPath = selectedNodeId === childId;
+          const isChildPath = selectedNodeIds.includes(node.formId);
+          const isPrereqPath = selectedNodeIds.includes(childId);
           const isHighlighted = isChildPath || isPrereqPath;
-          connectionsData.push({ source: node, target: childNode, isHighlighted, isPrereqPath, isChildPath });
+
+          const sX = draggingNodesPos[node.formId]?.x ?? node.x;
+          const sY = draggingNodesPos[node.formId]?.y ?? node.y;
+          const tX = draggingNodesPos[childId]?.x ?? childNode.x;
+          const tY = draggingNodesPos[childId]?.y ?? childNode.y;
+
+          const dx = tX - sX;
+          const dy = tY - sY;
+          const angle = Math.atan2(dy, dx);
+          const isRoot = schoolRoots.includes(target.formId);
+          const targetRadius = (isRoot ? 27 : 20) + 4;
+          const x2 = tX - targetRadius * Math.cos(angle);
+          const y2 = tY - targetRadius * Math.sin(angle);
+
+          connections.push(
+            <line
+              key={`${node.formId}-${childId}`}
+              x1={sX} y1={sY}
+              x2={x2} y2={y2}
+              stroke={isPrereqPath ? "#22c55e" : (isChildPath ? "#f97316" : "hsl(var(--primary))")}
+              strokeWidth={isHighlighted ? "2.5" : "1.5"}
+              strokeOpacity={isHighlighted ? "0.9" : "0.4"}
+              markerEnd={isPrereqPath ? "url(#arrow-prereq)" : (isChildPath ? "url(#arrow-child)" : "url(#arrow-default)")}
+            />
+          );
         }
       });
-    });
 
-    connectionsData.sort((a, b) => (a.isHighlighted === b.isHighlighted ? 0 : a.isHighlighted ? 1 : -1));
-
-    connectionsData.forEach(({ source, target, isHighlighted, isPrereqPath, isChildPath }) => {
-      const sX = (dragNodeId === source.formId && draggingNodePos) ? draggingNodePos.x : source.x;
-      const sY = (dragNodeId === source.formId && draggingNodePos) ? draggingNodePos.y : source.y;
-      const tX = (dragNodeId === target.formId && draggingNodePos) ? draggingNodePos.x : target.x;
-      const tY = (dragNodeId === target.formId && draggingNodePos) ? draggingNodePos.y : target.y;
-
-      const dx = tX - sX;
-      const dy = tY - sY;
-      const angle = Math.atan2(dy, dx);
-      const isRoot = schoolRoots.includes(target.formId);
-      const targetRadius = (isRoot ? 27 : 20) + 4;
-      
-      const x2 = tX - targetRadius * Math.cos(angle);
-      const y2 = tY - targetRadius * Math.sin(angle);
-
-      const strokeColor = isPrereqPath ? "#22c55e" : (isChildPath ? "#f97316" : "hsl(var(--primary))");
-      const markerId = isPrereqPath ? "url(#arrow-prereq)" : (isChildPath ? "url(#arrow-child)" : "url(#arrow-default)");
-
-      connections.push(
-        <g key={`${source.formId}-${target.formId}`} className="group/line cursor-pointer">
-          <line
-            x1={sX} y1={sY}
-            x2={tX} y2={tY}
-            stroke="transparent"
-            strokeWidth="20"
-            className="pointer-events-auto"
-            onClick={(e) => {
-              e.stopPropagation();
-              onLinkNodes(source.formId, target.formId);
-            }}
-          />
-          <line
-            x1={sX} y1={sY}
-            x2={x2} y2={y2}
-            stroke={strokeColor}
-            strokeWidth={isHighlighted ? "2.5" : "1.5"}
-            strokeOpacity={isHighlighted ? "0.9" : "0.4"}
-            markerEnd={markerId}
-            className={cn(
-              "transition-all duration-300",
-              !isHighlighted && "group-hover/line:stroke-destructive group-hover/line:stroke-opacity-100 group-hover/line:stroke-[2px]",
-              isHighlighted && "animate-pulse"
-            )}
-          />
-        </g>
-      );
-    });
-
-    school.nodes.forEach(node => {
       const isMatch = searchQuery.length > 1 && (
         node.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
         node.formId.toLowerCase().includes(searchQuery.toLowerCase())
       );
 
       const isRoot = schoolRoots.includes(node.formId);
-      const isSelected = selectedNodeId === node.formId;
+      const isSelected = selectedNodeIds.includes(node.formId);
       const isPrereq = prereqNodeIds.has(node.formId);
       const isChild = childNodeIds.has(node.formId);
       
-      const x = (dragNodeId === node.formId && draggingNodePos) ? draggingNodePos.x : node.x;
-      const y = (dragNodeId === node.formId && draggingNodePos) ? draggingNodePos.y : node.y;
+      const x = draggingNodesPos[node.formId]?.x ?? node.x;
+      const y = draggingNodesPos[node.formId]?.y ?? node.y;
 
       nodes.push(
         <div
@@ -353,14 +369,14 @@ export function TreeCanvas({
           data-node-id={node.formId}
           className={cn(
             "spell-node absolute flex items-center justify-center p-1.5 rounded-full border bg-card cursor-grab hover:scale-110 pointer-events-auto arcane-glow select-none group transition-transform duration-200 ease-out",
-            (dragMode === 'node' || draggingNodePos) && "transition-none",
+            (dragMode === 'node' || Object.keys(draggingNodesPos).length > 0) && "transition-none",
             node.isLocked && "cursor-default hover:scale-100",
             isSelected ? "node-selected ring-2 ring-accent ring-offset-1 ring-offset-background z-30" : "border-primary/40",
             isPrereq && !isSelected && "border-[#22c55e] ring-2 ring-[#22c55e]/50 z-20 scale-105",
             isChild && !isSelected && "border-[#f97316] ring-2 ring-[#f97316]/50 z-20 scale-105",
             isRoot && "border-accent shadow-[0_0_15px_hsl(var(--accent))] z-10",
             linkingSourceId === node.formId && "ring-2 ring-accent ring-offset-2 animate-pulse z-40",
-            dragNodeId === node.formId && "cursor-grabbing scale-110 opacity-80 z-50",
+            draggingNodesPos[node.formId] && "cursor-grabbing scale-110 opacity-80 z-50",
             isMatch && "node-pulse ring-2 ring-yellow-400 border-yellow-400 z-50 scale-125 shadow-[0_0_20px_hsl(48_100%_50%)]"
           )}
           style={{ 
@@ -386,36 +402,12 @@ export function TreeCanvas({
               node.skillLevel === 'Apprentice' ? "bg-green-500" : "bg-gray-500"
             )} 
           />
-          {node.isLocked && (
-            <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-background/80 rounded-full p-0.5 border border-border">
-              <Lock className="w-2 h-2 text-muted-foreground" />
-            </div>
-          )}
         </div>
       );
     });
 
     return { nodes, connections, radialGuides, spokes };
-  }, [school, selectedNodeId, linkingSourceId, dragNodeId, dragMode, searchQuery, showRadialGuides, onLinkNodes, draggingNodePos]);
-
-  const activeLinkingLine = useMemo(() => {
-    if (dragMode !== 'linking' || !linkingSourceId) return null;
-    const sourceNode = school?.nodes.find(n => n.formId === linkingSourceId);
-    if (!sourceNode) return null;
-
-    return (
-      <line
-        x1={sourceNode.x}
-        y1={sourceNode.y}
-        x2={mousePos.x}
-        y2={mousePos.y}
-        stroke="hsl(var(--accent))"
-        strokeWidth="2"
-        strokeDasharray="4,4"
-        className="animate-pulse"
-      />
-    );
-  }, [dragMode, linkingSourceId, mousePos, school]);
+  }, [school, selectedNodeIds, dragNodeId, dragMode, searchQuery, showRadialGuides, draggingNodesPos]);
 
   return (
     <div 
@@ -423,7 +415,8 @@ export function TreeCanvas({
       className={cn(
         "relative w-full h-full overflow-hidden bg-background cursor-crosshair",
         dragMode === 'canvas' && "cursor-grabbing",
-        dragMode === 'linking' && "cursor-alias"
+        dragMode === 'linking' && "cursor-alias",
+        dragMode === 'selection' && "cursor-cell"
       )}
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
@@ -442,70 +435,50 @@ export function TreeCanvas({
           <div className="absolute inset-[-50000px] pointer-events-none arcane-grid" />
         )}
 
-        <svg 
-          className="absolute overflow-visible"
-          style={{ width: 1, height: 1 }}
-        >
+        <svg className="absolute overflow-visible" style={{ width: 1, height: 1 }}>
           <defs>
-            <marker
-              id="arrow-default"
-              viewBox="0 0 10 10"
-              refX="8"
-              refY="5"
-              markerWidth="4"
-              markerHeight="4"
-              orient="auto-start-reverse"
-            >
-              <path d="M 0 0 L 10 5 L 0 10 z" fill="hsl(var(--primary))" fillOpacity="0.4" />
-            </marker>
-            <marker
-              id="arrow-child"
-              viewBox="0 0 10 10"
-              refX="8"
-              refY="5"
-              markerWidth="5"
-              markerHeight="5"
-              orient="auto-start-reverse"
-            >
-              <path d="M 0 0 L 10 5 L 0 10 z" fill="#f97316" />
-            </marker>
-            <marker
-              id="arrow-prereq"
-              viewBox="0 0 10 10"
-              refX="8"
-              refY="5"
-              markerWidth="5"
-              markerHeight="5"
-              orient="auto-start-reverse"
-            >
-              <path d="M 0 0 L 10 5 L 0 10 z" fill="#22c55e" />
-            </marker>
+            <marker id="arrow-default" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="4" markerHeight="4" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="hsl(var(--primary))" fillOpacity="0.4" /></marker>
+            <marker id="arrow-child" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#f97316" /></marker>
+            <marker id="arrow-prereq" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#22c55e" /></marker>
           </defs>
           {renderData.spokes}
           {renderData.radialGuides}
           {renderData.connections}
-          {activeLinkingLine}
+          {dragMode === 'linking' && linkingSourceId && (
+            <line
+              x1={school.nodes.find(n => n.formId === linkingSourceId)?.x ?? 0}
+              y1={school.nodes.find(n => n.formId === linkingSourceId)?.y ?? 0}
+              x2={mousePos.x} y2={mousePos.y}
+              stroke="hsl(var(--accent))" strokeWidth="2" strokeDasharray="4,4" className="animate-pulse"
+            />
+          )}
         </svg>
         {renderData.nodes}
-      </div>
 
-      <div className="absolute bottom-4 left-4 flex flex-col gap-1 p-3 bg-card/80 border border-border rounded-lg backdrop-blur-sm pointer-events-none">
-        <h3 className="text-xs font-bold uppercase text-muted-foreground tracking-widest">{schoolName}</h3>
-        <p className="text-[10px] text-muted-foreground">{school?.nodes.length || 0} Nodes Mapped</p>
-        <p className="text-[10px] text-accent/80 font-mono">Zoom: {(transform.scale * 100).toFixed(0)}%</p>
+        {dragMode === 'selection' && selectionRect && (
+          <div 
+            className="absolute border-2 border-accent/60 bg-accent/10 pointer-events-none z-50"
+            style={{
+              left: Math.min(selectionRect.x1, selectionRect.x2),
+              top: Math.min(selectionRect.y1, selectionRect.y2),
+              width: Math.abs(selectionRect.x2 - selectionRect.x1),
+              height: Math.abs(selectionRect.y2 - selectionRect.y1),
+            }}
+          />
+        )}
       </div>
 
       <div className="absolute top-4 right-4 flex flex-col gap-2 p-3 bg-card/80 border border-border rounded-lg backdrop-blur-sm shadow-xl">
         <p className="text-[9px] text-muted-foreground uppercase font-semibold border-b border-border pb-1">Controls</p>
         <div className="space-y-1.5">
           <p className="text-[10px] text-foreground flex items-center gap-2">
-            <span className="bg-secondary px-1.5 py-0.5 rounded text-[8px] font-mono border border-border">Drag</span> Move
+            <span className="bg-secondary px-1.5 py-0.5 rounded text-[8px] font-mono border border-border">Shift + Drag Bg</span> Marquee Select
           </p>
           <p className="text-[10px] text-foreground flex items-center gap-2">
-            <span className="bg-secondary px-1.5 py-0.5 rounded text-[8px] font-mono border border-border">Ctrl + Drag</span> Snap to {showRadialGuides ? 'Rings' : 'Grid'}
+            <span className="bg-secondary px-1.5 py-0.5 rounded text-[8px] font-mono border border-border">Ctrl + Click</span> Multi Select
           </p>
           <p className="text-[10px] text-foreground flex items-center gap-2">
-            <span className="bg-secondary px-1.5 py-0.5 rounded text-[8px] font-mono border border-border">Shift + Drag</span> Link
+            <span className="bg-secondary px-1.5 py-0.5 rounded text-[8px] font-mono border border-border">Drag Selected</span> Move Selection
           </p>
         </div>
       </div>
