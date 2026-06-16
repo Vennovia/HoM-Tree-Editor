@@ -1,6 +1,6 @@
 "use client"
 
-import React from 'react'
+import React, { useMemo } from 'react'
 import { SpellNode, SpellSchool } from '@/types/spell-tree'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -74,8 +74,38 @@ export function NodeEditor({
     )
   }
 
-  const availableNodes = school.nodes.filter(n => n.formId !== node.formId)
   const isRootNode = (school.roots || []).includes(node.formId)
+
+  // Filter logic for valid prerequisites and children
+  const validHardPrereqs = useMemo(() => {
+    const existingIds = new Set([
+      node.formId,
+      ...(node.hardPrereqs || []),
+      ...(node.softPrereqs || []),
+      ...(node.children || []) // Prevent direct circular link
+    ]);
+    return school.nodes.filter(n => !existingIds.has(n.formId));
+  }, [school.nodes, node.formId, node.hardPrereqs, node.softPrereqs, node.children]);
+
+  const validSoftPrereqs = useMemo(() => {
+    const existingIds = new Set([
+      node.formId,
+      ...(node.hardPrereqs || []),
+      ...(node.softPrereqs || []),
+      ...(node.children || []) // Prevent direct circular link
+    ]);
+    return school.nodes.filter(n => !existingIds.has(n.formId));
+  }, [school.nodes, node.formId, node.hardPrereqs, node.softPrereqs, node.children]);
+
+  const validChildren = useMemo(() => {
+    const existingIds = new Set([
+      node.formId,
+      ...(node.children || []),
+      ...(node.hardPrereqs || []), // Already a parent
+      ...(node.softPrereqs || [])  // Already a parent
+    ]);
+    return school.nodes.filter(n => !existingIds.has(n.formId));
+  }, [school.nodes, node.formId, node.children, node.hardPrereqs, node.softPrereqs]);
 
   const handleToggleRoot = (checked: boolean) => {
     const currentRoots = school.roots || [];
@@ -222,9 +252,13 @@ export function NodeEditor({
                     <SelectValue placeholder="Add Prereq" />
                   </SelectTrigger>
                   <SelectContent>
-                    {availableNodes.map(n => (
-                      <SelectItem key={n.formId} value={n.formId}>{n.name}</SelectItem>
-                    ))}
+                    {validHardPrereqs.length === 0 ? (
+                      <div className="p-2 text-[9px] text-muted-foreground text-center italic">No valid spells</div>
+                    ) : (
+                      validHardPrereqs.map(n => (
+                        <SelectItem key={n.formId} value={n.formId}>{n.name}</SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -240,9 +274,13 @@ export function NodeEditor({
                     <SelectValue placeholder="Add Prereq" />
                   </SelectTrigger>
                   <SelectContent>
-                    {availableNodes.map(n => (
-                      <SelectItem key={n.formId} value={n.formId}>{n.name}</SelectItem>
-                    ))}
+                    {validSoftPrereqs.length === 0 ? (
+                      <div className="p-2 text-[9px] text-muted-foreground text-center italic">No valid spells</div>
+                    ) : (
+                      validSoftPrereqs.map(n => (
+                        <SelectItem key={n.formId} value={n.formId}>{n.name}</SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -270,9 +308,13 @@ export function NodeEditor({
                     <SelectValue placeholder="Add Child" />
                   </SelectTrigger>
                   <SelectContent>
-                    {availableNodes.map(n => (
-                      <SelectItem key={n.formId} value={n.formId}>{n.name}</SelectItem>
-                    ))}
+                    {validChildren.length === 0 ? (
+                      <div className="p-2 text-[9px] text-muted-foreground text-center italic">No valid spells</div>
+                    ) : (
+                      validChildren.map(n => (
+                        <SelectItem key={n.formId} value={n.formId}>{n.name}</SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
               </div>
