@@ -332,7 +332,8 @@ export function TreeCanvas({
           const dy = tY - sY;
           const angle = Math.atan2(dy, dx);
           const isRoot = schoolRoots.includes(childNode.formId);
-          const targetRadius = (isRoot ? 27 : 20) + 4;
+          // 2/3 scaling: roots 54->36, normal 40->27. radius approx 18 and 13.5
+          const targetRadius = (isRoot ? 18 : 13.5) + 4;
           const x2 = tX - targetRadius * Math.cos(angle);
           const y2 = tY - targetRadius * Math.sin(angle);
 
@@ -342,7 +343,7 @@ export function TreeCanvas({
               x1={sX} y1={sY}
               x2={x2} y2={y2}
               stroke={isPrereqPath ? "#22c55e" : (isChildPath ? "#f97316" : "hsl(var(--primary))")}
-              strokeWidth={isHighlighted ? "2.5" : "1.5"}
+              strokeWidth={isHighlighted ? "2" : "1"}
               strokeOpacity={isHighlighted ? "0.9" : "0.4"}
               markerEnd={isPrereqPath ? "url(#arrow-prereq)" : (isChildPath ? "url(#arrow-child)" : "url(#arrow-default)")}
             />
@@ -368,7 +369,7 @@ export function TreeCanvas({
           key={node.formId}
           data-node-id={node.formId}
           className={cn(
-            "spell-node absolute flex items-center justify-center p-1.5 rounded-full border bg-card cursor-grab hover:scale-110 pointer-events-auto arcane-glow select-none group transition-transform duration-200 ease-out",
+            "spell-node absolute flex items-center justify-center p-1 rounded-full border bg-card cursor-grab hover:scale-110 pointer-events-auto arcane-glow select-none group transition-transform duration-200 ease-out",
             (dragMode === 'node' || Object.keys(draggingNodesPos).length > 0) && "transition-none",
             node.isLocked && "cursor-default hover:scale-100",
             isSelected ? "node-selected ring-2 ring-accent ring-offset-1 ring-offset-background z-30" : "border-primary/40",
@@ -383,19 +384,19 @@ export function TreeCanvas({
             left: x, 
             top: y, 
             transform: 'translate(-50%, -50%)',
-            width: isRoot ? 54 : 40,
-            height: isRoot ? 54 : 40,
+            width: isRoot ? 36 : 27,
+            height: isRoot ? 36 : 27,
           }}
         >
           <span className={cn(
             "text-center font-bold truncate leading-tight w-full px-0.5 pointer-events-none group-hover:whitespace-normal group-hover:bg-card/95 group-hover:absolute group-hover:z-50 group-hover:p-1 group-hover:rounded group-hover:border group-hover:border-border",
-            isRoot ? "text-[9px]" : "text-[8px]"
+            isRoot ? "text-[7px]" : "text-[6px]"
           )}>
             {node.name}
           </span>
           <div 
             className={cn(
-              "absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border border-background shadow-sm",
+              "absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full border border-background shadow-sm",
               node.skillLevel === 'Master' ? "bg-yellow-500" :
               node.skillLevel === 'Expert' ? "bg-purple-500" :
               node.skillLevel === 'Adept' ? "bg-blue-500" :

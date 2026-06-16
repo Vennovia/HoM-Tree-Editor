@@ -330,7 +330,8 @@ export function GlobalGrimoireView({
             const dy = cY - nY;
             const angle = Math.atan2(dy, dx);
             const isTargetRoot = schoolRoots.includes(childNode.formId);
-            const targetRadius = (isTargetRoot ? 27 : 16) + 4;
+            // 2/3 scaling: roots 54->36, normal 32->21. radius approx 18 and 10.5
+            const targetRadius = (isTargetRoot ? 18 : 10.5) + 4;
             const x2 = cX - targetRadius * Math.cos(angle);
             const y2 = cY - targetRadius * Math.sin(angle);
 
@@ -340,7 +341,7 @@ export function GlobalGrimoireView({
                 x1={nX} y1={nY}
                 x2={x2} y2={y2}
                 stroke={isPrereqPath ? "#22c55e" : (isChildPath ? "#f97316" : "hsl(var(--primary))")}
-                strokeWidth={isHighlighted ? "3" : "1"}
+                strokeWidth={isHighlighted ? "2" : "0.75"}
                 strokeOpacity={isHighlighted ? "0.8" : "0.2"}
                 markerEnd={isPrereqPath ? "url(#arrow-prereq)" : (isChildPath ? "url(#arrow-child)" : "url(#arrow-default)")}
               />
@@ -378,13 +379,13 @@ export function GlobalGrimoireView({
             )}
             style={{
               left: x, top: y,
-              width: isRoot ? 54 : 32, height: isRoot ? 54 : 32,
+              width: isRoot ? 36 : 21, height: isRoot ? 36 : 21,
               transform: 'translate(-50%, -50%)'
             }}
           >
             <span className={cn(
-              "font-bold text-center px-1 truncate leading-tight pointer-events-none",
-              isRoot ? "text-[9px]" : "text-[7px]"
+              "font-bold text-center px-0.5 truncate leading-tight pointer-events-none",
+              isRoot ? "text-[7px]" : "text-[5px]"
             )}>
               {node.name}
             </span>
@@ -434,12 +435,12 @@ export function GlobalGrimoireView({
         </svg>
 
         <div 
-          className="absolute rounded-full border-[8px] border-accent/40 bg-card flex items-center justify-center z-50 pointer-events-none shadow-[0_0_60px_hsl(var(--accent)/0.2)]"
-          style={{ left: 0, top: 0, width: 90, height: 90, transform: 'translate(-50%, -50%)' }}
+          className="absolute rounded-full border-[6px] border-accent/40 bg-card flex items-center justify-center z-50 pointer-events-none shadow-[0_0_40px_hsl(var(--accent)/0.2)]"
+          style={{ left: 0, top: 0, width: 60, height: 60, transform: 'translate(-50%, -50%)' }}
         >
           <div className="text-center">
-            <div className="text-[10px] font-black tracking-tighter text-accent uppercase animate-pulse">Core</div>
-            <div className="text-sm font-black text-foreground uppercase">Magic</div>
+            <div className="text-[7px] font-black tracking-tighter text-accent uppercase animate-pulse">Core</div>
+            <div className="text-[10px] font-black text-foreground uppercase">Magic</div>
           </div>
         </div>
 
