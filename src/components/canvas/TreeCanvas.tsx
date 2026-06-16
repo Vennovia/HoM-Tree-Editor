@@ -332,7 +332,6 @@ export function TreeCanvas({
           const dy = tY - sY;
           const angle = Math.atan2(dy, dx);
           const isRoot = schoolRoots.includes(childNode.formId);
-          // 2/3 scaling: roots 54->36, normal 40->27. radius approx 18 and 13.5
           const targetRadius = (isRoot ? 18 : 13.5) + 4;
           const x2 = tX - targetRadius * Math.cos(angle);
           const y2 = tY - targetRadius * Math.sin(angle);

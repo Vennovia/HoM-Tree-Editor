@@ -330,8 +330,7 @@ export function GlobalGrimoireView({
             const dy = cY - nY;
             const angle = Math.atan2(dy, dx);
             const isTargetRoot = schoolRoots.includes(childNode.formId);
-            // 2/3 scaling: roots 54->36, normal 32->21. radius approx 18 and 10.5
-            const targetRadius = (isTargetRoot ? 18 : 10.5) + 4;
+            const targetRadius = (isTargetRoot ? 18 : 13.5) + 4;
             const x2 = cX - targetRadius * Math.cos(angle);
             const y2 = cY - targetRadius * Math.sin(angle);
 
@@ -379,13 +378,13 @@ export function GlobalGrimoireView({
             )}
             style={{
               left: x, top: y,
-              width: isRoot ? 36 : 21, height: isRoot ? 36 : 21,
+              width: isRoot ? 36 : 27, height: isRoot ? 36 : 27,
               transform: 'translate(-50%, -50%)'
             }}
           >
             <span className={cn(
               "font-bold text-center px-0.5 truncate leading-tight pointer-events-none",
-              isRoot ? "text-[7px]" : "text-[5px]"
+              isRoot ? "text-[7px]" : "text-[6px]"
             )}>
               {node.name}
             </span>
