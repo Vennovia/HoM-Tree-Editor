@@ -20,8 +20,14 @@ This application is a specialized visual editor for Heart of Magic spell structu
 ---
 
 ## 💾 File Management (Export/Import)
-- **Exporting**: When you click the "Export" button in the standalone app, the `.json` file is saved to your system's dedicated **AppData/exports** folder.
-- **Importing**: Use the "Import" button to select a previously exported `.json` file from any folder on your computer to load that specific grimoire structure.
+When running as a standalone app, the editor uses dedicated folders on your computer:
+
+- **Windows**: `%APPDATA%\com.hom.editor\exports`
+- **macOS**: `~/Library/Application Support/com.hom.editor/exports`
+- **Linux**: `~/.local/share/com.hom.editor/exports`
+
+**Exporting**: Clicking the "Export" button in the standalone app saves the `.json` file directly to the **exports** folder above.
+**Importing**: Use the "Import" button to select a `.json` file. The "Open From Grimoire" button (Tauri only) specifically looks in your **imports** folder.
 
 ---
 
