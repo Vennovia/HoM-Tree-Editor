@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState, useRef, useEffect, useMemo } from 'react'
@@ -213,10 +212,11 @@ export function TreeCanvas({
   };
 
   const renderData = useMemo(() => {
-    if (!school) return { nodes: [], connections: [], radialGuides: [] };
+    if (!school) return { nodes: [], connections: [], radialGuides: [], spokes: [] };
     const nodes: React.ReactNode[] = [];
     const connections: React.ReactNode[] = [];
     const radialGuides: React.ReactNode[] = [];
+    const spokes: React.ReactNode[] = [];
 
     const schoolRoots = school.roots || [];
     const prereqNodeIds = new Set<string>();
@@ -229,6 +229,28 @@ export function TreeCanvas({
         selectedNode.hardPrereqs?.forEach(id => prereqNodeIds.add(id));
         selectedNode.softPrereqs?.forEach(id => prereqNodeIds.add(id));
       }
+    }
+
+    // Add Arcane Spokes (every 15 degrees)
+    for (let angle = 0; angle < 360; angle += 15) {
+      const rad = (angle * Math.PI) / 180;
+      const length = 5000;
+      const x2 = Math.cos(rad) * length;
+      const y2 = Math.sin(rad) * length;
+      const isMajor = angle % 90 === 0;
+      const isSemiMajor = angle % 45 === 0;
+
+      spokes.push(
+        <line
+          key={`spoke-${angle}`}
+          x1={0} y1={0}
+          x2={x2} y2={y2}
+          stroke={isMajor ? "hsl(var(--accent) / 0.25)" : isSemiMajor ? "hsl(var(--accent) / 0.15)" : "hsl(var(--accent) / 0.08)"}
+          strokeWidth={isMajor ? "1.5" : "1"}
+          strokeDasharray={isMajor ? "" : "8,8"}
+          pointerEvents="none"
+        />
+      );
     }
 
     if (showRadialGuides) {
@@ -373,7 +395,7 @@ export function TreeCanvas({
       );
     });
 
-    return { nodes, connections, radialGuides };
+    return { nodes, connections, radialGuides, spokes };
   }, [school, selectedNodeId, linkingSourceId, dragNodeId, dragMode, searchQuery, showRadialGuides, onLinkNodes, draggingNodePos]);
 
   const activeLinkingLine = useMemo(() => {
@@ -459,6 +481,7 @@ export function TreeCanvas({
               <path d="M 0 0 L 10 5 L 0 10 z" fill="#22c55e" />
             </marker>
           </defs>
+          {renderData.spokes}
           {renderData.radialGuides}
           {renderData.connections}
           {activeLinkingLine}
