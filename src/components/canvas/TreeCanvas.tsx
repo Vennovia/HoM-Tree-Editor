@@ -205,8 +205,8 @@ export function TreeCanvas({
 
     if (dragMode === 'linking' && linkingSourceId) {
       const target = e.target as HTMLElement;
-      const targetNode = target.closest('.spell-node');
-      const targetId = targetNode?.getAttribute('data-node-id');
+      const targetNodeElement = target.closest('.spell-node');
+      const targetId = targetNodeElement?.getAttribute('data-node-id');
 
       if (targetId && targetId !== linkingSourceId) {
         onLinkNodes(linkingSourceId, targetId);
@@ -331,7 +331,7 @@ export function TreeCanvas({
           const dx = tX - sX;
           const dy = tY - sY;
           const angle = Math.atan2(dy, dx);
-          const isRoot = schoolRoots.includes(target.formId);
+          const isRoot = schoolRoots.includes(childNode.formId);
           const targetRadius = (isRoot ? 27 : 20) + 4;
           const x2 = tX - targetRadius * Math.cos(angle);
           const y2 = tY - targetRadius * Math.sin(angle);
@@ -407,7 +407,7 @@ export function TreeCanvas({
     });
 
     return { nodes, connections, radialGuides, spokes };
-  }, [school, selectedNodeIds, dragNodeId, dragMode, searchQuery, showRadialGuides, draggingNodesPos]);
+  }, [school, selectedNodeIds, dragMode, searchQuery, showRadialGuides, draggingNodesPos]);
 
   return (
     <div 
