@@ -687,12 +687,13 @@ export default function HoMTreeEditor() {
             schoolName={selectedNode.schoolName}
             school={treeData!.schools[selectedNode.schoolName]}
             node={selectedNode.node}
+            selectedNodeIds={selectedNodeIds}
             onUpdate={handleUpdateNode}
+            onUpdateNodes={handleUpdateNodes}
             onUpdateSchool={handleUpdateSchool}
             onToggleRelationship={handleToggleRelationship}
             onDelete={handleDeleteNode}
             onSelectNode={(id) => setSelectedNodeIds([id])}
-            selectedCount={selectedNodeIds.length}
           />
         </aside>
       )}

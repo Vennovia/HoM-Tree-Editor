@@ -17,25 +17,29 @@ interface NodeEditorProps {
   schoolName: string;
   school: SpellSchool;
   node: SpellNode;
+  selectedNodeIds: string[];
   onUpdate: (nodeId: string, updates: Partial<SpellNode>) => void;
+  onUpdateNodes: (updates: Record<string, Partial<SpellNode>>) => void;
   onUpdateSchool: (schoolName: string, updates: Partial<SpellSchool>) => void;
   onToggleRelationship: (nodeId: string, targetId: string, type: 'hard' | 'soft' | 'child' | 'pool') => void;
   onDelete: (nodeId: string) => void;
   onSelectNode: (nodeId: string) => void;
-  selectedCount?: number;
 }
 
 export function NodeEditor({ 
   schoolName, 
   school, 
   node, 
+  selectedNodeIds,
   onUpdate, 
+  onUpdateNodes,
   onUpdateSchool,
   onToggleRelationship, 
   onDelete, 
-  onSelectNode,
-  selectedCount = 1
+  onSelectNode
 }: NodeEditorProps) {
+
+  const selectedCount = selectedNodeIds.length
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
@@ -120,6 +124,18 @@ export function NodeEditor({
     onUpdateSchool(schoolName, { roots: newRoots });
   };
 
+  const handleLockToggle = (checked: boolean) => {
+    if (selectedCount > 1) {
+      const updates: Record<string, Partial<SpellNode>> = {}
+      selectedNodeIds.forEach(id => {
+        updates[id] = { isLocked: checked }
+      })
+      onUpdateNodes(updates)
+    } else {
+      onUpdate(node.formId, { isLocked: checked })
+    }
+  }
+
   return (
     <div className="flex flex-col h-full bg-card">
       <div className="p-6 border-b border-border flex justify-between items-center bg-primary/20">
@@ -194,12 +210,17 @@ export function NodeEditor({
               <Switch id="root-toggle" checked={isRootNode} onCheckedChange={handleToggleRoot} />
             </div>
 
-            <div className="flex items-center justify-between p-3 bg-secondary/30 rounded-lg border border-border">
+            <div className={cn(
+              "flex items-center justify-between p-3 rounded-lg border transition-colors",
+              selectedCount > 1 ? "bg-accent/10 border-accent/30 shadow-[0_0_10px_hsl(var(--accent)/0.1)]" : "bg-secondary/30 border-border"
+            )}>
               <div className="flex items-center gap-2">
                 {node.isLocked ? <Lock className="w-3.5 h-3.5 text-accent" /> : <Unlock className="w-3.5 h-3.5 text-muted-foreground" />}
-                <Label htmlFor="lock-toggle" className="text-xs font-bold uppercase tracking-wider">Lock Position</Label>
+                <Label htmlFor="lock-toggle" className="text-xs font-bold uppercase tracking-wider">
+                  {selectedCount > 1 ? "Lock Selection" : "Lock Position"}
+                </Label>
               </div>
-              <Switch id="lock-toggle" checked={node.isLocked || false} onCheckedChange={(checked) => onUpdate(node.formId, { isLocked: checked })} />
+              <Switch id="lock-toggle" checked={node.isLocked || false} onCheckedChange={handleLockToggle} />
             </div>
           </div>
 
