@@ -2,7 +2,7 @@ import type {Metadata, Viewport} from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'HoM Editor',
+  title: 'Heart of Magic Tree Editor',
   description: 'Master your spell structures with visual editing.',
   manifest: '/manifest.json',
   icons: {
@@ -12,7 +12,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: 'HoM Editor',
+    title: 'Heart of Magic Tree Editor',
   },
 };
 
