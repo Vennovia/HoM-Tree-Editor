@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
@@ -7,6 +6,7 @@ import { JSONImporter } from '@/components/editor/JSONImporter'
 import { TreeCanvas } from '@/components/canvas/TreeCanvas'
 import { GlobalGrimoireView } from '@/components/canvas/GlobalGrimoireView'
 import { NodeEditor } from '@/components/editor/NodeEditor'
+import { AddNodeDialog } from '@/components/editor/AddNodeDialog'
 import { DashboardView } from '@/components/dashboard/DashboardView'
 import { Button } from '@/components/ui/button'
 import { 
@@ -46,6 +46,7 @@ export default function HoMTreeEditor() {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
   const [isImportOpen, setIsImportOpen] = useState(false)
+  const [isAddNodeOpen, setIsAddNodeOpen] = useState(false)
   const [isGlobalView, setIsGlobalView] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [nodeSearchQuery, setNodeSearchQuery] = useState('')
@@ -337,6 +338,11 @@ export default function HoMTreeEditor() {
 
   const handleAddNode = () => {
     if (!treeData || !selectedSchool) return
+    setIsAddNodeOpen(true)
+  }
+
+  const handleConfirmAddNode = (details: Partial<SpellNode>) => {
+    if (!treeData || !selectedSchool) return
 
     setTreeData(prev => {
       if (!prev) return prev
@@ -348,10 +354,10 @@ export default function HoMTreeEditor() {
       const newNodeId = "0x" + Math.random().toString(16).slice(2, 10).toUpperCase()
       const newNode: SpellNode = {
         formId: newNodeId,
-        name: "New Spell",
-        theme: "_misc",
-        tier: 1,
-        skillLevel: "Novice",
+        name: details.name || "New Spell",
+        theme: details.theme || "_misc",
+        tier: details.tier || 1,
+        skillLevel: details.skillLevel || "Novice",
         x: (referenceNode?.x || 0) + 100,
         y: (referenceNode?.y || 0) + 100,
         children: [],
@@ -371,6 +377,11 @@ export default function HoMTreeEditor() {
           }
         }
       }
+    })
+
+    toast({
+      title: "Spell Manifested",
+      description: `${details.name} has been added to the ${selectedSchool} tree.`
     })
   }
 
@@ -413,6 +424,12 @@ export default function HoMTreeEditor() {
         isOpen={isImportOpen} 
         onOpenChange={setIsImportOpen} 
         onImport={handleImport} 
+      />
+      
+      <AddNodeDialog 
+        isOpen={isAddNodeOpen} 
+        onOpenChange={setIsAddNodeOpen} 
+        onConfirm={handleConfirmAddNode} 
       />
 
       <aside className={cn(

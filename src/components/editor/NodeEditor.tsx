@@ -168,8 +168,7 @@ export function NodeEditor({
                 name="name" 
                 value={node.name} 
                 onChange={handleChange} 
-                disabled 
-                className="bg-background border-border opacity-70 cursor-not-allowed" 
+                className="bg-background border-border focus:ring-accent" 
               />
             </div>
 
