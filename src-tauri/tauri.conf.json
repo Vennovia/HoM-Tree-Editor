@@ -1,0 +1,36 @@
+{
+  "productName": "HoM Tree Editor",
+  "version": "1.0.0",
+  "identifier": "com.hom.editor",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devPath": "http://localhost:3000",
+    "beforeBuildCommand": "npm run build",
+    "distDir": "../out"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "HoM Tree Editor",
+        "width": 1280,
+        "height": 800,
+        "resizable": true,
+        "fullscreen": false
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ]
+  }
+}
