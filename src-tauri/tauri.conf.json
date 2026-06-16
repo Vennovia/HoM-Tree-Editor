@@ -1,8 +1,8 @@
 {
-  "productName": "HoM Editor",
+  "productName": "Heart of Magic Tree Editor",
   "version": "1.0.0",
   "identifier": "com.hom.editor",
-  "build": {"0.1.10",
+  "build": {
     "beforeDevCommand": "npm run dev",
     "devPath": "http://localhost:3000",
     "beforeBuildCommand": "npm run build",
@@ -11,7 +11,7 @@
   "app": {
     "windows": [
       {
-        "title": "HoM Editor",
+        "title": "Heart of Magic Tree Editor",
         "width": 1280,
         "height": 800,
         "resizable": true,
