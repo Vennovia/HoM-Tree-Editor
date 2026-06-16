@@ -389,6 +389,9 @@ export function GlobalGrimoireView({
             )}>
               {node.name}
             </span>
+            {node.isLocked && (
+              <Lock className="w-2.5 h-2.5 text-accent absolute -bottom-1 -left-1 bg-card rounded-full p-0.5 border border-accent/40 shadow-sm z-50" />
+            )}
           </div>
         );
       });
