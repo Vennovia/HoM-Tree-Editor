@@ -51,7 +51,6 @@ import {
 
 // Holders for Tauri plugins
 let tauriFs: any = null;
-let tauriPath: any = null;
 let tauriDialog: any = null;
 
 const STORAGE_KEY = 'hom-tree-editor-data'
@@ -83,11 +82,9 @@ export default function HoMTreeEditor() {
       if (isRunningInTauri) {
         try {
           const fs = await import('@tauri-apps/plugin-fs');
-          const path = await import('@tauri-apps/api/path');
           const dialog = await import('@tauri-apps/plugin-dialog');
           
           tauriFs = fs;
-          tauriPath = path;
           tauriDialog = dialog;
         } catch (e) {
           console.error("Failed to load Tauri plugins:", e);
@@ -218,12 +215,15 @@ export default function HoMTreeEditor() {
     if (!treeData) return
     const jsonString = JSON.stringify(treeData, null, 2);
 
-    if (isTauri && tauriFs && tauriPath) {
+    if (isTauri && tauriFs) {
       try {
-        const appData = await tauriPath.appDataDir();
-        const exportPath = await tauriPath.join(appData, 'exports', `spell_tree_v${treeData.version}_${Date.now()}.json`);
-        
-        await tauriFs.writeTextFile(exportPath, jsonString);
+        const fileName = `spell_tree_v${treeData.version}_${Date.now()}.json`;
+        // In Tauri v2, we can use BaseDirectory enum to write to specific app folders securely
+        await tauriFs.writeTextFile(
+          `exports/${fileName}`, 
+          jsonString, 
+          { baseDir: tauriFs.BaseDirectory.AppData }
+        );
         
         toast({
           title: "Grimoire Sealed",
