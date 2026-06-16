@@ -4,7 +4,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react'
 import { SpellNode, SpellSchool } from '@/types/spell-tree'
 import { cn } from '@/lib/utils'
-import { Lock } from 'lucide-react'
+import { Lock, Move } from 'lucide-react'
 
 interface GlobalGrimoireViewProps {
   schools: Record<string, SpellSchool>;
@@ -396,6 +396,14 @@ export function GlobalGrimoireView({
     return { nodes, connections, hubLines, radialGuides, spokes };
   }, [schools, selectedNodeIds, searchQuery, showRadialGuides, draggingNodesPos, dragMode]);
 
+  const activeDragInfo = useMemo(() => {
+    if (dragMode !== 'node' || !dragNodeId || !draggingNodesPos[dragNodeId]) return null;
+    const { x, y } = draggingNodesPos[dragNodeId];
+    let deg = Math.atan2(y, x) * (180 / Math.PI);
+    if (deg < 0) deg += 360;
+    return { x, y, deg: Math.round(deg) };
+  }, [dragMode, dragNodeId, draggingNodesPos]);
+
   return (
     <div 
       ref={containerRef}
@@ -410,6 +418,17 @@ export function GlobalGrimoireView({
       onMouseLeave={handleMouseUp}
       onWheel={handleWheel}
     >
+      {activeDragInfo && (
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-4 px-6 py-2 bg-accent/90 text-accent-foreground font-mono text-xs rounded-full shadow-2xl backdrop-blur-sm border border-white/20 animate-in fade-in slide-in-from-top-4">
+          <Move className="w-3 h-3" />
+          <div className="flex gap-4">
+            <span className="flex gap-1.5"><span className="opacity-60">X:</span>{activeDragInfo.x}</span>
+            <span className="flex gap-1.5"><span className="opacity-60">Y:</span>{activeDragInfo.y}</span>
+            <span className="flex gap-1.5"><span className="opacity-60">DEG:</span>{activeDragInfo.deg}°</span>
+          </div>
+        </div>
+      )}
+
       <div 
         className={cn(
           "absolute origin-top-left pointer-events-none",
