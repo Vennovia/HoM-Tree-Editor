@@ -41,6 +41,12 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion"
 
 const STORAGE_KEY = 'hom-tree-editor-data'
 const MAX_HISTORY = 20
@@ -556,18 +562,24 @@ export default function HoMTreeEditor() {
                 </button>
               </div>
 
-              <div className="space-y-1">
-                <Label className="text-[10px] uppercase text-muted-foreground tracking-widest px-2">Grimoire Controls</Label>
-                <div className="px-2 py-2 space-y-2.5 bg-secondary/20 rounded-lg border border-border/40">
-                  <ControlHint icon={<MousePointer2 className="w-3 h-3" />} text="Select Spell" hint="Click" />
-                  <ControlHint icon={<Command className="w-3 h-3" />} text="Multi Select" hint="Cmd+Click" />
-                  <ControlHint icon={<SquareDashedMousePointer className="w-3 h-3" />} text="Marquee" hint="Shift+Drag Bg" />
-                  <ControlHint icon={<Link className="w-3 h-3" />} text="Establish Link" hint="Shift+Drag Node" />
-                  <ControlHint icon={<Move className="w-3 h-3" />} text="Pan Canvas" hint="Mid Click / Alt+Drag" />
-                  <ControlHint icon={<Maximize className="w-3 h-3" />} text="Zoom View" hint="Scroll" />
-                  <ControlHint icon={<Undo2 className="w-3 h-3" />} text="Undo Action" hint="Ctrl+Z" />
-                </div>
-              </div>
+              <Accordion type="single" collapsible className="w-full">
+                <AccordionItem value="controls" className="border-none">
+                  <AccordionTrigger className="hover:no-underline py-2 px-0">
+                    <Label className="text-[10px] uppercase text-muted-foreground tracking-widest px-2 cursor-pointer">Grimoire Controls</Label>
+                  </AccordionTrigger>
+                  <AccordionContent className="pt-2">
+                    <div className="px-2 py-2 space-y-2.5 bg-secondary/20 rounded-lg border border-border/40">
+                      <ControlHint icon={<MousePointer2 className="w-3 h-3" />} text="Select Spell" hint="Click" />
+                      <ControlHint icon={<Command className="w-3 h-3" />} text="Multi Select" hint="Cmd+Click" />
+                      <ControlHint icon={<SquareDashedMousePointer className="w-3 h-3" />} text="Marquee" hint="Shift+Drag Bg" />
+                      <ControlHint icon={<Link className="w-3 h-3" />} text="Establish Link" hint="Shift+Drag Node" />
+                      <ControlHint icon={<Move className="w-3 h-3" />} text="Pan Canvas" hint="Mid Click / Alt+Drag" />
+                      <ControlHint icon={<Maximize className="w-3 h-3" />} text="Zoom View" hint="Scroll" />
+                      <ControlHint icon={<Undo2 className="w-3 h-3" />} text="Undo Action" hint="Ctrl+Z" />
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
 
               <div className="space-y-1">
                 <Label className="text-[10px] uppercase text-muted-foreground tracking-widest px-2">Schools</Label>
