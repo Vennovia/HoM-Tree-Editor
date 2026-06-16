@@ -412,8 +412,11 @@ export function TreeCanvas({
   const activeDragInfo = useMemo(() => {
     if (dragMode !== 'node' || !dragNodeId || !draggingNodesPos[dragNodeId]) return null;
     const { x, y } = draggingNodesPos[dragNodeId];
-    let deg = Math.atan2(y, x) * (180 / Math.PI);
+    // Adjust degrees so 0/360 is Up.atan2 returns -PI/2 for Up (0, -1). 
+    // Adding 90 degrees (PI/2) maps -90 to 0.
+    let deg = (Math.atan2(y, x) * (180 / Math.PI)) + 90;
     if (deg < 0) deg += 360;
+    if (deg >= 360) deg -= 360;
     return { x, y, deg: Math.round(deg) };
   }, [dragMode, dragNodeId, draggingNodesPos]);
 

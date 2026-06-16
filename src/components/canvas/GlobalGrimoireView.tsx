@@ -399,8 +399,11 @@ export function GlobalGrimoireView({
   const activeDragInfo = useMemo(() => {
     if (dragMode !== 'node' || !dragNodeId || !draggingNodesPos[dragNodeId]) return null;
     const { x, y } = draggingNodesPos[dragNodeId];
-    let deg = Math.atan2(y, x) * (180 / Math.PI);
+    // Adjust degrees so 0/360 is Up. atan2 returns -PI/2 for Up (0, -1). 
+    // Adding 90 degrees (PI/2) maps -90 to 0.
+    let deg = (Math.atan2(y, x) * (180 / Math.PI)) + 90;
     if (deg < 0) deg += 360;
+    if (deg >= 360) deg -= 360;
     return { x, y, deg: Math.round(deg) };
   }, [dragMode, dragNodeId, draggingNodesPos]);
 
@@ -422,8 +425,8 @@ export function GlobalGrimoireView({
         <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-4 px-6 py-2 bg-accent/90 text-accent-foreground font-mono text-xs rounded-full shadow-2xl backdrop-blur-sm border border-white/20 animate-in fade-in slide-in-from-top-4">
           <Move className="w-3 h-3" />
           <div className="flex gap-4">
-            <span className="flex gap-1.5"><span className="opacity-60">X:</span>{activeDragInfo.x}</span>
-            <span className="flex gap-1.5"><span className="opacity-60">Y:</span>{activeDragInfo.y}</span>
+            <span className="flex gap-1.5"><span className="opacity-60">Small X:</span>{activeDragInfo.x}</span>
+            <span className="flex gap-1.5"><span className="opacity-60">Small Y:</span>{activeDragInfo.y}</span>
             <span className="flex gap-1.5"><span className="opacity-60">DEG:</span>{activeDragInfo.deg}°</span>
           </div>
         </div>
