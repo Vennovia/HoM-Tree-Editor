@@ -16,9 +16,11 @@ pub fn run() {
         )?;
       }
 
-      // Automatically create the import/export folders in the app data directory
+      // Automatically create the app data directory if it doesn't exist
       let app_data_dir = app.path().app_data_dir().expect("Failed to get app data dir");
+      fs::create_dir_all(&app_data_dir).ok();
       
+      // Create dedicated subfolders for data management
       let import_dir = app_data_dir.join("imports");
       let export_dir = app_data_dir.join("exports");
 

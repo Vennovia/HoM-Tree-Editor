@@ -49,7 +49,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion"
 
-// Holders for Tauri plugins
+// Global holders for Tauri plugins to avoid complex re-passing
 let tauriFs: any = null;
 let tauriDialog: any = null;
 
@@ -76,11 +76,13 @@ export default function HoMTreeEditor() {
   // Detect Tauri and dynamic import plugins
   useEffect(() => {
     const checkTauri = async () => {
-      const isRunningInTauri = typeof window !== 'undefined' && !!(window as any).__TAURI_INTERNALS__;
+      // Robust Tauri detection
+      const isRunningInTauri = typeof window !== 'undefined' && (!!(window as any).__TAURI_INTERNALS__ || !!(window as any).__TAURI__);
       setIsTauri(isRunningInTauri);
 
       if (isRunningInTauri) {
         try {
+          // Dynamic imports to prevent SSR/Build failures
           const fs = await import('@tauri-apps/plugin-fs');
           const dialog = await import('@tauri-apps/plugin-dialog');
           
@@ -186,7 +188,7 @@ export default function HoMTreeEditor() {
        toast({
         variant: "destructive",
         title: "Native Import Unavailable",
-        description: "Standard standalone environment not detected or plugins failed to load."
+        description: "Grimoire synchronization requires the standalone editor."
       });
       return;
     }
@@ -217,8 +219,9 @@ export default function HoMTreeEditor() {
 
     if (isTauri && tauriFs) {
       try {
-        const fileName = `spell_tree_v${treeData.version}_${Date.now()}.json`;
-        // In Tauri v2, we can use BaseDirectory enum to write to specific app folders securely
+        const fileName = `spell_tree_v${treeData.version || '1.0'}_${Date.now()}.json`;
+        
+        // Ensure we are using BaseDirectory.AppData for standard folder structure
         await tauriFs.writeTextFile(
           `exports/${fileName}`, 
           jsonString, 
@@ -227,14 +230,14 @@ export default function HoMTreeEditor() {
         
         toast({
           title: "Grimoire Sealed",
-          description: `Exported to your dedicated app exports folder.`
+          description: `Spell tree saved to appdata/exports/${fileName}`
         })
       } catch (e) {
-        console.error(e);
+        console.error("Export error:", e);
         toast({
           variant: "destructive",
           title: "Export Error",
-          description: "Could not write to the exports directory."
+          description: "Could not manifest the file in the exports folder."
         })
       }
     } else {
@@ -579,7 +582,7 @@ export default function HoMTreeEditor() {
           {!isSidebarCollapsed && (
             <div className="flex items-center gap-2">
               <Wand2 className="w-5 h-5 text-accent" />
-              <h1 className="font-bold text-lg">HoM tree editor</h1>
+              <h1 className="font-bold text-lg">HoM Tree Editor</h1>
             </div>
           )}
           <button 
