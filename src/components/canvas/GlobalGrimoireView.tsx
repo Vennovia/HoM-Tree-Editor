@@ -330,7 +330,7 @@ export function GlobalGrimoireView({
             const dy = cY - nY;
             const angle = Math.atan2(dy, dx);
             const isTargetRoot = schoolRoots.includes(childNode.formId);
-            const targetRadius = (isTargetRoot ? 22.5 : 13.5) + 4;
+            const targetRadius = (isTargetRoot ? 15 : 13.5) + 4;
             const x2 = cX - targetRadius * Math.cos(angle);
             const y2 = cY - targetRadius * Math.sin(angle);
 
@@ -378,7 +378,7 @@ export function GlobalGrimoireView({
             )}
             style={{
               left: x, top: y,
-              width: isRoot ? 45 : 27, height: isRoot ? 45 : 27,
+              width: isRoot ? 30 : 27, height: isRoot ? 30 : 27,
               transform: 'translate(-50%, -50%)'
             }}
           >
@@ -435,7 +435,7 @@ export function GlobalGrimoireView({
 
         <div 
           className="absolute rounded-full border-[6px] border-accent/40 bg-card flex items-center justify-center z-50 pointer-events-none shadow-[0_0_40px_hsl(var(--accent)/0.2)]"
-          style={{ left: 0, top: 0, width: 60, height: 60, transform: 'translate(-50%, -50%)' }}
+          style={{ left: 0, top: 0, width: 90, height: 90, transform: 'translate(-50%, -50%)' }}
         >
           <div className="text-center">
             <div className="text-[7px] font-black tracking-tighter text-accent uppercase animate-pulse">Core</div>

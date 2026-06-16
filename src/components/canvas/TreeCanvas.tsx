@@ -332,7 +332,7 @@ export function TreeCanvas({
           const dy = tY - sY;
           const angle = Math.atan2(dy, dx);
           const isRoot = schoolRoots.includes(childNode.formId);
-          const targetRadius = (isRoot ? 22.5 : 13.5) + 4;
+          const targetRadius = (isRoot ? 15 : 13.5) + 4;
           const x2 = tX - targetRadius * Math.cos(angle);
           const y2 = tY - targetRadius * Math.sin(angle);
 
@@ -383,8 +383,8 @@ export function TreeCanvas({
             left: x, 
             top: y, 
             transform: 'translate(-50%, -50%)',
-            width: isRoot ? 45 : 27,
-            height: isRoot ? 45 : 27,
+            width: isRoot ? 30 : 27,
+            height: isRoot ? 30 : 27,
           }}
         >
           <span className={cn(
