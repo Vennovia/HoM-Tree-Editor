@@ -255,9 +255,10 @@ export function TreeCanvas({
   };
 
   const renderData = useMemo(() => {
-    if (!school) return { nodes: [], connections: [], radialGuides: [], spokes: [] };
+    if (!school) return { nodes: [], connections: [], hubLines: [], radialGuides: [], spokes: [] };
     const nodes: React.ReactNode[] = [];
     const connections: React.ReactNode[] = [];
+    const hubLines: React.ReactNode[] = [];
     const radialGuides: React.ReactNode[] = [];
     const spokes: React.ReactNode[] = [];
 
@@ -314,6 +315,24 @@ export function TreeCanvas({
         );
       }
     }
+
+    schoolRoots.forEach(rootId => {
+      const rootNode = school.nodes.find(n => n.formId === rootId);
+      if (rootNode) {
+        const rootX = draggingNodesPos[rootId]?.x ?? rootNode.x;
+        const rootY = draggingNodesPos[rootId]?.y ?? rootNode.y;
+
+        hubLines.push(
+          <line
+            key={`hub-${rootId}`}
+            x1={0} y1={0}
+            x2={rootX} y2={rootY}
+            stroke="hsl(var(--accent))"
+            strokeWidth="4" strokeOpacity="0.15" strokeDasharray="12,12" className="animate-pulse"
+          />
+        );
+      }
+    });
 
     school.nodes.forEach(node => {
       (node.children || []).forEach(childId => {
@@ -406,14 +425,12 @@ export function TreeCanvas({
       );
     });
 
-    return { nodes, connections, radialGuides, spokes };
+    return { nodes, connections, hubLines, radialGuides, spokes };
   }, [school, selectedNodeIds, dragMode, searchQuery, showRadialGuides, draggingNodesPos]);
 
   const activeDragInfo = useMemo(() => {
     if (dragMode !== 'node' || !dragNodeId || !draggingNodesPos[dragNodeId]) return null;
     const { x, y } = draggingNodesPos[dragNodeId];
-    // Adjust degrees so 0/360 is Up.atan2 returns -PI/2 for Up (0, -1). 
-    // Adding 90 degrees (PI/2) maps -90 to 0.
     let deg = (Math.atan2(y, x) * (180 / Math.PI)) + 90;
     if (deg < 0) deg += 360;
     if (deg >= 360) deg -= 360;
@@ -465,6 +482,7 @@ export function TreeCanvas({
           </defs>
           {renderData.spokes}
           {renderData.radialGuides}
+          {renderData.hubLines}
           {renderData.connections}
           {dragMode === 'linking' && linkingSourceId && (
             <line
@@ -475,6 +493,17 @@ export function TreeCanvas({
             />
           )}
         </svg>
+
+        <div 
+          className="absolute rounded-full border-[6px] border-accent/40 bg-card flex items-center justify-center z-50 pointer-events-none shadow-[0_0_40px_hsl(var(--accent)/0.2)]"
+          style={{ left: 0, top: 0, width: 90, height: 90, transform: 'translate(-50%, -50%)' }}
+        >
+          <div className="text-center">
+            <div className="text-[7px] font-black tracking-tighter text-accent uppercase animate-pulse">Core</div>
+            <div className="text-[10px] font-black text-foreground uppercase">Magic</div>
+          </div>
+        </div>
+
         {renderData.nodes}
 
         {dragMode === 'selection' && selectionRect && (
