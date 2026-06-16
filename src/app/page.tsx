@@ -49,11 +49,6 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion"
 
-// Global holders for Tauri logic
-let tauriFs: any = null;
-let tauriDialog: any = null;
-let tauriInvoke: any = null;
-
 const STORAGE_KEY = 'hom-tree-editor-data'
 const MAX_HISTORY = 20
 
@@ -70,28 +65,31 @@ export default function HoMTreeEditor() {
   const [searchQuery, setSearchQuery] = useState('')
   const [nodeSearchQuery, setNodeSearchQuery] = useState('')
   const [showRadialGuides, setShowRadialGuides] = useState(false)
-  const [isTauri, setIsTauri] = useState(false)
+  
+  // Tauri API state
+  const [tauriApi, setTauriApi] = useState<{
+    invoke: any;
+    fs: any;
+    dialog: any;
+  } | null>(null);
 
+  const isTauri = !!tauriApi;
   const selectedNodeId = selectedNodeIds.length > 0 ? selectedNodeIds[0] : null;
 
   useEffect(() => {
     const checkTauri = async () => {
+      // Check if we are running inside Tauri 2.0
       const isRunningInTauri = typeof window !== 'undefined' && 
         (!!(window as any).__TAURI_INTERNALS__ || !!(window as any).__TAURI__);
       
-      setIsTauri(isRunningInTauri);
-
       if (isRunningInTauri) {
         try {
+          const { invoke } = await import('@tauri-apps/api/core');
           const fs = await import('@tauri-apps/plugin-fs');
           const dialog = await import('@tauri-apps/plugin-dialog');
-          const { invoke } = await import('@tauri-apps/api/core');
           
-          tauriFs = fs;
-          tauriDialog = dialog;
-          tauriInvoke = invoke;
-          
-          console.log("Tauri environment detected and plugins loaded.");
+          setTauriApi({ invoke, fs, dialog });
+          console.log("Tauri environment detected and plugins linked.");
         } catch (e) {
           console.error("Failed to load Tauri plugins:", e);
         }
@@ -180,25 +178,26 @@ export default function HoMTreeEditor() {
   }
 
   const handleNativeImport = async () => {
-    if (!isTauri || !tauriDialog || !tauriInvoke) {
+    if (!tauriApi) {
        toast({ variant: "destructive", title: "Native Import Unavailable", description: "Grimoire synchronization requires the standalone editor." });
        return;
     }
     
     try {
-      const installPath = await tauriInvoke('get_install_dir_path');
-      const selected = await tauriDialog.open({
+      const installPath = await tauriApi.invoke('get_install_dir_path');
+      const selected = await tauriApi.dialog.open({
         multiple: false,
         defaultPath: `${installPath}/imports`,
         filters: [{ name: 'JSON', extensions: ['json'] }]
       });
 
       if (selected && typeof selected === 'string') {
-        const content = await tauriFs.readTextFile(selected);
+        const content = await tauriApi.fs.readTextFile(selected);
         const parsed = JSON.parse(content);
         handleImport(parsed);
       }
     } catch (e) {
+      console.error("Native import failed:", e);
       toast({ variant: "destructive", title: "Import Failed", description: "Could not read the arcane file." });
     }
   };
@@ -207,19 +206,21 @@ export default function HoMTreeEditor() {
     if (!treeData) return
     const jsonString = JSON.stringify(treeData, null, 2);
 
-    if (isTauri && tauriInvoke) {
+    if (tauriApi) {
       try {
         const fileName = `spell_tree_v${treeData.version || '1.0'}_${Date.now()}.json`;
-        await tauriInvoke('save_grimoire_to_disk', { content: jsonString, filename: fileName });
+        // Use the native Rust command to save to the install directory
+        await tauriApi.invoke('save_grimoire_to_disk', { content: jsonString, filename: fileName });
         
-        toast({ title: "Grimoire Sealed", description: `Spell tree saved to the local 'exports' folder.` });
+        toast({ title: "Grimoire Sealed", description: `Spell tree saved to the 'exports' folder in your install location.` });
         return;
       } catch (e) {
         console.error("Native export failed:", e);
-        toast({ variant: "destructive", title: "Export Failed", description: "Falling back to browser download due to filesystem error." });
+        toast({ variant: "destructive", title: "Export Failed", description: "Tauri permissions or filesystem error. Falling back to browser." });
       }
     }
 
+    // Fallback for browser or if Tauri invoke fails
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(jsonString)
     const downloadAnchorNode = document.createElement('a')
     downloadAnchorNode.setAttribute("href", dataStr)
@@ -228,7 +229,7 @@ export default function HoMTreeEditor() {
     downloadAnchorNode.click()
     downloadAnchorNode.remove()
     
-    toast({ title: "Grimoire Sealed", description: "Exported successfully to your Downloads folder." })
+    toast({ title: "Grimoire Downloaded", description: "Saved successfully to your Downloads folder." })
   }
 
   const findSchoolForNode = useCallback((nodeId: string): string | null => {

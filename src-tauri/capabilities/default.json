@@ -13,6 +13,8 @@
     "fs:allow-resource-read-recursive",
     "fs:allow-resource-write-recursive",
     "dialog:allow-open",
-    "dialog:allow-save"
+    "dialog:allow-save",
+    "allow-save-grimoire-to-disk",
+    "allow-get-install-dir-path"
   ]
 }

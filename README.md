@@ -9,12 +9,12 @@ This application is a specialized visual editor for Heart of Magic spell structu
 When running as a standalone app, the editor uses dedicated folders located **in the same folder as the program itself**:
 
 - **Location**: `[Install Directory]/exports` and `[Install Directory]/imports`
-- **Usage**: Use these folders to keep your spell data organized and portable.
+- **Usage**: Use these folders to keep your spell data organized and portable. Perfect for keeping your grimoire with the application on a USB drive.
 
 ---
 
 ## 💾 File Management (Export/Import)
-**Exporting**: Clicking the "Export" button in the standalone app saves the `.json` file directly to the **exports** folder next to your app.
+**Exporting**: Clicking the "Export" button in the standalone app saves the `.json` file directly to the **exports** folder next to your app executable.
 **Importing**: Use the "Import" button to select a `.json` file. The "Open From Grimoire" button specifically starts looking in your local **imports** folder.
 
 ---
