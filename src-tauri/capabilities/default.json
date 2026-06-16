@@ -13,7 +13,6 @@
     "fs:allow-app-data-read-recursive",
     "fs:allow-app-data-write-recursive",
     "dialog:allow-open",
-    "dialog:allow-save",
-    "path:allow-app-data-dir"
+    "dialog:allow-save"
   ]
 }
