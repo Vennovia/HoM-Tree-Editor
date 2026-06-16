@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState, useRef, useEffect, useMemo } from 'react'
@@ -40,9 +41,11 @@ export function TreeCanvas({
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
 
   const lastCenteredId = useRef<string | null>(null);
+  const currentSchoolName = useRef<string | null>(null);
 
+  // Only center the view when the school actually changes
   useEffect(() => {
-    if (school) {
+    if (school && schoolName !== currentSchoolName.current) {
       const firstRootId = school.roots?.[0];
       const rootNode = school.nodes.find(n => n.formId === firstRootId) || school.nodes[0];
       if (rootNode && containerRef.current) {
@@ -52,10 +55,12 @@ export function TreeCanvas({
           scale: 0.5
         });
         lastCenteredId.current = firstRootId || rootNode.formId;
+        currentSchoolName.current = schoolName;
       }
     }
   }, [schoolName, school]);
 
+  // Center on selected node only if it was selected via search/external and we aren't dragging
   useEffect(() => {
     if (
       selectedNodeId && 
@@ -113,6 +118,7 @@ export function TreeCanvas({
           setDragStart({ x: e.clientX, y: e.clientY });
           setDraggingNodePos({ x: foundNode.x, y: foundNode.y });
         }
+        // Mark as already handled centering for this click
         lastCenteredId.current = nodeId;
         onSelectNode(nodeId);
       }
