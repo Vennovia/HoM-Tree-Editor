@@ -29,7 +29,8 @@ import {
   SquareDashedMousePointer,
   Link,
   Move,
-  Maximize
+  Maximize,
+  FolderOpen
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
@@ -48,6 +49,17 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion"
 
+// Dynamically import Tauri APIs to avoid SSR/Browser issues
+let tauriFs: any = null;
+let tauriPath: any = null;
+let tauriDialog: any = null;
+
+if (typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__) {
+  import('@tauri-apps/plugin-fs').then(m => tauriFs = m);
+  import('@tauri-apps/api/path').then(m => tauriPath = m);
+  import('@tauri-apps/plugin-dialog').then(m => tauriDialog = m);
+}
+
 const STORAGE_KEY = 'hom-tree-editor-data'
 const MAX_HISTORY = 20
 
@@ -64,38 +76,34 @@ export default function HoMTreeEditor() {
   const [searchQuery, setSearchQuery] = useState('')
   const [nodeSearchQuery, setNodeSearchQuery] = useState('')
   const [showRadialGuides, setShowRadialGuides] = useState(false)
+  const [isTauri, setIsTauri] = useState(false)
 
   const selectedNodeId = selectedNodeIds.length > 0 ? selectedNodeIds[0] : null;
 
-  // Robust migration function to handle multiple root sources
+  useEffect(() => {
+    setIsTauri(typeof window !== 'undefined' && !!(window as any).__TAURI_INTERNALS__);
+  }, []);
+
   const migrateGrimoireData = useCallback((data: any) => {
     if (!data.schools) return data;
     
     Object.values(data.schools).forEach((school: any) => {
       const rootsSet = new Set<string>();
-      
-      // 1. Check legacy single root field
       if (school.root) rootsSet.add(school.root);
-      
-      // 2. Check current roots array
       if (Array.isArray(school.roots)) {
         school.roots.forEach((id: string) => rootsSet.add(id));
       }
-      
-      // 3. Check node-level isRoot flags
       if (Array.isArray(school.nodes)) {
         school.nodes.forEach((node: any) => {
           if (node.isRoot) rootsSet.add(node.formId);
         });
       }
-      
       school.roots = Array.from(rootsSet);
     });
     
     return data;
   }, []);
 
-  // Load from LocalStorage on mount
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY)
     if (saved) {
@@ -105,7 +113,6 @@ export default function HoMTreeEditor() {
         setTreeData(migrated)
         setIsImportOpen(false)
       } catch (e) {
-        console.error("Failed to parse saved grimoire", e)
         setIsImportOpen(true)
       }
     } else {
@@ -113,7 +120,6 @@ export default function HoMTreeEditor() {
     }
   }, [migrateGrimoireData])
 
-  // Save to LocalStorage whenever treeData changes
   useEffect(() => {
     if (treeData) {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(treeData))
@@ -142,7 +148,6 @@ export default function HoMTreeEditor() {
     }
   }, [history, toast])
 
-  // Keyboard shortcut for Undo (Ctrl+Z or Cmd+Z)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
@@ -157,7 +162,7 @@ export default function HoMTreeEditor() {
   const handleImport = (data: SpellTreeData) => {
     const migrated = migrateGrimoireData(data)
     setTreeData(migrated)
-    setHistory([]) // Clear history on fresh import
+    setHistory([])
     setSelectedSchool(null) 
     setIsGlobalView(false)
     toast({
@@ -166,20 +171,67 @@ export default function HoMTreeEditor() {
     })
   }
 
-  const handleExport = () => {
-    if (!treeData) return
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(treeData, null, 2))
-    const downloadAnchorNode = document.createElement('a')
-    downloadAnchorNode.setAttribute("href", dataStr)
-    downloadAnchorNode.setAttribute("download", `spell_tree_v${treeData.version}.json`)
-    document.body.appendChild(downloadAnchorNode)
-    downloadAnchorNode.click()
-    downloadAnchorNode.remove()
+  const handleNativeImport = async () => {
+    if (!isTauri || !tauriDialog || !tauriFs) return;
     
-    toast({
-      title: "Grimoire Sealed",
-      description: "Exported successfully to your Downloads folder."
-    })
+    try {
+      const selected = await tauriDialog.open({
+        multiple: false,
+        filters: [{ name: 'JSON', extensions: ['json'] }]
+      });
+
+      if (selected && typeof selected === 'string') {
+        const content = await tauriFs.readTextFile(selected);
+        const parsed = JSON.parse(content);
+        handleImport(parsed);
+      }
+    } catch (e) {
+      toast({
+        variant: "destructive",
+        title: "Import Failed",
+        description: "Could not read the arcane file."
+      });
+    }
+  };
+
+  const handleExport = async () => {
+    if (!treeData) return
+    const jsonString = JSON.stringify(treeData, null, 2);
+
+    if (isTauri && tauriFs && tauriPath) {
+      try {
+        const appData = await tauriPath.appDataDir();
+        const exportPath = await tauriPath.join(appData, 'exports', `spell_tree_v${treeData.version}_${Date.now()}.json`);
+        
+        await tauriFs.writeTextFile(exportPath, jsonString);
+        
+        toast({
+          title: "Grimoire Sealed",
+          description: `Exported to your dedicated app exports folder.`
+        })
+      } catch (e) {
+        console.error(e);
+        toast({
+          variant: "destructive",
+          title: "Export Error",
+          description: "Could not write to the exports directory."
+        })
+      }
+    } else {
+      // Browser fallback
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(jsonString)
+      const downloadAnchorNode = document.createElement('a')
+      downloadAnchorNode.setAttribute("href", dataStr)
+      downloadAnchorNode.setAttribute("download", `spell_tree_v${treeData.version}.json`)
+      document.body.appendChild(downloadAnchorNode)
+      downloadAnchorNode.click()
+      downloadAnchorNode.remove()
+      
+      toast({
+        title: "Grimoire Sealed",
+        description: "Exported successfully to your Downloads folder."
+      })
+    }
   }
 
   const findSchoolForNode = useCallback((nodeId: string): string | null => {
@@ -205,7 +257,6 @@ export default function HoMTreeEditor() {
       
       let newSchools = { ...prev.schools }
 
-      // If ID is changing, we need a cascading update across ALL references in ALL schools
       if (newId && newId !== oldId) {
         Object.keys(newSchools).forEach(sName => {
           const school = newSchools[sName]
@@ -473,11 +524,7 @@ export default function HoMTreeEditor() {
   const nodeSearchResults = useMemo(() => {
     if (!treeData || nodeSearchQuery.length < 2) return []
     const results: SpellNode[] = []
-    
-    const schoolsToSearch = selectedSchool === null 
-      ? Object.values(treeData.schools) 
-      : [treeData.schools[selectedSchool]]
-
+    const schoolsToSearch = selectedSchool === null ? Object.values(treeData.schools) : [treeData.schools[selectedSchool]]
     schoolsToSearch.forEach(school => {
       school.nodes.forEach(node => {
         if (node.name.toLowerCase().includes(nodeSearchQuery.toLowerCase()) || 
@@ -528,9 +575,9 @@ export default function HoMTreeEditor() {
             <div className="p-4 space-y-6">
               <div className="relative">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input 
+                <input 
                   placeholder="Filter schools..." 
-                  className="pl-9 h-9 text-xs"
+                  className="w-full bg-background border border-border rounded-md pl-9 pr-3 py-1.5 text-xs focus:ring-1 focus:ring-accent outline-none"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
@@ -598,11 +645,19 @@ export default function HoMTreeEditor() {
               >
                 <Undo2 className="w-3.5 h-3.5" /> Undo Action
               </Button>
-              <Button variant="outline" className="w-full justify-start gap-2 text-xs" onClick={() => setIsImportOpen(true)}>
-                <Code className="w-3.5 h-3.5" /> Import
-              </Button>
+              
+              {isTauri ? (
+                <Button variant="outline" className="w-full justify-start gap-2 text-xs" onClick={handleNativeImport}>
+                  <FolderOpen className="w-3.5 h-3.5" /> Open From Grimoire
+                </Button>
+              ) : (
+                <Button variant="outline" className="w-full justify-start gap-2 text-xs" onClick={() => setIsImportOpen(true)}>
+                  <Code className="w-3.5 h-3.5" /> Import JSON
+                </Button>
+              )}
+
               <Button className="w-full justify-start gap-2 text-xs" onClick={handleExport} disabled={!treeData}>
-                <Download className="w-3.5 h-3.5" /> Export
+                <Download className="w-3.5 h-3.5" /> Export Grimoire
               </Button>
             </div>
           </div>
