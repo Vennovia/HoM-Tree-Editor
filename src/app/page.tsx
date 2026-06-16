@@ -608,7 +608,11 @@ export default function HoMTreeEditor() {
                       />
                     </div>
                   </PopoverTrigger>
-                  <PopoverContent className="p-0 w-64" align="start">
+                  <PopoverContent 
+                    className="p-0 w-64" 
+                    align="start"
+                    onOpenAutoFocus={(e) => e.preventDefault()}
+                  >
                     <div className="max-h-64 overflow-y-auto">
                       {nodeSearchResults.map(n => (
                         <button
