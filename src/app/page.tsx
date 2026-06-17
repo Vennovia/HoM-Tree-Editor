@@ -510,7 +510,7 @@ export default function HoMTreeEditor() {
                       <ControlHint icon={<SquareDashedMousePointer className="w-3 h-3" />} text="Marquee" hint="Shift+Drag Bg" />
                       <ControlHint icon={<Link className="w-3 h-3" />} text="Link Nodes" hint="Shift+Drag Node" />
                       <ControlHint icon={<Move className="w-3 h-3" />} text="Pan View" hint="Alt+Drag" />
-                      <ControlHint icon={<Undo2 className="w-3 h-3" />} text="Undo" hint="Ctrl+Z" />
+                      <ControlHint icon={<Undo2 className="w-3 h-3" />} hint="Ctrl+Z" text="Undo" />
                     </div>
                   </AccordionContent>
                 </AccordionItem>
