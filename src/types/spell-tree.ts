@@ -20,6 +20,7 @@ export interface SpellNode {
   locks?: SpellNodeLock[];
   isRoot?: boolean;
   isLocked?: boolean;
+  showSpokes?: boolean;
 }
 
 export interface SpellSchool {
@@ -38,12 +39,6 @@ export interface SpellTreeConfig {
   symmetry: number;
 }
 
-export interface SpellTreeGlobe {
-  x: number;
-  y: number;
-  radius: number;
-}
-
 export interface SpellTreeData {
   version: string;
   generator: string;
@@ -52,7 +47,6 @@ export interface SpellTreeData {
   noRotate: boolean;
   layoutMode: string;
   config: SpellTreeConfig;
-  globe: SpellTreeGlobe;
   schools: Record<string, SpellSchool>;
   seed: number;
 }

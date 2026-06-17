@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState, useRef, useEffect, useMemo } from 'react'
@@ -14,7 +13,6 @@ interface GlobalGrimoireViewProps {
   onLinkNodes: (sourceId: string, targetId: string) => void;
   searchQuery?: string;
   showRadialGuides?: boolean;
-  showNodeSpokes?: boolean;
   gridSize?: number;
 }
 
@@ -26,7 +24,6 @@ export function GlobalGrimoireView({
   onLinkNodes,
   searchQuery = '',
   showRadialGuides = false,
-  showNodeSpokes = false,
   gridSize = 25
 }: GlobalGrimoireViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -260,31 +257,6 @@ export function GlobalGrimoireView({
       }
     }
 
-    if (showNodeSpokes && primarySelectedNode) {
-      const pX = draggingNodesPos[primarySelectedNode.formId]?.x ?? primarySelectedNode.x;
-      const pY = draggingNodesPos[primarySelectedNode.formId]?.y ?? primarySelectedNode.y;
-      
-      for (let angle = 0; angle < 360; angle += 15) {
-        const rad = (angle * Math.PI) / 180;
-        const length = 5000;
-        const x2 = pX + Math.cos(rad) * length;
-        const y2 = pY + Math.sin(rad) * length;
-        
-        nodeSpokes.push(
-          <line
-            key={`node-spoke-${angle}`}
-            x1={pX} y1={pY}
-            x2={x2} y2={y2}
-            stroke="#facc15"
-            strokeWidth="1.5"
-            strokeOpacity="0.6"
-            strokeDasharray="10,5"
-            pointerEvents="none"
-          />
-        );
-      }
-    }
-
     for (let angle = 0; angle < 360; angle += 15) {
       const rad = (angle * Math.PI) / 180;
       const length = 10000;
@@ -347,6 +319,30 @@ export function GlobalGrimoireView({
 
       school.nodes.forEach(node => {
         const isRoot = schoolRoots.includes(node.formId);
+        const x = draggingNodesPos[node.formId]?.x ?? node.x;
+        const y = draggingNodesPos[node.formId]?.y ?? node.y;
+
+        // Render persistent spoke guides for each node
+        if (node.showSpokes) {
+          for (let angle = 0; angle < 360; angle += 15) {
+            const rad = (angle * Math.PI) / 180;
+            const length = 5000;
+            const x2 = x + Math.cos(rad) * length;
+            const y2 = y + Math.sin(rad) * length;
+            nodeSpokes.push(
+              <line
+                key={`node-spoke-${node.formId}-${angle}`}
+                x1={x} y1={y}
+                x2={x2} y2={y2}
+                stroke="#facc15"
+                strokeWidth="1.5"
+                strokeOpacity="0.6"
+                strokeDasharray="10,5"
+                pointerEvents="none"
+              />
+            );
+          }
+        }
 
         (node.children || []).forEach(childId => {
           let childNode: SpellNode | undefined;
@@ -360,8 +356,8 @@ export function GlobalGrimoireView({
             const isPrereqPath = selectedNodeIds.includes(childId);
             const isHighlighted = isChildPath || isPrereqPath;
             
-            const nX = draggingNodesPos[node.formId]?.x ?? node.x;
-            const nY = draggingNodesPos[node.formId]?.y ?? node.y;
+            const nX = x;
+            const nY = y;
             const cX = draggingNodesPos[childId]?.x ?? childNode.x;
             const cY = draggingNodesPos[childId]?.y ?? childNode.y;
 
@@ -396,9 +392,6 @@ export function GlobalGrimoireView({
           node.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
           node.formId.toLowerCase().includes(searchQuery.toLowerCase())
         );
-
-        const x = draggingNodesPos[node.formId]?.x ?? node.x;
-        const y = draggingNodesPos[node.formId]?.y ?? node.y;
 
         nodes.push(
           <div
@@ -436,7 +429,7 @@ export function GlobalGrimoireView({
     });
 
     return { nodes, connections, hubLines, radialGuides, spokes, nodeSpokes };
-  }, [schools, selectedNodeIds, searchQuery, showRadialGuides, showNodeSpokes, draggingNodesPos, dragMode, gridSize]);
+  }, [schools, selectedNodeIds, searchQuery, showRadialGuides, draggingNodesPos, dragMode, gridSize]);
 
   const activeDragInfo = useMemo(() => {
     if (dragMode !== 'node' || !dragNodeId || !draggingNodesPos[dragNodeId]) return null;

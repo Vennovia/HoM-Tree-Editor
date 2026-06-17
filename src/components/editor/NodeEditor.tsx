@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
-import { Trash2, Link as LinkIcon, Lock, Unlock, MapPin, X, Star, StarOff, PlusCircle, Fingerprint, Layers, Scissors, Grid3X3, Compass } from 'lucide-react'
+import { Trash2, Link as LinkIcon, Lock, Unlock, MapPin, X, Star, StarOff, PlusCircle, Fingerprint, Layers, Scissors, Grid3X3, Compass, Crosshair } from 'lucide-react'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
@@ -162,6 +162,18 @@ export function NodeEditor({
     }
   }
 
+  const handleSpokesToggle = (checked: boolean) => {
+    if (selectedCount > 1) {
+      const updates: Record<string, Partial<SpellNode>> = {}
+      selectedNodeIds.forEach(id => {
+        updates[id] = { showSpokes: checked }
+      })
+      onUpdateNodes(updates)
+    } else {
+      onUpdate(node.formId, { showSpokes: checked })
+    }
+  }
+
   const selectedNodesWithChildren = useMemo(() => {
     return school.nodes.filter(n => selectedNodeIds.includes(n.formId) && n.children && n.children.length > 0)
   }, [school.nodes, selectedNodeIds])
@@ -243,8 +255,8 @@ export function NodeEditor({
 
           <Separator className="bg-border" />
 
-          <div className="space-y-4">
-            <div className="flex items-center justify-between p-3 bg-accent/5 rounded-lg border border-accent/20">
+          <div className="space-y-3">
+            <div className="flex items-center justify-between p-3 bg-secondary/10 rounded-lg border border-border/40">
               <div className="flex items-center gap-2">
                 {isRootNode ? <Star className="w-3.5 h-3.5 text-yellow-500 fill-yellow-500" /> : <StarOff className="w-3.5 h-3.5 text-muted-foreground" />}
                 <Label htmlFor="root-toggle" className="text-xs font-bold uppercase tracking-wider">School Root</Label>
@@ -252,17 +264,20 @@ export function NodeEditor({
               <Switch id="root-toggle" checked={isRootNode} onCheckedChange={handleToggleRoot} />
             </div>
 
-            <div className={cn(
-              "flex items-center justify-between p-3 rounded-lg border transition-colors",
-              selectedCount > 1 ? "bg-accent/10 border-accent/30 shadow-[0_0_10px_hsl(var(--accent)/0.1)]" : "bg-secondary/30 border-border"
-            )}>
+            <div className="flex items-center justify-between p-3 bg-secondary/10 rounded-lg border border-border/40">
               <div className="flex items-center gap-2">
                 {node.isLocked ? <Lock className="w-3.5 h-3.5 text-accent" /> : <Unlock className="w-3.5 h-3.5 text-muted-foreground" />}
-                <Label htmlFor="lock-toggle" className="text-xs font-bold uppercase tracking-wider">
-                  {selectedCount > 1 ? "Lock Selection" : "Lock Position"}
-                </Label>
+                <Label htmlFor="lock-toggle" className="text-xs font-bold uppercase tracking-wider">Lock Position</Label>
               </div>
               <Switch id="lock-toggle" checked={node.isLocked || false} onCheckedChange={handleLockToggle} />
+            </div>
+
+            <div className="flex items-center justify-between p-3 bg-yellow-400/5 rounded-lg border border-yellow-400/20">
+              <div className="flex items-center gap-2">
+                <Crosshair className={cn("w-3.5 h-3.5", node.showSpokes ? "text-yellow-400" : "text-muted-foreground")} />
+                <Label htmlFor="spokes-toggle" className="text-xs font-bold uppercase tracking-wider">Alignment Spokes</Label>
+              </div>
+              <Switch id="spokes-toggle" checked={node.showSpokes || false} onCheckedChange={handleSpokesToggle} />
             </div>
           </div>
 

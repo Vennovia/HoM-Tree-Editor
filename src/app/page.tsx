@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
@@ -31,8 +30,7 @@ import {
   Move,
   CheckSquare,
   Grid3X3,
-  Check,
-  Crosshair
+  Check
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
@@ -74,7 +72,6 @@ export default function HoMTreeEditor() {
   const [searchQuery, setSearchQuery] = useState('')
   const [nodeSearchQuery, setNodeSearchQuery] = useState('')
   const [showRadialGuides, setShowRadialGuides] = useState(false)
-  const [showNodeSpokes, setShowNodeSpokes] = useState(false)
   const [gridSize, setGridSize] = useState(25)
   const [tempGridSize, setTempGridSize] = useState(25)
   const [isGridPopoverOpen, setIsGridPopoverOpen] = useState(false)
@@ -685,10 +682,6 @@ export default function HoMTreeEditor() {
                   <Compass className="w-4 h-4" /> {showRadialGuides ? "Radial On" : "Radial Off"}
                 </Button>
 
-                <Button variant="ghost" size="sm" className={cn("gap-2 text-xs", showNodeSpokes ? "text-yellow-400 bg-yellow-400/10" : "text-muted-foreground")} onClick={() => setShowNodeSpokes(!showNodeSpokes)}>
-                  <Crosshair className="w-4 h-4" /> {showNodeSpokes ? "Node Spokes On" : "Node Spokes Off"}
-                </Button>
-
                 <Popover open={isGridPopoverOpen} onOpenChange={(open) => { setIsGridPopoverOpen(open); if (open) setTempGridSize(gridSize); }}>
                   <PopoverTrigger asChild>
                     <Button variant="ghost" size="sm" className="gap-2 text-xs text-muted-foreground">
@@ -745,9 +738,9 @@ export default function HoMTreeEditor() {
 
         <div className="flex-1 relative">
           {treeData && (selectedSchool ? (
-            <TreeCanvas schoolName={selectedSchool} allSchools={treeData.schools} selectedNodeIds={selectedNodeIds} onSelectNodes={setSelectedNodeIds} onNodesMove={handleUpdateNodes} onLinkNodes={handleLinkNodes} searchQuery={nodeSearchQuery} showRadialGuides={showRadialGuides} showNodeSpokes={showNodeSpokes} gridSize={gridSize} />
+            <TreeCanvas schoolName={selectedSchool} allSchools={treeData.schools} selectedNodeIds={selectedNodeIds} onSelectNodes={setSelectedNodeIds} onNodesMove={handleUpdateNodes} onLinkNodes={handleLinkNodes} searchQuery={nodeSearchQuery} showRadialGuides={showRadialGuides} gridSize={gridSize} />
           ) : isGlobalView ? (
-            <GlobalGrimoireView schools={treeData.schools} selectedNodeIds={selectedNodeIds} onSelectNodes={setSelectedNodeIds} onNodesMove={handleUpdateNodes} onLinkNodes={handleLinkNodes} searchQuery={nodeSearchQuery} showRadialGuides={showRadialGuides} showNodeSpokes={showNodeSpokes} gridSize={gridSize} />
+            <GlobalGrimoireView schools={treeData.schools} selectedNodeIds={selectedNodeIds} onSelectNodes={setSelectedNodeIds} onNodesMove={handleUpdateNodes} onLinkNodes={handleLinkNodes} searchQuery={nodeSearchQuery} showRadialGuides={showRadialGuides} gridSize={gridSize} />
           ) : (
             <DashboardView data={treeData} onSelectSchool={setSelectedSchool} />
           ))}
