@@ -64,6 +64,7 @@ import {
 import { Slider } from '@/components/ui/slider'
 
 const STORAGE_KEY = 'hom-tree-editor-data'
+const SETTINGS_KEY = 'hom-tree-editor-settings'
 const MAX_HISTORY = 20
 
 export default function HoMTreeEditor() {
@@ -109,6 +110,7 @@ export default function HoMTreeEditor() {
     return data;
   }, []);
 
+  // Load Tree Data
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY)
     if (saved) {
@@ -125,11 +127,42 @@ export default function HoMTreeEditor() {
     }
   }, [migrateGrimoireData])
 
+  // Load Settings
+  useEffect(() => {
+    const savedSettings = localStorage.getItem(SETTINGS_KEY)
+    if (savedSettings) {
+      try {
+        const settings = JSON.parse(savedSettings)
+        if (settings.gridSize) {
+          setGridSize(settings.gridSize)
+          setTempGridSize(settings.gridSize)
+        }
+        if (settings.snapToGrid !== undefined) setSnapToGrid(settings.snapToGrid)
+        if (settings.snapToCoreSpokes !== undefined) setSnapToCoreSpokes(settings.snapToCoreSpokes)
+        if (settings.snapToNodeSpokes !== undefined) setSnapToNodeSpokes(settings.snapToNodeSpokes)
+        if (settings.showRadialGuides !== undefined) setShowRadialGuides(settings.showRadialGuides)
+      } catch (e) {}
+    }
+  }, [])
+
+  // Save Tree Data
   useEffect(() => {
     if (treeData) {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(treeData))
     }
   }, [treeData])
+
+  // Save Settings
+  useEffect(() => {
+    const settings = {
+      gridSize,
+      snapToGrid,
+      snapToCoreSpokes,
+      snapToNodeSpokes,
+      showRadialGuides
+    }
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings))
+  }, [gridSize, snapToGrid, snapToCoreSpokes, snapToNodeSpokes, showRadialGuides])
 
   const pushHistory = useCallback((state: SpellTreeData) => {
     setHistory(prev => {
