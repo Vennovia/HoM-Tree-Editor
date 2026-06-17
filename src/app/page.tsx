@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
@@ -102,7 +101,7 @@ export default function HoMTreeEditor() {
     };
     checkTauri();
 
-    // Load custom paths
+    // Load custom paths from local storage if they exist
     const savedImport = localStorage.getItem('hom-config-import-path')
     const savedExport = localStorage.getItem('hom-config-export-path')
     if (savedImport) setConfigImportPath(savedImport)
