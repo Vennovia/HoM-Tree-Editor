@@ -91,6 +91,7 @@ export function GlobalGrimoireView({
         if (foundNode) break;
       }
 
+      // Dragging only starts if the target node is not locked
       if (foundNode && !foundNode.isLocked) {
         setDragMode('node');
         setDragNodeId(nodeId);
@@ -101,7 +102,8 @@ export function GlobalGrimoireView({
         nodesToMove.forEach(id => {
           for (const sName in schools) {
             const n = schools[sName].nodes.find(node => node.formId === id);
-            if (n) {
+            // Filter out locked nodes from movement group
+            if (n && !n.isLocked) {
               initialPositions[id] = { x: n.x, y: n.y };
               break;
             }
@@ -331,7 +333,6 @@ export function GlobalGrimoireView({
             const dy = cY - nY;
             const angle = Math.atan2(dy, dx);
             const isTargetRoot = schoolRoots.includes(childNode.formId);
-            // targetRadius: Roots are 30px (15px radius), Spells are 18px (9px radius)
             const targetRadius = (isTargetRoot ? 15 : 9) + 4;
             const x2 = cX - targetRadius * Math.cos(angle);
             const y2 = cY - targetRadius * Math.sin(angle);
@@ -403,7 +404,6 @@ export function GlobalGrimoireView({
   const activeDragInfo = useMemo(() => {
     if (dragMode !== 'node' || !dragNodeId || !draggingNodesPos[dragNodeId]) return null;
     const { x, y } = draggingNodesPos[dragNodeId];
-    // Coordinate HUD logic: 360 is UP
     let deg = (Math.atan2(y, x) * (180 / Math.PI)) + 90;
     if (deg < 0) deg += 360;
     if (deg >= 360) deg -= 360;

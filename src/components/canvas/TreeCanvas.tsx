@@ -125,6 +125,7 @@ export function TreeCanvas({
       onSelectNodes(newSelection);
 
       const node = school.nodes.find(n => n.formId === nodeId);
+      // Only start node dragging if the initial target node is not locked
       if (node && !node.isLocked) {
         setDragMode('node');
         setDragNodeId(nodeId);
@@ -133,7 +134,10 @@ export function TreeCanvas({
         const initialPositions: Record<string, { x: number, y: number }> = {};
         nodesToMove.forEach(id => {
           const n = school.nodes.find(node => node.formId === id);
-          if (n) initialPositions[id] = { x: n.x, y: n.y };
+          // Only add unlocked nodes to the movement group
+          if (n && !n.isLocked) {
+            initialPositions[id] = { x: n.x, y: n.y };
+          }
         });
         
         setDragNodesInitialPos(initialPositions);
@@ -279,7 +283,6 @@ export function TreeCanvas({
       }
     }
 
-    // 1. Spoke Guides
     for (let angle = 0; angle < 360; angle += 15) {
       const rad = (angle * Math.PI) / 180;
       const length = 5000;
@@ -301,7 +304,6 @@ export function TreeCanvas({
       );
     }
 
-    // 2. Radial Guides
     if (showRadialGuides) {
       for (let r = 25; r <= 4000; r += 25) {
         const isMajor = r % 100 === 0;
@@ -319,7 +321,6 @@ export function TreeCanvas({
       }
     }
 
-    // 3. Hub Lines (Connections from 0,0 to School Roots)
     schoolRoots.forEach(rootId => {
       const rootNode = school.nodes.find(n => n.formId === rootId);
       if (rootNode) {
@@ -338,7 +339,6 @@ export function TreeCanvas({
       }
     });
 
-    // 4. Ghost Nodes from other schools
     Object.entries(allSchools).forEach(([name, s]) => {
       if (name === schoolName) return;
       s.nodes.forEach(n => {
@@ -369,7 +369,6 @@ export function TreeCanvas({
       });
     });
 
-    // 5. Active School Nodes and Connections
     school.nodes.forEach(node => {
       (node.children || []).forEach(childId => {
         const childNode = school.nodes.find(n => n.formId === childId);
