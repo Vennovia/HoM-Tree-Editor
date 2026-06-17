@@ -16,6 +16,7 @@ interface TreeCanvasProps {
   searchQuery?: string;
   showRadialGuides?: boolean;
   gridSize?: number;
+  snapToGrid?: boolean;
   snapToCoreSpokes?: boolean;
   snapToNodeSpokes?: boolean;
 }
@@ -30,8 +31,9 @@ export function TreeCanvas({
   searchQuery = '',
   showRadialGuides = false,
   gridSize = 25,
-  snapToCoreSpokes = true,
-  snapToNodeSpokes = true
+  snapToGrid = true,
+  snapToCoreSpokes = false,
+  snapToNodeSpokes = false
 }: TreeCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [transform, setTransform] = useState({ x: 0, y: 0, scale: 0.5 });
@@ -186,18 +188,21 @@ export function TreeCanvas({
         if (e.ctrlKey || e.metaKey) {
           const s = Math.max(1, gridSize || 25);
           
-          if (showRadialGuides) {
-            const r = Math.sqrt(x * x + y * y);
-            const rSnap = Math.round(r / s) * s;
-            const theta = Math.atan2(y, x);
-            x = Math.round(rSnap * Math.cos(theta));
-            y = Math.round(rSnap * Math.sin(theta));
-          } else {
-            x = Math.round(x / s) * s;
-            y = Math.round(y / s) * s;
+          // 1. Grid Snapping
+          if (snapToGrid) {
+            if (showRadialGuides) {
+              const r = Math.sqrt(x * x + y * y);
+              const rSnap = Math.round(r / s) * s;
+              const theta = Math.atan2(y, x);
+              x = Math.round(rSnap * Math.cos(theta));
+              y = Math.round(rSnap * Math.sin(theta));
+            } else {
+              x = Math.round(x / s) * s;
+              y = Math.round(y / s) * s;
+            }
           }
 
-          // Apply Angle Snapping to Core Spokes
+          // 2. Apply Angle Snapping to Core Spokes
           if (snapToCoreSpokes) {
             const r = Math.sqrt(x * x + y * y);
             const theta = Math.atan2(y, x);
@@ -207,7 +212,7 @@ export function TreeCanvas({
             y = Math.round(r * Math.sin(snappedTheta));
           }
 
-          // Apply Relative Snapping to Node Spokes
+          // 3. Apply Relative Snapping to Node Spokes
           if (snapToNodeSpokes) {
             const guides = school.nodes.filter(n => n.showSpokes && !selectedNodeIds.includes(n.formId));
             for (const guide of guides) {

@@ -15,6 +15,7 @@ interface GlobalGrimoireViewProps {
   searchQuery?: string;
   showRadialGuides?: boolean;
   gridSize?: number;
+  snapToGrid?: boolean;
   snapToCoreSpokes?: boolean;
   snapToNodeSpokes?: boolean;
 }
@@ -28,8 +29,9 @@ export function GlobalGrimoireView({
   searchQuery = '',
   showRadialGuides = false,
   gridSize = 25,
-  snapToCoreSpokes = true,
-  snapToNodeSpokes = true
+  snapToGrid = true,
+  snapToCoreSpokes = false,
+  snapToNodeSpokes = false
 }: GlobalGrimoireViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [transform, setTransform] = useState({ x: 0, y: 0, scale: 0.25 });
@@ -151,18 +153,22 @@ export function GlobalGrimoireView({
 
         if (e.ctrlKey || e.metaKey) {
           const s = Math.max(1, gridSize || 25);
-          if (showRadialGuides) {
-            const r = Math.sqrt(x * x + y * y);
-            const rSnap = Math.round(r / s) * s;
-            const theta = Math.atan2(y, x);
-            x = Math.round(rSnap * Math.cos(theta));
-            y = Math.round(rSnap * Math.sin(theta));
-          } else {
-            x = Math.round(x / s) * s;
-            y = Math.round(y / s) * s;
+          
+          // 1. Grid Snapping
+          if (snapToGrid) {
+            if (showRadialGuides) {
+              const r = Math.sqrt(x * x + y * y);
+              const rSnap = Math.round(r / s) * s;
+              const theta = Math.atan2(y, x);
+              x = Math.round(rSnap * Math.cos(theta));
+              y = Math.round(rSnap * Math.sin(theta));
+            } else {
+              x = Math.round(x / s) * s;
+              y = Math.round(y / s) * s;
+            }
           }
 
-          // Angle Snapping: Core Hub (15 deg)
+          // 2. Angle Snapping: Core Hub (15 deg)
           if (snapToCoreSpokes) {
             const r = Math.sqrt(x * x + y * y);
             const theta = Math.atan2(y, x);
@@ -172,7 +178,7 @@ export function GlobalGrimoireView({
             y = Math.round(r * Math.sin(snappedTheta));
           }
 
-          // Angle Snapping: Relative Spokes
+          // 3. Angle Snapping: Relative Spokes
           if (snapToNodeSpokes) {
             const allNodes: SpellNode[] = [];
             Object.values(schools).forEach(s => allNodes.push(...s.nodes));

@@ -33,7 +33,9 @@ import {
   Grid3X3,
   Check,
   Magnet,
-  Crosshair
+  Crosshair,
+  Settings2,
+  Hash
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
@@ -56,6 +58,8 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
+  DropdownMenuCheckboxItem,
 } from "@/components/ui/dropdown-menu"
 import { Slider } from '@/components/ui/slider'
 
@@ -75,8 +79,12 @@ export default function HoMTreeEditor() {
   const [searchQuery, setSearchQuery] = useState('')
   const [nodeSearchQuery, setNodeSearchQuery] = useState('')
   const [showRadialGuides, setShowRadialGuides] = useState(false)
-  const [snapToCoreSpokes, setSnapToCoreSpokes] = useState(true)
-  const [snapToNodeSpokes, setSnapToNodeSpokes] = useState(true)
+  
+  // Snap settings
+  const [snapToGrid, setSnapToGrid] = useState(true)
+  const [snapToCoreSpokes, setSnapToCoreSpokes] = useState(false)
+  const [snapToNodeSpokes, setSnapToNodeSpokes] = useState(false)
+  
   const [gridSize, setGridSize] = useState(25)
   const [tempGridSize, setTempGridSize] = useState(25)
   const [isGridPopoverOpen, setIsGridPopoverOpen] = useState(false)
@@ -687,26 +695,33 @@ export default function HoMTreeEditor() {
                   <Compass className="w-4 h-4" /> {showRadialGuides ? "Radial On" : "Radial Off"}
                 </Button>
 
-                <div className="flex items-center gap-1 px-1 py-0.5 bg-secondary/20 rounded-md border border-border/40">
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className={cn("w-7 h-7", snapToCoreSpokes ? "text-accent bg-accent/10" : "text-muted-foreground")} 
-                    title="Snap to Core Spokes"
-                    onClick={() => setSnapToCoreSpokes(!snapToCoreSpokes)}
-                  >
-                    <Magnet className="w-3.5 h-3.5" />
-                  </Button>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className={cn("w-7 h-7", snapToNodeSpokes ? "text-yellow-400 bg-yellow-400/10" : "text-muted-foreground")} 
-                    title="Snap to Node Spokes"
-                    onClick={() => setSnapToNodeSpokes(!snapToNodeSpokes)}
-                  >
-                    <Crosshair className="w-3.5 h-3.5" />
-                  </Button>
-                </div>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="sm" className="gap-2 text-xs text-muted-foreground">
+                      <Settings2 className="w-4 h-4" /> Snap Toggle
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-48">
+                    <DropdownMenuCheckboxItem checked={snapToGrid} onCheckedChange={setSnapToGrid}>
+                      <div className="flex items-center gap-2">
+                        <Hash className="w-3.5 h-3.5" />
+                        Grid Snap
+                      </div>
+                    </DropdownMenuCheckboxItem>
+                    <DropdownMenuCheckboxItem checked={snapToCoreSpokes} onCheckedChange={setSnapToCoreSpokes}>
+                      <div className="flex items-center gap-2">
+                        <Magnet className="w-3.5 h-3.5" />
+                        Main Spoke Snap
+                      </div>
+                    </DropdownMenuCheckboxItem>
+                    <DropdownMenuCheckboxItem checked={snapToNodeSpokes} onCheckedChange={setSnapToNodeSpokes}>
+                      <div className="flex items-center gap-2">
+                        <Crosshair className="w-3.5 h-3.5" />
+                        Node Spoke Snap
+                      </div>
+                    </DropdownMenuCheckboxItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
 
                 <Popover open={isGridPopoverOpen} onOpenChange={(open) => { setIsGridPopoverOpen(open); if (open) setTempGridSize(gridSize); }}>
                   <PopoverTrigger asChild>
@@ -774,6 +789,7 @@ export default function HoMTreeEditor() {
               searchQuery={nodeSearchQuery} 
               showRadialGuides={showRadialGuides} 
               gridSize={gridSize}
+              snapToGrid={snapToGrid}
               snapToCoreSpokes={snapToCoreSpokes}
               snapToNodeSpokes={snapToNodeSpokes}
             />
@@ -787,6 +803,7 @@ export default function HoMTreeEditor() {
               searchQuery={nodeSearchQuery} 
               showRadialGuides={showRadialGuides} 
               gridSize={gridSize}
+              snapToGrid={snapToGrid}
               snapToCoreSpokes={snapToCoreSpokes}
               snapToNodeSpokes={snapToNodeSpokes}
             />
