@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState, useRef, useEffect, useMemo } from 'react'
@@ -13,6 +14,7 @@ interface GlobalGrimoireViewProps {
   onLinkNodes: (sourceId: string, targetId: string) => void;
   searchQuery?: string;
   showRadialGuides?: boolean;
+  showNodeSpokes?: boolean;
   gridSize?: number;
 }
 
@@ -24,6 +26,7 @@ export function GlobalGrimoireView({
   onLinkNodes,
   searchQuery = '',
   showRadialGuides = false,
+  showNodeSpokes = false,
   gridSize = 25
 }: GlobalGrimoireViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -236,23 +239,49 @@ export function GlobalGrimoireView({
     const hubLines: React.ReactNode[] = [];
     const radialGuides: React.ReactNode[] = [];
     const spokes: React.ReactNode[] = [];
+    const nodeSpokes: React.ReactNode[] = [];
 
     const prereqNodeIds = new Set<string>();
     const childNodeIds = new Set<string>();
     
     const primarySelectedId = selectedNodeIds.length > 0 ? selectedNodeIds[0] : null;
 
+    let primarySelectedNode: SpellNode | undefined;
     if (primarySelectedId) {
-      let selectedNode: SpellNode | undefined;
       for (const sName in schools) {
-        selectedNode = schools[sName].nodes.find(n => n.formId === primarySelectedId);
-        if (selectedNode) break;
+        primarySelectedNode = schools[sName].nodes.find(n => n.formId === primarySelectedId);
+        if (primarySelectedNode) break;
       }
-      if (selectedNode) {
-        selectedNode.children?.forEach(id => childNodeIds.add(id));
-        selectedNode.prerequisites?.forEach(id => prereqNodeIds.add(id));
-        selectedNode.hardPrereqs?.forEach(id => prereqNodeIds.add(id));
-        selectedNode.softPrereqs?.forEach(id => prereqNodeIds.add(id));
+      if (primarySelectedNode) {
+        primarySelectedNode.children?.forEach(id => childNodeIds.add(id));
+        primarySelectedNode.prerequisites?.forEach(id => prereqNodeIds.add(id));
+        primarySelectedNode.hardPrereqs?.forEach(id => prereqNodeIds.add(id));
+        primarySelectedNode.softPrereqs?.forEach(id => prereqNodeIds.add(id));
+      }
+    }
+
+    if (showNodeSpokes && primarySelectedNode) {
+      const pX = draggingNodesPos[primarySelectedNode.formId]?.x ?? primarySelectedNode.x;
+      const pY = draggingNodesPos[primarySelectedNode.formId]?.y ?? primarySelectedNode.y;
+      
+      for (let angle = 0; angle < 360; angle += 15) {
+        const rad = (angle * Math.PI) / 180;
+        const length = 5000;
+        const x2 = pX + Math.cos(rad) * length;
+        const y2 = pY + Math.sin(rad) * length;
+        
+        nodeSpokes.push(
+          <line
+            key={`node-spoke-${angle}`}
+            x1={pX} y1={pY}
+            x2={x2} y2={y2}
+            stroke="#facc15"
+            strokeWidth="1.5"
+            strokeOpacity="0.6"
+            strokeDasharray="10,5"
+            pointerEvents="none"
+          />
+        );
       }
     }
 
@@ -406,8 +435,8 @@ export function GlobalGrimoireView({
       });
     });
 
-    return { nodes, connections, hubLines, radialGuides, spokes };
-  }, [schools, selectedNodeIds, searchQuery, showRadialGuides, draggingNodesPos, dragMode, gridSize]);
+    return { nodes, connections, hubLines, radialGuides, spokes, nodeSpokes };
+  }, [schools, selectedNodeIds, searchQuery, showRadialGuides, showNodeSpokes, draggingNodesPos, dragMode, gridSize]);
 
   const activeDragInfo = useMemo(() => {
     if (dragMode !== 'node' || !dragNodeId || !draggingNodesPos[dragNodeId]) return null;
@@ -477,6 +506,7 @@ export function GlobalGrimoireView({
           {renderContent.spokes}
           {renderContent.radialGuides}
           {renderContent.hubLines}
+          {renderContent.nodeSpokes}
           {renderContent.connections}
           {dragMode === 'linking' && linkingSourceNode && (
             <line
