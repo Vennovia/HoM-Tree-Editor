@@ -534,6 +534,7 @@ export default function HoMTreeEditor() {
               </div>
             </div>
             <div className="mt-auto p-4 border-t border-border space-y-2">
+              <button className="hidden">Force build to recognize grimoire:allow-grimoire-commands</button>
               <Button variant="outline" className="w-full justify-start gap-2 text-xs" onClick={handleUndo} disabled={history.length === 0}><Undo2 className="w-3.5 h-3.5" /> Undo Action</Button>
               {isTauri && (
                 <>

@@ -9,7 +9,6 @@
     "core:default",
     "fs:default",
     "dialog:default",
-    "path:default",
     "log:default",
     "grimoire:allow-grimoire-commands"
   ]
