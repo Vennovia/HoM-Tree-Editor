@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
-import { Trash2, Link as LinkIcon, Lock, Unlock, MapPin, X, Star, StarOff, PlusCircle, Fingerprint, Layers, Scissors } from 'lucide-react'
+import { Trash2, Link as LinkIcon, Lock, Unlock, MapPin, X, Star, StarOff, PlusCircle, Fingerprint, Layers, Scissors, Grid3X3 } from 'lucide-react'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
@@ -26,6 +26,7 @@ interface NodeEditorProps {
   onClearChildren: (nodeIds: string[]) => void;
   onClearHardPrereqs: (nodeIds: string[]) => void;
   onClearSoftPrereqs: (nodeIds: string[]) => void;
+  onCondense: (nodeIds: string[]) => void;
 }
 
 export function NodeEditor({ 
@@ -41,7 +42,8 @@ export function NodeEditor({
   onSelectNode,
   onClearChildren,
   onClearHardPrereqs,
-  onClearSoftPrereqs
+  onClearSoftPrereqs,
+  onCondense
 }: NodeEditorProps) {
 
   const selectedCount = selectedNodeIds.length
@@ -261,6 +263,18 @@ export function NodeEditor({
                 <Input type="number" name="y" value={node.y} onChange={handleChange} disabled={node.isLocked} className="bg-background border-border" />
               </div>
             </div>
+            
+            {selectedCount > 1 && (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="w-full flex items-center gap-2 text-[10px] uppercase tracking-widest h-9 bg-accent/5 hover:bg-accent/10 text-accent font-bold transition-all border-accent/20"
+                onClick={() => onCondense(selectedNodeIds)}
+              >
+                <Grid3X3 className="w-3.5 h-3.5" />
+                Condense into Grid
+              </Button>
+            )}
           </div>
 
           <Separator className="bg-border" />

@@ -454,6 +454,64 @@ export default function HoMTreeEditor() {
     toast({ title: "Arcane Severance", description: "All selected soft prerequisites have been dissolved." });
   }, [findSchoolForNode, pushHistory, toast]);
 
+  const handleCondenseNodes = useCallback((nodeIds: string[]) => {
+    if (!treeData || nodeIds.length < 2) return;
+    
+    setTreeData(prev => {
+      if (!prev) return prev;
+      pushHistory(prev);
+      const newSchools = { ...prev.schools };
+      
+      // Collect all selected unlocked nodes and their current positions to find the group center
+      const targets: { school: string, node: SpellNode }[] = [];
+      let sumX = 0;
+      let sumY = 0;
+
+      nodeIds.forEach(id => {
+        const sName = findSchoolForNode(id);
+        if (!sName) return;
+        const node = newSchools[sName].nodes.find(n => n.formId === id);
+        if (node && !node.isLocked) {
+          targets.push({ school: sName, node });
+          sumX += node.x;
+          sumY += node.y;
+        }
+      });
+
+      if (targets.length < 2) return prev;
+
+      const avgX = sumX / targets.length;
+      const avgY = sumY / targets.length;
+
+      // Calculate grid (square-ish)
+      const cols = Math.ceil(Math.sqrt(targets.length));
+      const spacing = 50; // Standard spacing for condensed grid
+
+      targets.forEach((target, index) => {
+        const row = Math.floor(index / cols);
+        const col = index % cols;
+        const rows = Math.ceil(targets.length / cols);
+
+        // Center the grid around the average position
+        const targetX = Math.round(avgX + (col - (cols - 1) / 2) * spacing);
+        const targetY = Math.round(avgY + (row - (rows - 1) / 2) * spacing);
+
+        const nodeIdx = newSchools[target.school].nodes.findIndex(n => n.formId === target.node.formId);
+        if (nodeIdx !== -1) {
+          newSchools[target.school].nodes[nodeIdx] = {
+            ...newSchools[target.school].nodes[nodeIdx],
+            x: targetX,
+            y: targetY
+          };
+        }
+      });
+
+      return { ...prev, schools: newSchools };
+    });
+
+    toast({ title: "Arcane Compression", description: "Selected spells have been organized into a condensed grid." });
+  }, [treeData, findSchoolForNode, pushHistory, toast]);
+
   const handleAddNode = () => { if (treeData && selectedSchool) setIsAddNodeOpen(true) }
 
   const handleConfirmAddNode = (details: Partial<SpellNode>) => {
@@ -662,6 +720,7 @@ export default function HoMTreeEditor() {
             onClearChildren={handleClearChildren}
             onClearHardPrereqs={handleClearHardPrereqs}
             onClearSoftPrereqs={handleClearSoftPrereqs}
+            onCondense={handleCondenseNodes}
           />
         </aside>
       )}
