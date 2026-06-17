@@ -8,11 +8,9 @@
   "permissions": [
     "core:default",
     "fs:default",
-    "fs:allow-read-all",
-    "fs:allow-write-all",
-    "fs:allow-exists",
-    "fs:allow-mkdir",
     "dialog:default",
-    "log:default"
+    "path:default",
+    "log:default",
+    "grimoire:allow-grimoire-commands"
   ]
 }
