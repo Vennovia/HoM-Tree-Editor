@@ -28,7 +28,8 @@ import {
   Command,
   SquareDashedMousePointer,
   Link,
-  Move
+  Move,
+  CheckSquare
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
@@ -46,6 +47,12 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
 const STORAGE_KEY = 'hom-tree-editor-data'
 const MAX_HISTORY = 20
@@ -340,6 +347,27 @@ export default function HoMTreeEditor() {
     toast({ title: "Spell Manifested", description: `${details.name} has been added.` })
   }
 
+  const handleSelectBySkillLevel = (level: string) => {
+    if (!treeData) return
+    const ids: string[] = []
+    if (selectedSchool) {
+      treeData.schools[selectedSchool].nodes.forEach(n => {
+        if (n.skillLevel === level) ids.push(n.formId)
+      })
+    } else if (isGlobalView) {
+      Object.values(treeData.schools).forEach(school => {
+        school.nodes.forEach(n => {
+          if (n.skillLevel === level) ids.push(n.formId)
+        })
+      })
+    }
+    setSelectedNodeIds(ids)
+    toast({ 
+      title: "Selection Synchronized", 
+      description: `All ${level} spells have been highlighted.` 
+    })
+  }
+
   const filteredSchools = treeData ? Object.keys(treeData.schools).filter(s => s.toLowerCase().includes(searchQuery.toLowerCase())) : []
 
   const selectedNode = useMemo(() => {
@@ -458,9 +486,26 @@ export default function HoMTreeEditor() {
               </Popover>
             )}
             {(selectedSchool || isGlobalView) && (
-              <Button variant="ghost" size="sm" className={cn("gap-2 text-xs", showRadialGuides ? "text-accent bg-accent/10" : "text-muted-foreground")} onClick={() => setShowRadialGuides(!showRadialGuides)}>
-                <Compass className="w-4 h-4" /> {showRadialGuides ? "Radial On" : "Radial Off"}
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button variant="ghost" size="sm" className={cn("gap-2 text-xs", showRadialGuides ? "text-accent bg-accent/10" : "text-muted-foreground")} onClick={() => setShowRadialGuides(!showRadialGuides)}>
+                  <Compass className="w-4 h-4" /> {showRadialGuides ? "Radial On" : "Radial Off"}
+                </Button>
+                
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="sm" className="gap-2 text-xs text-muted-foreground">
+                      <CheckSquare className="w-4 h-4" /> Select Level
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    {['Novice', 'Apprentice', 'Adept', 'Expert', 'Master'].map(level => (
+                      <DropdownMenuItem key={level} onClick={() => handleSelectBySkillLevel(level)} className="text-xs">
+                        {level}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             )}
           </div>
           {selectedSchool && <Button size="sm" onClick={handleAddNode}><Plus className="w-4 h-4" /> Add Spell</Button>}
