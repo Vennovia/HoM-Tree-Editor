@@ -1,0 +1,9 @@
+
+{
+  "identifier": "allow-grimoire-commands",
+  "description": "Allows saving and path resolution for the grimoire editor.",
+  "commands": [
+    "save_grimoire_to_disk",
+    "get_grimoire_path"
+  ]
+}

@@ -9,12 +9,8 @@
   "permissions": [
     "core:default",
     "fs:default",
-    "fs:allow-exe-read",
-    "fs:allow-exe-write",
-    "fs:allow-exe-read-recursive",
-    "fs:allow-exe-write-recursive",
-    "fs:scope-exe-recursive",
     "dialog:default",
-    "log:default"
+    "log:default",
+    "allow-grimoire-commands"
   ]
 }
