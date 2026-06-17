@@ -149,15 +149,17 @@ export default function HoMTreeEditor() {
     const jsonString = JSON.stringify(treeData, null, 2);
     const fileName = `spell_tree_${Date.now()}.json`;
 
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(jsonString)
-    const downloadAnchorNode = document.createElement('a')
-    downloadAnchorNode.setAttribute("href", dataStr)
-    downloadAnchorNode.setAttribute("download", fileName)
-    document.body.appendChild(downloadAnchorNode)
-    downloadAnchorNode.click()
-    downloadAnchorNode.remove()
+    const blob = new Blob([jsonString], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
     
-    toast({ title: "Grimoire Downloaded", description: "Saved to your default Downloads folder." })
+    toast({ title: "Grimoire Exported", description: "Saved to your system Downloads folder." })
   }
 
   const findSchoolForNode = useCallback((nodeId: string): string | null => {
