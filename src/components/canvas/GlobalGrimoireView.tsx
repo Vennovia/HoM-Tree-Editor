@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState, useRef, useEffect, useMemo } from 'react'
@@ -91,7 +92,6 @@ export function GlobalGrimoireView({
         if (foundNode) break;
       }
 
-      // Dragging only starts if the target node is not locked
       if (foundNode && !foundNode.isLocked) {
         setDragMode('node');
         setDragNodeId(nodeId);
@@ -102,7 +102,6 @@ export function GlobalGrimoireView({
         nodesToMove.forEach(id => {
           for (const sName in schools) {
             const n = schools[sName].nodes.find(node => node.formId === id);
-            // Filter out locked nodes from movement group
             if (n && !n.isLocked) {
               initialPositions[id] = { x: n.x, y: n.y };
               break;
@@ -318,7 +317,12 @@ export function GlobalGrimoireView({
         const isRoot = schoolRoots.includes(node.formId);
 
         (node.children || []).forEach(childId => {
-          const childNode = school.nodes.find(n => n.formId === childId);
+          let childNode: SpellNode | undefined;
+          for (const otherSchoolName in schools) {
+            childNode = schools[otherSchoolName].nodes.find(n => n.formId === childId);
+            if (childNode) break;
+          }
+
           if (childNode) {
             const isChildPath = selectedNodeIds.includes(node.formId);
             const isPrereqPath = selectedNodeIds.includes(childId);
@@ -332,7 +336,8 @@ export function GlobalGrimoireView({
             const dx = cX - nX;
             const dy = cY - nY;
             const angle = Math.atan2(dy, dx);
-            const isTargetRoot = schoolRoots.includes(childNode.formId);
+            
+            const isTargetRoot = (childNode && schools[sName].roots?.includes(childNode.formId));
             const targetRadius = (isTargetRoot ? 15 : 9) + 4;
             const x2 = cX - targetRadius * Math.cos(angle);
             const y2 = cY - targetRadius * Math.sin(angle);
@@ -410,6 +415,14 @@ export function GlobalGrimoireView({
     return { x, y, deg: Math.round(deg) };
   }, [dragMode, dragNodeId, draggingNodesPos]);
 
+  let linkingSourceNode: SpellNode | undefined;
+  if (linkingSourceId) {
+    for (const sName in schools) {
+      linkingSourceNode = schools[sName].nodes.find(n => n.formId === linkingSourceId);
+      if (linkingSourceNode) break;
+    }
+  }
+
   return (
     <div 
       ref={containerRef}
@@ -456,6 +469,14 @@ export function GlobalGrimoireView({
           {renderContent.radialGuides}
           {renderContent.hubLines}
           {renderContent.connections}
+          {dragMode === 'linking' && linkingSourceNode && (
+            <line
+              x1={draggingNodesPos[linkingSourceNode.formId]?.x ?? linkingSourceNode.x}
+              y1={draggingNodesPos[linkingSourceNode.formId]?.y ?? linkingSourceNode.y}
+              x2={mousePos.x} y2={mousePos.y}
+              stroke="hsl(var(--accent))" strokeWidth="2" strokeDasharray="4,4" className="animate-pulse"
+            />
+          )}
         </svg>
 
         <div 

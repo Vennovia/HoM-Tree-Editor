@@ -252,54 +252,73 @@ export default function HoMTreeEditor() {
   }, [pushHistory])
 
   const handleToggleRelationship = useCallback((nodeId: string, targetId: string, type: 'hard' | 'soft' | 'child' | 'pool') => {
-    const schoolName = findSchoolForNode(nodeId)
-    if (!schoolName) return
+    const sourceSchoolName = findSchoolForNode(nodeId)
+    const targetSchoolName = findSchoolForNode(targetId)
+    if (!sourceSchoolName || !targetSchoolName) return
+
     setTreeData(prev => {
       if (!prev) return prev
       pushHistory(prev)
-      const school = prev.schools[schoolName]
-      const nodes = [...school.nodes]
-      const nodeIdx = nodes.findIndex(n => n.formId === nodeId)
-      const targetIdx = nodes.findIndex(n => n.formId === targetId)
-      if (nodeIdx === -1 || targetIdx === -1) return prev
-      const node = { ...nodes[nodeIdx] }
-      const target = { ...nodes[targetIdx] }
-      const ensurePoolLink = (n: SpellNode, t: SpellNode) => {
-        if (!(n.prerequisites || []).includes(t.formId)) n.prerequisites = [...(n.prerequisites || []), t.formId]
-        if (!(t.children || []).includes(n.formId)) t.children = [...(t.children || []), n.formId]
+      const newSchools = { ...prev.schools }
+      
+      const sourceSchool = { ...newSchools[sourceSchoolName] }
+      const targetSchool = sourceSchoolName === targetSchoolName ? sourceSchool : { ...newSchools[targetSchoolName] }
+      
+      const sourceNodes = [...sourceSchool.nodes]
+      const targetNodes = sourceSchoolName === targetSchoolName ? sourceNodes : [...targetSchool.nodes]
+      
+      const sourceIdx = sourceNodes.findIndex(n => n.formId === nodeId)
+      const targetIdx = targetNodes.findIndex(n => n.formId === targetId)
+      
+      if (sourceIdx === -1 || targetIdx === -1) return prev
+      
+      const sourceNode = { ...sourceNodes[sourceIdx] }
+      const targetNode = { ...targetNodes[targetIdx] }
+
+      const ensurePoolLink = (s: SpellNode, t: SpellNode) => {
+        if (!(s.prerequisites || []).includes(t.formId)) s.prerequisites = [...(s.prerequisites || []), t.formId]
+        if (!(t.children || []).includes(s.formId)) t.children = [...(t.children || []), s.formId]
       }
-      if (type === 'pool') ensurePoolLink(node, target)
+
+      if (type === 'pool') ensurePoolLink(sourceNode, targetNode)
       else if (type === 'hard') {
-        const exists = (node.hardPrereqs || []).includes(targetId)
-        if (exists) node.hardPrereqs = (node.hardPrereqs || []).filter(id => id !== targetId)
+        const exists = (sourceNode.hardPrereqs || []).includes(targetId)
+        if (exists) sourceNode.hardPrereqs = (sourceNode.hardPrereqs || []).filter(id => id !== targetId)
         else {
-          node.hardPrereqs = [...(node.hardPrereqs || []), targetId]
-          node.softPrereqs = (node.softPrereqs || []).filter(id => id !== targetId)
-          ensurePoolLink(node, target)
+          sourceNode.hardPrereqs = [...(sourceNode.hardPrereqs || []), targetId]
+          sourceNode.softPrereqs = (sourceNode.softPrereqs || []).filter(id => id !== targetId)
+          ensurePoolLink(sourceNode, targetNode)
         }
       } else if (type === 'soft') {
-        const exists = (node.softPrereqs || []).includes(targetId)
-        if (exists) node.softPrereqs = (node.softPrereqs || []).filter(id => id !== targetId)
+        const exists = (sourceNode.softPrereqs || []).includes(targetId)
+        if (exists) sourceNode.softPrereqs = (sourceNode.softPrereqs || []).filter(id => id !== targetId)
         else {
-          node.softPrereqs = [...(node.softPrereqs || []), targetId]
-          node.hardPrereqs = (node.hardPrereqs || []).filter(id => id !== targetId)
-          ensurePoolLink(node, target)
+          sourceNode.softPrereqs = [...(sourceNode.softPrereqs || []), targetId]
+          sourceNode.hardPrereqs = (sourceNode.hardPrereqs || []).filter(id => id !== targetId)
+          ensurePoolLink(sourceNode, targetNode)
         }
       } else if (type === 'child') {
-        const exists = (node.children || []).includes(targetId)
+        const exists = (sourceNode.children || []).includes(targetId)
         if (exists) {
-          node.children = (node.children || []).filter(id => id !== targetId)
-          target.prerequisites = (target.prerequisites || []).filter(id => id !== nodeId)
-          target.hardPrereqs = (target.hardPrereqs || []).filter(id => id !== nodeId)
-          target.softPrereqs = (target.softPrereqs || []).filter(id => id !== nodeId)
+          sourceNode.children = (sourceNode.children || []).filter(id => id !== targetId)
+          targetNode.prerequisites = (targetNode.prerequisites || []).filter(id => id !== nodeId)
+          targetNode.hardPrereqs = (targetNode.hardPrereqs || []).filter(id => id !== nodeId)
+          targetNode.softPrereqs = (targetNode.softPrereqs || []).filter(id => id !== nodeId)
         } else {
-          node.children = [...(node.children || []), targetId]
-          if (!(target.prerequisites || []).includes(nodeId)) target.prerequisites = [...(target.prerequisites || []), nodeId]
+          sourceNode.children = [...(sourceNode.children || []), targetId]
+          if (!(targetNode.prerequisites || []).includes(nodeId)) targetNode.prerequisites = [...(targetNode.prerequisites || []), nodeId]
         }
       }
-      nodes[nodeIdx] = node
-      nodes[targetIdx] = target
-      return { ...prev, schools: { ...prev.schools, [schoolName]: { ...school, nodes } } }
+
+      sourceNodes[sourceIdx] = sourceNode
+      targetNodes[targetIdx] = targetNode
+
+      newSchools[sourceSchoolName] = { ...sourceSchool, nodes: sourceNodes }
+      if (sourceSchoolName !== targetSchoolName) {
+        newSchools[targetSchoolName] = { ...targetSchool, nodes: targetNodes }
+      }
+
+      return { ...prev, schools: newSchools }
     })
   }, [findSchoolForNode, pushHistory])
 
