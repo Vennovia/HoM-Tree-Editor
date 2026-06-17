@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
@@ -365,10 +364,8 @@ export default function HoMTreeEditor() {
 
         const childrenToSever = [...sourceNode.children];
         
-        // 1. Clear children in source node
         sourceNode.children = [];
 
-        // 2. Remove parent from children's prereqs
         childrenToSever.forEach(childId => {
           const targetSchoolName = findSchoolForNode(childId);
           if (!targetSchoolName) return;
@@ -385,6 +382,76 @@ export default function HoMTreeEditor() {
       return { ...prev, schools: newSchools };
     });
     toast({ title: "Arcane Severance", description: "All selected child connections have been dissolved." });
+  }, [findSchoolForNode, pushHistory, toast]);
+
+  const handleClearHardPrereqs = useCallback((nodeIds: string[]) => {
+    setTreeData(prev => {
+      if (!prev) return prev;
+      pushHistory(prev);
+      const newSchools = { ...prev.schools };
+
+      nodeIds.forEach(nodeId => {
+        const sourceSchoolName = findSchoolForNode(nodeId);
+        if (!sourceSchoolName) return;
+        
+        const sourceSchool = newSchools[sourceSchoolName];
+        const sourceNode = sourceSchool.nodes.find(n => n.formId === nodeId);
+        if (!sourceNode || !sourceNode.hardPrereqs || sourceNode.hardPrereqs.length === 0) return;
+
+        const parentsToSever = [...sourceNode.hardPrereqs];
+        
+        sourceNode.hardPrereqs = [];
+        sourceNode.prerequisites = (sourceNode.prerequisites || []).filter(id => !parentsToSever.includes(id));
+
+        parentsToSever.forEach(parentId => {
+          const targetSchoolName = findSchoolForNode(parentId);
+          if (!targetSchoolName) return;
+          const targetSchool = newSchools[targetSchoolName];
+          const targetNode = targetSchool.nodes.find(n => n.formId === parentId);
+          if (targetNode) {
+            targetNode.children = (targetNode.children || []).filter(id => id !== nodeId);
+          }
+        });
+      });
+
+      return { ...prev, schools: newSchools };
+    });
+    toast({ title: "Arcane Severance", description: "All selected hard prerequisites have been dissolved." });
+  }, [findSchoolForNode, pushHistory, toast]);
+
+  const handleClearSoftPrereqs = useCallback((nodeIds: string[]) => {
+    setTreeData(prev => {
+      if (!prev) return prev;
+      pushHistory(prev);
+      const newSchools = { ...prev.schools };
+
+      nodeIds.forEach(nodeId => {
+        const sourceSchoolName = findSchoolForNode(nodeId);
+        if (!sourceSchoolName) return;
+        
+        const sourceSchool = newSchools[sourceSchoolName];
+        const sourceNode = sourceSchool.nodes.find(n => n.formId === nodeId);
+        if (!sourceNode || !sourceNode.softPrereqs || sourceNode.softPrereqs.length === 0) return;
+
+        const parentsToSever = [...sourceNode.softPrereqs];
+        
+        sourceNode.softPrereqs = [];
+        sourceNode.prerequisites = (sourceNode.prerequisites || []).filter(id => !parentsToSever.includes(id));
+
+        parentsToSever.forEach(parentId => {
+          const targetSchoolName = findSchoolForNode(parentId);
+          if (!targetSchoolName) return;
+          const targetSchool = newSchools[targetSchoolName];
+          const targetNode = targetSchool.nodes.find(n => n.formId === parentId);
+          if (targetNode) {
+            targetNode.children = (targetNode.children || []).filter(id => id !== nodeId);
+          }
+        });
+      });
+
+      return { ...prev, schools: newSchools };
+    });
+    toast({ title: "Arcane Severance", description: "All selected soft prerequisites have been dissolved." });
   }, [findSchoolForNode, pushHistory, toast]);
 
   const handleAddNode = () => { if (treeData && selectedSchool) setIsAddNodeOpen(true) }
@@ -593,6 +660,8 @@ export default function HoMTreeEditor() {
             onDelete={handleDeleteNode} 
             onSelectNode={(id) => setSelectedNodeIds([id])} 
             onClearChildren={handleClearChildren}
+            onClearHardPrereqs={handleClearHardPrereqs}
+            onClearSoftPrereqs={handleClearSoftPrereqs}
           />
         </aside>
       )}

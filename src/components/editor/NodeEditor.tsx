@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useMemo } from 'react'
@@ -25,6 +24,8 @@ interface NodeEditorProps {
   onDelete: (nodeId: string) => void;
   onSelectNode: (nodeId: string) => void;
   onClearChildren: (nodeIds: string[]) => void;
+  onClearHardPrereqs: (nodeIds: string[]) => void;
+  onClearSoftPrereqs: (nodeIds: string[]) => void;
 }
 
 export function NodeEditor({ 
@@ -38,7 +39,9 @@ export function NodeEditor({
   onToggleRelationship, 
   onDelete, 
   onSelectNode,
-  onClearChildren
+  onClearChildren,
+  onClearHardPrereqs,
+  onClearSoftPrereqs
 }: NodeEditorProps) {
 
   const selectedCount = selectedNodeIds.length
@@ -142,7 +145,17 @@ export function NodeEditor({
     return school.nodes.filter(n => selectedNodeIds.includes(n.formId) && n.children && n.children.length > 0)
   }, [school.nodes, selectedNodeIds])
 
+  const selectedNodesWithHardPrereqs = useMemo(() => {
+    return school.nodes.filter(n => selectedNodeIds.includes(n.formId) && n.hardPrereqs && n.hardPrereqs.length > 0)
+  }, [school.nodes, selectedNodeIds])
+
+  const selectedNodesWithSoftPrereqs = useMemo(() => {
+    return school.nodes.filter(n => selectedNodeIds.includes(n.formId) && n.softPrereqs && n.softPrereqs.length > 0)
+  }, [school.nodes, selectedNodeIds])
+
   const canClearChildren = selectedNodesWithChildren.length > 0
+  const canClearHardPrereqs = selectedNodesWithHardPrereqs.length > 0
+  const canClearSoftPrereqs = selectedNodesWithSoftPrereqs.length > 0
 
   return (
     <div className="flex flex-col h-full bg-card">
@@ -257,17 +270,43 @@ export function NodeEditor({
               <LinkIcon className="w-4 h-4 text-accent" /> Arcane Connections
             </h3>
 
-            {canClearChildren && (
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="w-full flex items-center gap-2 text-[10px] uppercase tracking-widest h-8 border-destructive/30 hover:bg-destructive/10 hover:text-destructive text-muted-foreground font-bold transition-all"
-                onClick={() => onClearChildren(selectedNodeIds)}
-              >
-                <Scissors className="w-3.5 h-3.5" />
-                Sever All Child Links
-              </Button>
-            )}
+            <div className="flex flex-col gap-2">
+              {canClearChildren && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="w-full flex items-center gap-2 text-[10px] uppercase tracking-widest h-8 border-destructive/30 hover:bg-destructive/10 hover:text-destructive text-muted-foreground font-bold transition-all"
+                  onClick={() => onClearChildren(selectedNodeIds)}
+                >
+                  <Scissors className="w-3.5 h-3.5" />
+                  Sever All Child Links
+                </Button>
+              )}
+
+              {canClearHardPrereqs && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="w-full flex items-center gap-2 text-[10px] uppercase tracking-widest h-8 border-destructive/30 hover:bg-destructive/10 hover:text-destructive text-muted-foreground font-bold transition-all"
+                  onClick={() => onClearHardPrereqs(selectedNodeIds)}
+                >
+                  <Scissors className="w-3.5 h-3.5" />
+                  Sever All Hard Prereqs
+                </Button>
+              )}
+
+              {canClearSoftPrereqs && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="w-full flex items-center gap-2 text-[10px] uppercase tracking-widest h-8 border-destructive/30 hover:bg-destructive/10 hover:text-destructive text-muted-foreground font-bold transition-all"
+                  onClick={() => onClearSoftPrereqs(selectedNodeIds)}
+                >
+                  <Scissors className="w-3.5 h-3.5" />
+                  Sever All Soft Prereqs
+                </Button>
+              )}
+            </div>
 
             <div className="space-y-3">
               <div className="flex items-center justify-between">
