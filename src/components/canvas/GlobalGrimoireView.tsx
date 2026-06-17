@@ -147,13 +147,13 @@ export function GlobalGrimoireView({
         if (e.ctrlKey || e.metaKey) {
           if (showRadialGuides) {
             const r = Math.sqrt(x * x + y * y);
-            const rSnap = Math.round(r / gridSize) * gridSize;
+            const rSnap = Math.round(r / gridSize!) * gridSize!;
             const theta = Math.atan2(y, x);
             x = Math.round(rSnap * Math.cos(theta));
             y = Math.round(rSnap * Math.sin(theta));
           } else {
-            x = Math.round(x / gridSize) * gridSize;
-            y = Math.round(y / gridSize) * gridSize;
+            x = Math.round(x / gridSize!) * gridSize!;
+            y = Math.round(y / gridSize!) * gridSize!;
           }
         }
         updates[id] = { x, y };
@@ -277,8 +277,8 @@ export function GlobalGrimoireView({
     }
 
     if (showRadialGuides) {
-      for (let r = gridSize; r <= 5000; r += gridSize) {
-        const isMajor = r % (gridSize * 4) === 0;
+      for (let r = gridSize!; r <= 5000; r += gridSize!) {
+        const isMajor = r % (gridSize! * 4) === 0;
         radialGuides.push(
           <circle
             key={`radial-${r}`}
@@ -457,7 +457,10 @@ export function GlobalGrimoireView({
         style={{ transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})` }}
       >
         {!showRadialGuides && (
-          <div className="absolute inset-[-50000px] pointer-events-none arcane-grid" />
+          <div 
+            className="absolute inset-[-50000px] pointer-events-none arcane-grid" 
+            style={{ backgroundSize: `${gridSize}px ${gridSize}px` }}
+          />
         )}
 
         <svg className="absolute overflow-visible" style={{ width: 1, height: 1 }}>

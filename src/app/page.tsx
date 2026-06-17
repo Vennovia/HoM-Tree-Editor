@@ -29,7 +29,8 @@ import {
   Link,
   Move,
   CheckSquare,
-  Grid3X3
+  Grid3X3,
+  Check
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
@@ -72,6 +73,8 @@ export default function HoMTreeEditor() {
   const [nodeSearchQuery, setNodeSearchQuery] = useState('')
   const [showRadialGuides, setShowRadialGuides] = useState(false)
   const [gridSize, setGridSize] = useState(25)
+  const [tempGridSize, setTempGridSize] = useState(25)
+  const [isGridPopoverOpen, setIsGridPopoverOpen] = useState(false)
   
   const selectedNodeId = selectedNodeIds.length > 0 ? selectedNodeIds[0] : null;
 
@@ -550,6 +553,12 @@ export default function HoMTreeEditor() {
     })
   }
 
+  const handleApplyGridSize = () => {
+    setGridSize(tempGridSize);
+    setIsGridPopoverOpen(false);
+    toast({ title: "Grid Alignment", description: `Snapping set to ${tempGridSize} units.` });
+  }
+
   const filteredSchools = treeData ? Object.keys(treeData.schools).filter(s => s.toLowerCase().includes(searchQuery.toLowerCase())) : []
 
   const selectedNode = useMemo(() => {
@@ -673,31 +682,36 @@ export default function HoMTreeEditor() {
                   <Compass className="w-4 h-4" /> {showRadialGuides ? "Radial On" : "Radial Off"}
                 </Button>
 
-                <Popover>
+                <Popover open={isGridPopoverOpen} onOpenChange={(open) => { setIsGridPopoverOpen(open); if (open) setTempGridSize(gridSize); }}>
                   <PopoverTrigger asChild>
                     <Button variant="ghost" size="sm" className="gap-2 text-xs text-muted-foreground">
                       <Grid3X3 className="w-4 h-4" /> Grid: {gridSize}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-64 p-4 space-y-4">
-                    <div className="space-y-2">
-                      <Label className="text-xs font-bold uppercase tracking-wider">Grid Snapping Size</Label>
-                      <div className="flex items-center gap-4">
-                        <Slider 
-                          value={[gridSize]} 
-                          min={5} 
-                          max={100} 
-                          step={1} 
-                          onValueChange={([val]) => setGridSize(val)} 
-                          className="flex-1"
-                        />
-                        <Input 
-                          type="number" 
-                          value={gridSize} 
-                          onChange={(e) => setGridSize(Number(e.target.value))} 
-                          className="w-16 h-8 text-xs"
-                        />
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label className="text-xs font-bold uppercase tracking-wider">Grid Snapping Size</Label>
+                        <div className="flex items-center gap-4">
+                          <Slider 
+                            value={[tempGridSize]} 
+                            min={5} 
+                            max={100} 
+                            step={1} 
+                            onValueChange={([val]) => setTempGridSize(val)} 
+                            className="flex-1"
+                          />
+                          <Input 
+                            type="number" 
+                            value={tempGridSize} 
+                            onChange={(e) => setTempGridSize(Number(e.target.value))} 
+                            className="w-16 h-8 text-xs"
+                          />
+                        </div>
                       </div>
+                      <Button onClick={handleApplyGridSize} size="sm" className="w-full gap-2 text-xs">
+                        <Check className="w-3.5 h-3.5" /> Apply Changes
+                      </Button>
                     </div>
                   </PopoverContent>
                 </Popover>
