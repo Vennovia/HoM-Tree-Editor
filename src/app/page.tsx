@@ -7,7 +7,6 @@ import { TreeCanvas } from '@/components/canvas/TreeCanvas'
 import { GlobalGrimoireView } from '@/components/canvas/GlobalGrimoireView'
 import { NodeEditor } from '@/components/editor/NodeEditor'
 import { AddNodeDialog } from '@/components/editor/AddNodeDialog'
-import { SettingsDialog } from '@/components/editor/SettingsDialog'
 import { DashboardView } from '@/components/dashboard/DashboardView'
 import { Button } from '@/components/ui/button'
 import { 
@@ -28,10 +27,7 @@ import {
   Command,
   SquareDashedMousePointer,
   Link,
-  Move,
-  Maximize,
-  FolderOpen,
-  Settings
+  Move
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
@@ -62,57 +58,12 @@ export default function HoMTreeEditor() {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
   const [isImportOpen, setIsImportOpen] = useState(false)
   const [isAddNodeOpen, setIsAddNodeOpen] = useState(false)
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [isGlobalView, setIsGlobalView] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [nodeSearchQuery, setNodeSearchQuery] = useState('')
   const [showRadialGuides, setShowRadialGuides] = useState(false)
   
-  // Custom paths state
-  const [configImportPath, setConfigImportPath] = useState('')
-  const [configExportPath, setConfigExportPath] = useState('')
-
-  // Tauri API state - using any to avoid build-time resolution errors
-  const [tauri, setTauri] = useState<{
-    fs: any;
-    dialog: any;
-    path: any;
-    core: any;
-  } | null>(null);
-
-  const isTauri = !!tauri;
   const selectedNodeId = selectedNodeIds.length > 0 ? selectedNodeIds[0] : null;
-
-  useEffect(() => {
-    // Robust check for Tauri environment to avoid Next.js build errors
-    const isRunningInTauri = typeof window !== 'undefined' && 
-      ((window as any).__TAURI_INTERNALS__ || (window as any).__TAURI__);
-    
-    if (isRunningInTauri) {
-      // Use dynamic imports to prevent Next.js from failing during static build
-      // These will only resolve at runtime when running inside the Tauri shell
-      const initTauri = async () => {
-        try {
-          const [fs, dialog, path, core] = await Promise.all([
-            import('@tauri-apps/plugin-fs'),
-            import('@tauri-apps/plugin-dialog'),
-            import('@tauri-apps/api/path'),
-            import('@tauri-apps/api/core')
-          ]);
-          setTauri({ fs, dialog, path, core });
-        } catch (err) {
-          console.warn("Tauri plugins not found. This is expected during Next.js build phase.", err);
-        }
-      };
-      initTauri();
-    }
-
-    // Load custom paths from local storage
-    const savedImport = localStorage.getItem('hom-config-import-path')
-    const savedExport = localStorage.getItem('hom-config-export-path')
-    if (savedImport) setConfigImportPath(savedImport)
-    if (savedExport) setConfigExportPath(savedExport)
-  }, []);
 
   const migrateGrimoireData = useCallback((data: any) => {
     if (!data.schools) return data;
@@ -193,65 +144,11 @@ export default function HoMTreeEditor() {
     toast({ title: "Knowledge Absorbed", description: "Successfully imported arcane data structures." })
   }
 
-  const handleNativeImport = async () => {
-    if (!tauri) return;
-    
-    try {
-      let defaultPath = configImportPath;
-      if (!defaultPath) {
-        // Fallback to internal imports folder
-        const installPath = await tauri.core.invoke('get_install_dir_path');
-        defaultPath = `${installPath}/imports`;
-      }
-      
-      const selected = await tauri.dialog.open({
-        multiple: false,
-        directory: false,
-        defaultPath: defaultPath,
-        filters: [{ name: 'JSON', extensions: ['json'] }]
-      });
-
-      if (selected && typeof selected === 'string') {
-        const content = await tauri.fs.readTextFile(selected);
-        const parsed = JSON.parse(content);
-        handleImport(parsed);
-      }
-    } catch (e) {
-      console.error("Native import failed:", e);
-      toast({ variant: "destructive", title: "Import Failed", description: "Could not access the arcane file." });
-    }
-  };
-
-  const handleExport = async () => {
+  const handleExport = () => {
     if (!treeData) return
     const jsonString = JSON.stringify(treeData, null, 2);
-    const fileName = `spell_tree_v${treeData.version || '1.0'}_${Date.now()}.json`;
+    const fileName = `spell_tree_${Date.now()}.json`;
 
-    if (tauri) {
-      try {
-        // Use native Rust command to save to install directory or custom path
-        const resultPath = await tauri.core.invoke('save_grimoire_to_disk', {
-          content: jsonString,
-          fileName: fileName,
-          customPath: configExportPath || null
-        });
-        
-        toast({ 
-          title: "Grimoire Sealed", 
-          description: `Saved locally to: ${resultPath}` 
-        });
-        return;
-      } catch (e) {
-        console.error("Native export failed:", e);
-        toast({ 
-          variant: "destructive", 
-          title: "Export Failed", 
-          description: "Native filesystem error. Falling back to browser download." 
-        });
-      }
-    }
-
-    // Fallback for browser environment
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(jsonString)
     const downloadAnchorNode = document.createElement('a')
     downloadAnchorNode.setAttribute("href", dataStr)
@@ -468,15 +365,6 @@ export default function HoMTreeEditor() {
       <Toaster />
       <JSONImporter isOpen={isImportOpen} onOpenChange={setIsImportOpen} onImport={handleImport} />
       <AddNodeDialog isOpen={isAddNodeOpen} onOpenChange={setIsAddNodeOpen} onConfirm={handleConfirmAddNode} />
-      <SettingsDialog 
-        isOpen={isSettingsOpen} 
-        onOpenChange={setIsSettingsOpen}
-        importPath={configImportPath}
-        exportPath={configExportPath}
-        onImportPathChange={setConfigImportPath}
-        onExportPathChange={setConfigExportPath}
-        tauriApi={tauri}
-      />
 
       <aside className={cn("flex flex-col border-r border-border bg-card/50 transition-all relative z-30", isSidebarCollapsed ? "w-16" : "w-72")}>
         <div className="p-4 border-b border-border flex items-center justify-between">
@@ -534,17 +422,8 @@ export default function HoMTreeEditor() {
               </div>
             </div>
             <div className="mt-auto p-4 border-t border-border space-y-2">
-              <button className="hidden">Force build to recognize grimoire:allow-grimoire-commands</button>
               <Button variant="outline" className="w-full justify-start gap-2 text-xs" onClick={handleUndo} disabled={history.length === 0}><Undo2 className="w-3.5 h-3.5" /> Undo Action</Button>
-              {isTauri && (
-                <>
-                  <Button variant="outline" className="w-full justify-start gap-2 text-xs" onClick={handleNativeImport}><FolderOpen className="w-3.5 h-3.5" /> Open From Grimoire</Button>
-                  <Button variant="outline" className="w-full justify-start gap-2 text-xs" onClick={() => setIsSettingsOpen(true)}><Settings className="w-3.5 h-3.5" /> Grimoire Settings</Button>
-                </>
-              )}
-              {!isTauri && (
-                <Button variant="outline" className="w-full justify-start gap-2 text-xs" onClick={() => setIsImportOpen(true)}><Code className="w-3.5 h-3.5" /> Import JSON</Button>
-              )}
+              <Button variant="outline" className="w-full justify-start gap-2 text-xs" onClick={() => setIsImportOpen(true)}><Code className="w-3.5 h-3.5" /> Import JSON</Button>
               <Button className="w-full justify-start gap-2 text-xs" onClick={handleExport} disabled={!treeData}><Download className="w-3.5 h-3.5" /> Export Grimoire</Button>
             </div>
           </div>

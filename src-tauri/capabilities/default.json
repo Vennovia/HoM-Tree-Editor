@@ -6,10 +6,6 @@
     "main"
   ],
   "permissions": [
-    "core:default",
-    "fs:default",
-    "dialog:default",
-    "log:default",
-    "grimoire:allow-grimoire-commands"
+    "core:default"
   ]
 }
