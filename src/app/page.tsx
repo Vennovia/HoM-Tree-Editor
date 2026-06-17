@@ -194,6 +194,7 @@ export default function HoMTreeEditor() {
     }
     
     try {
+      // Use custom path if set, otherwise default path handled by Rust
       const defaultPath = await tauriApi.invoke('get_grimoire_path', { customPath: configImportPath });
       
       const selected = await tauriApi.dialog.open({
@@ -221,6 +222,7 @@ export default function HoMTreeEditor() {
 
     if (tauriApi) {
       try {
+        // Use custom export path if provided, otherwise default to app install dir /exports
         const savedPath = await tauriApi.invoke('save_grimoire_to_disk', { 
           jsonContent: jsonString, 
           fileName: fileName,
@@ -229,7 +231,7 @@ export default function HoMTreeEditor() {
         
         toast({ 
           title: "Grimoire Sealed", 
-          description: `Spell tree saved successfully to your export directory.` 
+          description: `Saved locally to: ${savedPath}` 
         });
         return;
       } catch (e) {
@@ -242,6 +244,7 @@ export default function HoMTreeEditor() {
       }
     }
 
+    // Fallback for browser or if Tauri fails
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(jsonString)
     const downloadAnchorNode = document.createElement('a')
     downloadAnchorNode.setAttribute("href", dataStr)
