@@ -485,7 +485,7 @@ export default function HoMTreeEditor() {
 
       // Calculate grid (square-ish)
       const cols = Math.ceil(Math.sqrt(targets.length));
-      const spacing = 50; // Standard spacing for condensed grid
+      const spacing = 30; // More condensed spacing (minimum for non-overlapping root nodes)
 
       targets.forEach((target, index) => {
         const row = Math.floor(index / cols);
