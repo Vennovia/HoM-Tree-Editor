@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
-import { Trash2, Link as LinkIcon, Lock, Unlock, MapPin, X, Star, StarOff, PlusCircle, Fingerprint, Layers } from 'lucide-react'
+import { Trash2, Link as LinkIcon, Lock, Unlock, MapPin, X, Star, StarOff, PlusCircle, Fingerprint, Layers, Scissors } from 'lucide-react'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
@@ -24,6 +24,7 @@ interface NodeEditorProps {
   onToggleRelationship: (nodeId: string, targetId: string, type: 'hard' | 'soft' | 'child' | 'pool') => void;
   onDelete: (nodeId: string) => void;
   onSelectNode: (nodeId: string) => void;
+  onClearChildren: (nodeIds: string[]) => void;
 }
 
 export function NodeEditor({ 
@@ -36,7 +37,8 @@ export function NodeEditor({
   onUpdateSchool,
   onToggleRelationship, 
   onDelete, 
-  onSelectNode
+  onSelectNode,
+  onClearChildren
 }: NodeEditorProps) {
 
   const selectedCount = selectedNodeIds.length
@@ -135,6 +137,12 @@ export function NodeEditor({
       onUpdate(node.formId, { isLocked: checked })
     }
   }
+
+  const selectedNodesWithChildren = useMemo(() => {
+    return school.nodes.filter(n => selectedNodeIds.includes(n.formId) && n.children && n.children.length > 0)
+  }, [school.nodes, selectedNodeIds])
+
+  const canClearChildren = selectedNodesWithChildren.length > 0
 
   return (
     <div className="flex flex-col h-full bg-card">
@@ -248,6 +256,18 @@ export function NodeEditor({
             <h3 className="text-sm font-semibold flex items-center gap-2">
               <LinkIcon className="w-4 h-4 text-accent" /> Arcane Connections
             </h3>
+
+            {canClearChildren && (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="w-full flex items-center gap-2 text-[10px] uppercase tracking-widest h-8 border-destructive/30 hover:bg-destructive/10 hover:text-destructive text-muted-foreground font-bold transition-all"
+                onClick={() => onClearChildren(selectedNodeIds)}
+              >
+                <Scissors className="w-3.5 h-3.5" />
+                Sever All Child Links
+              </Button>
+            )}
 
             <div className="space-y-3">
               <div className="flex items-center justify-between">

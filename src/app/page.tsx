@@ -349,6 +349,44 @@ export default function HoMTreeEditor() {
     setSelectedNodeIds(prev => prev.filter(id => id !== nodeId));
   }
 
+  const handleClearChildren = useCallback((nodeIds: string[]) => {
+    setTreeData(prev => {
+      if (!prev) return prev;
+      pushHistory(prev);
+      const newSchools = { ...prev.schools };
+
+      nodeIds.forEach(nodeId => {
+        const sourceSchoolName = findSchoolForNode(nodeId);
+        if (!sourceSchoolName) return;
+        
+        const sourceSchool = newSchools[sourceSchoolName];
+        const sourceNode = sourceSchool.nodes.find(n => n.formId === nodeId);
+        if (!sourceNode || !sourceNode.children || sourceNode.children.length === 0) return;
+
+        const childrenToSever = [...sourceNode.children];
+        
+        // 1. Clear children in source node
+        sourceNode.children = [];
+
+        // 2. Remove parent from children's prereqs
+        childrenToSever.forEach(childId => {
+          const targetSchoolName = findSchoolForNode(childId);
+          if (!targetSchoolName) return;
+          const targetSchool = newSchools[targetSchoolName];
+          const targetNode = targetSchool.nodes.find(n => n.formId === childId);
+          if (targetNode) {
+            targetNode.prerequisites = (targetNode.prerequisites || []).filter(id => id !== nodeId);
+            targetNode.hardPrereqs = (targetNode.hardPrereqs || []).filter(id => id !== nodeId);
+            targetNode.softPrereqs = (targetNode.softPrereqs || []).filter(id => id !== nodeId);
+          }
+        });
+      });
+
+      return { ...prev, schools: newSchools };
+    });
+    toast({ title: "Arcane Severance", description: "All selected child connections have been dissolved." });
+  }, [findSchoolForNode, pushHistory, toast]);
+
   const handleAddNode = () => { if (treeData && selectedSchool) setIsAddNodeOpen(true) }
 
   const handleConfirmAddNode = (details: Partial<SpellNode>) => {
@@ -543,7 +581,19 @@ export default function HoMTreeEditor() {
 
       {selectedNode && (
         <aside className="w-96 border-l border-border bg-card/80 backdrop-blur-md z-30 overflow-y-auto">
-          <NodeEditor schoolName={selectedNode.schoolName} school={treeData!.schools[selectedNode.schoolName]} node={selectedNode.node} selectedNodeIds={selectedNodeIds} onUpdate={handleUpdateNode} onUpdateNodes={handleUpdateNodes} onUpdateSchool={handleUpdateSchool} onToggleRelationship={handleToggleRelationship} onDelete={handleDeleteNode} onSelectNode={(id) => setSelectedNodeIds([id])} />
+          <NodeEditor 
+            schoolName={selectedNode.schoolName} 
+            school={treeData!.schools[selectedNode.schoolName]} 
+            node={selectedNode.node} 
+            selectedNodeIds={selectedNodeIds} 
+            onUpdate={handleUpdateNode} 
+            onUpdateNodes={handleUpdateNodes} 
+            onUpdateSchool={handleUpdateSchool} 
+            onToggleRelationship={handleToggleRelationship} 
+            onDelete={handleDeleteNode} 
+            onSelectNode={(id) => setSelectedNodeIds([id])} 
+            onClearChildren={handleClearChildren}
+          />
         </aside>
       )}
     </div>
