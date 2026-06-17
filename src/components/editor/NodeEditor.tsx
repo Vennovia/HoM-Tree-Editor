@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
-import { Trash2, Link as LinkIcon, Lock, Unlock, MapPin, X, Star, StarOff, PlusCircle, Fingerprint, Layers, Scissors, Grid3X3 } from 'lucide-react'
+import { Trash2, Link as LinkIcon, Lock, Unlock, MapPin, X, Star, StarOff, PlusCircle, Fingerprint, Layers, Scissors, Grid3X3, Compass } from 'lucide-react'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
@@ -48,6 +48,15 @@ export function NodeEditor({
 
   const selectedCount = selectedNodeIds.length
 
+  const currentDegrees = useMemo(() => {
+    const { x, y } = node;
+    if (x === 0 && y === 0) return 0;
+    let deg = (Math.atan2(y, x) * (180 / Math.PI)) + 90;
+    if (deg < 0) deg += 360;
+    if (deg >= 360) deg -= 360;
+    return Math.round(deg);
+  }, [node.x, node.y]);
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
     if (name === 'x' || name === 'y' || name === 'tier' || name === 'softNeeded') {
@@ -55,6 +64,16 @@ export function NodeEditor({
     } else {
       onUpdate(node.formId, { [name]: value })
     }
+  }
+
+  const handleAngleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newDeg = Number(e.target.value);
+    const r = Math.sqrt(node.x * node.x + node.y * node.y);
+    if (r === 0) return;
+    const rad = (newDeg - 90) * (Math.PI / 180);
+    const newX = Math.round(r * Math.cos(rad));
+    const newY = Math.round(r * Math.sin(rad));
+    onUpdate(node.formId, { x: newX, y: newY });
   }
 
   const renderRelationList = (ids: string[], type: 'hard' | 'soft' | 'child') => {
@@ -262,6 +281,24 @@ export function NodeEditor({
                 <Label className="text-xs text-muted-foreground">Y Axis</Label>
                 <Input type="number" name="y" value={node.y} onChange={handleChange} disabled={node.isLocked} className="bg-background border-border" />
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Compass className="w-3.5 h-3.5 text-accent" />
+                <Label className="text-xs text-muted-foreground uppercase tracking-widest font-bold">Compass Angle</Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <Input 
+                  type="number" 
+                  value={currentDegrees} 
+                  onChange={handleAngleChange} 
+                  disabled={node.isLocked} 
+                  className="bg-background border-border h-8 text-xs" 
+                />
+                <span className="text-xs text-muted-foreground">°</span>
+              </div>
+              <p className="text-[9px] text-muted-foreground opacity-60 italic">Adjusts polar orientation around Core Magic (0° is Up).</p>
             </div>
             
             {selectedCount > 1 && (
