@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState, useRef, useEffect, useMemo } from 'react'
@@ -14,6 +15,8 @@ interface GlobalGrimoireViewProps {
   searchQuery?: string;
   showRadialGuides?: boolean;
   gridSize?: number;
+  snapToCoreSpokes?: boolean;
+  snapToNodeSpokes?: boolean;
 }
 
 export function GlobalGrimoireView({ 
@@ -24,7 +27,9 @@ export function GlobalGrimoireView({
   onLinkNodes,
   searchQuery = '',
   showRadialGuides = false,
-  gridSize = 25
+  gridSize = 25,
+  snapToCoreSpokes = true,
+  snapToNodeSpokes = true
 }: GlobalGrimoireViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [transform, setTransform] = useState({ x: 0, y: 0, scale: 0.25 });
@@ -155,6 +160,41 @@ export function GlobalGrimoireView({
           } else {
             x = Math.round(x / s) * s;
             y = Math.round(y / s) * s;
+          }
+
+          // Angle Snapping: Core Hub (15 deg)
+          if (snapToCoreSpokes) {
+            const r = Math.sqrt(x * x + y * y);
+            const theta = Math.atan2(y, x);
+            const snapAngle = (15 * Math.PI) / 180;
+            const snappedTheta = Math.round(theta / snapAngle) * snapAngle;
+            x = Math.round(r * Math.cos(snappedTheta));
+            y = Math.round(r * Math.sin(snappedTheta));
+          }
+
+          // Angle Snapping: Relative Spokes
+          if (snapToNodeSpokes) {
+            const allNodes: SpellNode[] = [];
+            Object.values(schools).forEach(s => allNodes.push(...s.nodes));
+            
+            const guides = allNodes.filter(n => n.showSpokes && !selectedNodeIds.includes(n.formId));
+            for (const guide of guides) {
+              const dx_rel = x - guide.x;
+              const dy_rel = y - guide.y;
+              const r_rel = Math.sqrt(dx_rel * dx_rel + dy_rel * dy_rel);
+              if (r_rel < 10) continue;
+
+              const theta_rel = Math.atan2(dy_rel, dx_rel);
+              const snapAngle = (15 * Math.PI) / 180;
+              const angleThreshold = (5 * Math.PI) / 180;
+              const snappedTheta = Math.round(theta_rel / snapAngle) * snapAngle;
+              
+              if (Math.abs(theta_rel - snappedTheta) < angleThreshold) {
+                x = guide.x + Math.round(r_rel * Math.cos(snappedTheta));
+                y = guide.y + Math.round(r_rel * Math.sin(snappedTheta));
+                break; 
+              }
+            }
           }
         }
         updates[id] = { x, y };

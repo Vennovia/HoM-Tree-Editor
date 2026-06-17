@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
@@ -30,7 +31,9 @@ import {
   Move,
   CheckSquare,
   Grid3X3,
-  Check
+  Check,
+  Magnet,
+  Crosshair
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
@@ -72,6 +75,8 @@ export default function HoMTreeEditor() {
   const [searchQuery, setSearchQuery] = useState('')
   const [nodeSearchQuery, setNodeSearchQuery] = useState('')
   const [showRadialGuides, setShowRadialGuides] = useState(false)
+  const [snapToCoreSpokes, setSnapToCoreSpokes] = useState(true)
+  const [snapToNodeSpokes, setSnapToNodeSpokes] = useState(true)
   const [gridSize, setGridSize] = useState(25)
   const [tempGridSize, setTempGridSize] = useState(25)
   const [isGridPopoverOpen, setIsGridPopoverOpen] = useState(false)
@@ -682,6 +687,27 @@ export default function HoMTreeEditor() {
                   <Compass className="w-4 h-4" /> {showRadialGuides ? "Radial On" : "Radial Off"}
                 </Button>
 
+                <div className="flex items-center gap-1 px-1 py-0.5 bg-secondary/20 rounded-md border border-border/40">
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className={cn("w-7 h-7", snapToCoreSpokes ? "text-accent bg-accent/10" : "text-muted-foreground")} 
+                    title="Snap to Core Spokes"
+                    onClick={() => setSnapToCoreSpokes(!snapToCoreSpokes)}
+                  >
+                    <Magnet className="w-3.5 h-3.5" />
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className={cn("w-7 h-7", snapToNodeSpokes ? "text-yellow-400 bg-yellow-400/10" : "text-muted-foreground")} 
+                    title="Snap to Node Spokes"
+                    onClick={() => setSnapToNodeSpokes(!snapToNodeSpokes)}
+                  >
+                    <Crosshair className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
+
                 <Popover open={isGridPopoverOpen} onOpenChange={(open) => { setIsGridPopoverOpen(open); if (open) setTempGridSize(gridSize); }}>
                   <PopoverTrigger asChild>
                     <Button variant="ghost" size="sm" className="gap-2 text-xs text-muted-foreground">
@@ -738,9 +764,32 @@ export default function HoMTreeEditor() {
 
         <div className="flex-1 relative">
           {treeData && (selectedSchool ? (
-            <TreeCanvas schoolName={selectedSchool} allSchools={treeData.schools} selectedNodeIds={selectedNodeIds} onSelectNodes={setSelectedNodeIds} onNodesMove={handleUpdateNodes} onLinkNodes={handleLinkNodes} searchQuery={nodeSearchQuery} showRadialGuides={showRadialGuides} gridSize={gridSize} />
+            <TreeCanvas 
+              schoolName={selectedSchool} 
+              allSchools={treeData.schools} 
+              selectedNodeIds={selectedNodeIds} 
+              onSelectNodes={setSelectedNodeIds} 
+              onNodesMove={handleUpdateNodes} 
+              onLinkNodes={handleLinkNodes} 
+              searchQuery={nodeSearchQuery} 
+              showRadialGuides={showRadialGuides} 
+              gridSize={gridSize}
+              snapToCoreSpokes={snapToCoreSpokes}
+              snapToNodeSpokes={snapToNodeSpokes}
+            />
           ) : isGlobalView ? (
-            <GlobalGrimoireView schools={treeData.schools} selectedNodeIds={selectedNodeIds} onSelectNodes={setSelectedNodeIds} onNodesMove={handleUpdateNodes} onLinkNodes={handleLinkNodes} searchQuery={nodeSearchQuery} showRadialGuides={showRadialGuides} gridSize={gridSize} />
+            <GlobalGrimoireView 
+              schools={treeData.schools} 
+              selectedNodeIds={selectedNodeIds} 
+              onSelectNodes={setSelectedNodeIds} 
+              onNodesMove={handleUpdateNodes} 
+              onLinkNodes={handleLinkNodes} 
+              searchQuery={nodeSearchQuery} 
+              showRadialGuides={showRadialGuides} 
+              gridSize={gridSize}
+              snapToCoreSpokes={snapToCoreSpokes}
+              snapToNodeSpokes={snapToNodeSpokes}
+            />
           ) : (
             <DashboardView data={treeData} onSelectSchool={setSelectedSchool} />
           ))}

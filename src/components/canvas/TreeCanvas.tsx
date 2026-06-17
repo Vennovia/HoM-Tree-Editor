@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useState, useRef, useEffect, useMemo } from 'react'
@@ -15,6 +16,8 @@ interface TreeCanvasProps {
   searchQuery?: string;
   showRadialGuides?: boolean;
   gridSize?: number;
+  snapToCoreSpokes?: boolean;
+  snapToNodeSpokes?: boolean;
 }
 
 export function TreeCanvas({ 
@@ -26,7 +29,9 @@ export function TreeCanvas({
   onLinkNodes,
   searchQuery = '',
   showRadialGuides = false,
-  gridSize = 25
+  gridSize = 25,
+  snapToCoreSpokes = true,
+  snapToNodeSpokes = true
 }: TreeCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [transform, setTransform] = useState({ x: 0, y: 0, scale: 0.5 });
@@ -180,6 +185,7 @@ export function TreeCanvas({
 
         if (e.ctrlKey || e.metaKey) {
           const s = Math.max(1, gridSize || 25);
+          
           if (showRadialGuides) {
             const r = Math.sqrt(x * x + y * y);
             const rSnap = Math.round(r / s) * s;
@@ -189,6 +195,38 @@ export function TreeCanvas({
           } else {
             x = Math.round(x / s) * s;
             y = Math.round(y / s) * s;
+          }
+
+          // Apply Angle Snapping to Core Spokes
+          if (snapToCoreSpokes) {
+            const r = Math.sqrt(x * x + y * y);
+            const theta = Math.atan2(y, x);
+            const snapAngle = (15 * Math.PI) / 180;
+            const snappedTheta = Math.round(theta / snapAngle) * snapAngle;
+            x = Math.round(r * Math.cos(snappedTheta));
+            y = Math.round(r * Math.sin(snappedTheta));
+          }
+
+          // Apply Relative Snapping to Node Spokes
+          if (snapToNodeSpokes) {
+            const guides = school.nodes.filter(n => n.showSpokes && !selectedNodeIds.includes(n.formId));
+            for (const guide of guides) {
+              const dx_rel = x - guide.x;
+              const dy_rel = y - guide.y;
+              const r_rel = Math.sqrt(dx_rel * dx_rel + dy_rel * dy_rel);
+              if (r_rel < 10) continue; // Skip if too close to center
+
+              const theta_rel = Math.atan2(dy_rel, dx_rel);
+              const snapAngle = (15 * Math.PI) / 180;
+              const angleThreshold = (5 * Math.PI) / 180;
+              const snappedTheta = Math.round(theta_rel / snapAngle) * snapAngle;
+              
+              if (Math.abs(theta_rel - snappedTheta) < angleThreshold) {
+                x = guide.x + Math.round(r_rel * Math.cos(snappedTheta));
+                y = guide.y + Math.round(r_rel * Math.sin(snappedTheta));
+                break; 
+              }
+            }
           }
         }
         updates[id] = { x, y };
