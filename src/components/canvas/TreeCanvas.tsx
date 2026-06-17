@@ -14,6 +14,7 @@ interface TreeCanvasProps {
   onLinkNodes: (sourceId: string, targetId: string) => void;
   searchQuery?: string;
   showRadialGuides?: boolean;
+  gridSize?: number;
 }
 
 export function TreeCanvas({ 
@@ -24,7 +25,8 @@ export function TreeCanvas({
   onNodesMove,
   onLinkNodes,
   searchQuery = '',
-  showRadialGuides = false
+  showRadialGuides = false,
+  gridSize = 25
 }: TreeCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [transform, setTransform] = useState({ x: 0, y: 0, scale: 0.5 });
@@ -125,7 +127,6 @@ export function TreeCanvas({
       onSelectNodes(newSelection);
 
       const node = school.nodes.find(n => n.formId === nodeId);
-      // Only start node dragging if the initial target node is not locked
       if (node && !node.isLocked) {
         setDragMode('node');
         setDragNodeId(nodeId);
@@ -134,7 +135,6 @@ export function TreeCanvas({
         const initialPositions: Record<string, { x: number, y: number }> = {};
         nodesToMove.forEach(id => {
           const n = school.nodes.find(node => node.formId === id);
-          // Only add unlocked nodes to the movement group
           if (n && !n.isLocked) {
             initialPositions[id] = { x: n.x, y: n.y };
           }
@@ -181,13 +181,13 @@ export function TreeCanvas({
         if (e.ctrlKey || e.metaKey) {
           if (showRadialGuides) {
             const r = Math.sqrt(x * x + y * y);
-            const rSnap = Math.round(r / 25) * 25;
+            const rSnap = Math.round(r / gridSize) * gridSize;
             const theta = Math.atan2(y, x);
             x = Math.round(rSnap * Math.cos(theta));
             y = Math.round(rSnap * Math.sin(theta));
           } else {
-            x = Math.round(x / 25) * 25;
-            y = Math.round(y / 25) * 25;
+            x = Math.round(x / gridSize) * gridSize;
+            y = Math.round(y / gridSize) * gridSize;
           }
         }
         updates[id] = { x, y };
@@ -305,8 +305,8 @@ export function TreeCanvas({
     }
 
     if (showRadialGuides) {
-      for (let r = 25; r <= 4000; r += 25) {
-        const isMajor = r % 100 === 0;
+      for (let r = gridSize; r <= 4000; r += gridSize) {
+        const isMajor = r % (gridSize * 4) === 0;
         radialGuides.push(
           <circle
             key={`radial-${r}`}
@@ -464,7 +464,7 @@ export function TreeCanvas({
     });
 
     return { nodes, connections, hubLines, radialGuides, spokes };
-  }, [allSchools, schoolName, school, selectedNodeIds, dragMode, searchQuery, showRadialGuides, draggingNodesPos]);
+  }, [allSchools, schoolName, school, selectedNodeIds, dragMode, searchQuery, showRadialGuides, draggingNodesPos, gridSize]);
 
   const activeDragInfo = useMemo(() => {
     if (dragMode !== 'node' || !dragNodeId || !draggingNodesPos[dragNodeId]) return null;

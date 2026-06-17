@@ -28,7 +28,8 @@ import {
   SquareDashedMousePointer,
   Link,
   Move,
-  CheckSquare
+  CheckSquare,
+  Grid3X3
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
@@ -52,6 +53,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { Slider } from '@/components/ui/slider'
 
 const STORAGE_KEY = 'hom-tree-editor-data'
 const MAX_HISTORY = 20
@@ -69,6 +71,7 @@ export default function HoMTreeEditor() {
   const [searchQuery, setSearchQuery] = useState('')
   const [nodeSearchQuery, setNodeSearchQuery] = useState('')
   const [showRadialGuides, setShowRadialGuides] = useState(false)
+  const [gridSize, setGridSize] = useState(25)
   
   const selectedNodeId = selectedNodeIds.length > 0 ? selectedNodeIds[0] : null;
 
@@ -462,7 +465,6 @@ export default function HoMTreeEditor() {
       pushHistory(prev);
       const newSchools = { ...prev.schools };
       
-      // Collect all selected unlocked nodes and their current positions to find the group center
       const targets: { school: string, node: SpellNode }[] = [];
       let sumX = 0;
       let sumY = 0;
@@ -483,16 +485,14 @@ export default function HoMTreeEditor() {
       const avgX = sumX / targets.length;
       const avgY = sumY / targets.length;
 
-      // Calculate grid (square-ish)
       const cols = Math.ceil(Math.sqrt(targets.length));
-      const spacing = 30; // More condensed spacing (minimum for non-overlapping root nodes)
+      const spacing = 30; 
 
       targets.forEach((target, index) => {
         const row = Math.floor(index / cols);
         const col = index % cols;
         const rows = Math.ceil(targets.length / cols);
 
-        // Center the grid around the average position
         const targetX = Math.round(avgX + (col - (cols - 1) / 2) * spacing);
         const targetY = Math.round(avgY + (row - (rows - 1) / 2) * spacing);
 
@@ -672,6 +672,35 @@ export default function HoMTreeEditor() {
                 <Button variant="ghost" size="sm" className={cn("gap-2 text-xs", showRadialGuides ? "text-accent bg-accent/10" : "text-muted-foreground")} onClick={() => setShowRadialGuides(!showRadialGuides)}>
                   <Compass className="w-4 h-4" /> {showRadialGuides ? "Radial On" : "Radial Off"}
                 </Button>
+
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="ghost" size="sm" className="gap-2 text-xs text-muted-foreground">
+                      <Grid3X3 className="w-4 h-4" /> Grid: {gridSize}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-64 p-4 space-y-4">
+                    <div className="space-y-2">
+                      <Label className="text-xs font-bold uppercase tracking-wider">Grid Snapping Size</Label>
+                      <div className="flex items-center gap-4">
+                        <Slider 
+                          value={[gridSize]} 
+                          min={5} 
+                          max={100} 
+                          step={1} 
+                          onValueChange={([val]) => setGridSize(val)} 
+                          className="flex-1"
+                        />
+                        <Input 
+                          type="number" 
+                          value={gridSize} 
+                          onChange={(e) => setGridSize(Number(e.target.value))} 
+                          className="w-16 h-8 text-xs"
+                        />
+                      </div>
+                    </div>
+                  </PopoverContent>
+                </Popover>
                 
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -695,9 +724,9 @@ export default function HoMTreeEditor() {
 
         <div className="flex-1 relative">
           {treeData && (selectedSchool ? (
-            <TreeCanvas schoolName={selectedSchool} allSchools={treeData.schools} selectedNodeIds={selectedNodeIds} onSelectNodes={setSelectedNodeIds} onNodesMove={handleUpdateNodes} onLinkNodes={handleLinkNodes} searchQuery={nodeSearchQuery} showRadialGuides={showRadialGuides} />
+            <TreeCanvas schoolName={selectedSchool} allSchools={treeData.schools} selectedNodeIds={selectedNodeIds} onSelectNodes={setSelectedNodeIds} onNodesMove={handleUpdateNodes} onLinkNodes={handleLinkNodes} searchQuery={nodeSearchQuery} showRadialGuides={showRadialGuides} gridSize={gridSize} />
           ) : isGlobalView ? (
-            <GlobalGrimoireView schools={treeData.schools} selectedNodeIds={selectedNodeIds} onSelectNodes={setSelectedNodeIds} onNodesMove={handleUpdateNodes} onLinkNodes={handleLinkNodes} searchQuery={nodeSearchQuery} showRadialGuides={showRadialGuides} />
+            <GlobalGrimoireView schools={treeData.schools} selectedNodeIds={selectedNodeIds} onSelectNodes={setSelectedNodeIds} onNodesMove={handleUpdateNodes} onLinkNodes={handleLinkNodes} searchQuery={nodeSearchQuery} showRadialGuides={showRadialGuides} gridSize={gridSize} />
           ) : (
             <DashboardView data={treeData} onSelectSchool={setSelectedSchool} />
           ))}

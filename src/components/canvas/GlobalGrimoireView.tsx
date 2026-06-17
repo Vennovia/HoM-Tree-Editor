@@ -1,4 +1,3 @@
-
 "use client"
 
 import React, { useState, useRef, useEffect, useMemo } from 'react'
@@ -14,6 +13,7 @@ interface GlobalGrimoireViewProps {
   onLinkNodes: (sourceId: string, targetId: string) => void;
   searchQuery?: string;
   showRadialGuides?: boolean;
+  gridSize?: number;
 }
 
 export function GlobalGrimoireView({ 
@@ -23,7 +23,8 @@ export function GlobalGrimoireView({
   onNodesMove,
   onLinkNodes,
   searchQuery = '',
-  showRadialGuides = false
+  showRadialGuides = false,
+  gridSize = 25
 }: GlobalGrimoireViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [transform, setTransform] = useState({ x: 0, y: 0, scale: 0.25 });
@@ -146,13 +147,13 @@ export function GlobalGrimoireView({
         if (e.ctrlKey || e.metaKey) {
           if (showRadialGuides) {
             const r = Math.sqrt(x * x + y * y);
-            const rSnap = Math.round(r / 25) * 25;
+            const rSnap = Math.round(r / gridSize) * gridSize;
             const theta = Math.atan2(y, x);
             x = Math.round(rSnap * Math.cos(theta));
             y = Math.round(rSnap * Math.sin(theta));
           } else {
-            x = Math.round(x / 25) * 25;
-            y = Math.round(y / 25) * 25;
+            x = Math.round(x / gridSize) * gridSize;
+            y = Math.round(y / gridSize) * gridSize;
           }
         }
         updates[id] = { x, y };
@@ -276,8 +277,8 @@ export function GlobalGrimoireView({
     }
 
     if (showRadialGuides) {
-      for (let r = 25; r <= 5000; r += 25) {
-        const isMajor = r % 100 === 0;
+      for (let r = gridSize; r <= 5000; r += gridSize) {
+        const isMajor = r % (gridSize * 4) === 0;
         radialGuides.push(
           <circle
             key={`radial-${r}`}
@@ -404,7 +405,7 @@ export function GlobalGrimoireView({
     });
 
     return { nodes, connections, hubLines, radialGuides, spokes };
-  }, [schools, selectedNodeIds, searchQuery, showRadialGuides, draggingNodesPos, dragMode]);
+  }, [schools, selectedNodeIds, searchQuery, showRadialGuides, draggingNodesPos, dragMode, gridSize]);
 
   const activeDragInfo = useMemo(() => {
     if (dragMode !== 'node' || !dragNodeId || !draggingNodesPos[dragNodeId]) return null;
