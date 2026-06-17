@@ -1,6 +1,6 @@
 {
   "productName": "Heart of Magic Tree Editor",
-  "version": "0.1.4",
+  "version": "0.1.41",
   "identifier": "com.hom.editor",
   "build": {
     "beforeDevCommand": "npm run dev",
