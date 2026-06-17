@@ -179,15 +179,16 @@ export function TreeCanvas({
         let y = Math.round(initial.y + dy);
 
         if (e.ctrlKey || e.metaKey) {
+          const s = Math.max(1, gridSize || 25);
           if (showRadialGuides) {
             const r = Math.sqrt(x * x + y * y);
-            const rSnap = Math.round(r / gridSize!) * gridSize!;
+            const rSnap = Math.round(r / s) * s;
             const theta = Math.atan2(y, x);
             x = Math.round(rSnap * Math.cos(theta));
             y = Math.round(rSnap * Math.sin(theta));
           } else {
-            x = Math.round(x / gridSize!) * gridSize!;
-            y = Math.round(y / gridSize!) * gridSize!;
+            x = Math.round(x / s) * s;
+            y = Math.round(y / s) * s;
           }
         }
         updates[id] = { x, y };
@@ -305,8 +306,9 @@ export function TreeCanvas({
     }
 
     if (showRadialGuides) {
-      for (let r = gridSize!; r <= 4000; r += gridSize!) {
-        const isMajor = r % (gridSize! * 4) === 0;
+      const s = Math.max(1, gridSize || 25);
+      for (let r = s; r <= 4000; r += s) {
+        const isMajor = r % (s * 4) === 0;
         radialGuides.push(
           <circle
             key={`radial-${r}`}
@@ -511,7 +513,10 @@ export function TreeCanvas({
         {!showRadialGuides && (
           <div 
             className="absolute inset-[-50000px] pointer-events-none arcane-grid" 
-            style={{ backgroundSize: `${gridSize}px ${gridSize}px` }}
+            style={{ 
+              backgroundSize: `${gridSize}px ${gridSize}px`,
+              backgroundPosition: '50000px 50000px'
+            }}
           />
         )}
 
