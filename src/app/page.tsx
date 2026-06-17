@@ -8,6 +8,7 @@ import { TreeCanvas } from '@/components/canvas/TreeCanvas'
 import { GlobalGrimoireView } from '@/components/canvas/GlobalGrimoireView'
 import { NodeEditor } from '@/components/editor/NodeEditor'
 import { AddNodeDialog } from '@/components/editor/AddNodeDialog'
+import { SettingsDialog } from '@/components/editor/SettingsDialog'
 import { DashboardView } from '@/components/dashboard/DashboardView'
 import { Button } from '@/components/ui/button'
 import { 
@@ -30,7 +31,8 @@ import {
   Link,
   Move,
   Maximize,
-  FolderOpen
+  FolderOpen,
+  Settings
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
@@ -61,11 +63,16 @@ export default function HoMTreeEditor() {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
   const [isImportOpen, setIsImportOpen] = useState(false)
   const [isAddNodeOpen, setIsAddNodeOpen] = useState(false)
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [isGlobalView, setIsGlobalView] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [nodeSearchQuery, setNodeSearchQuery] = useState('')
   const [showRadialGuides, setShowRadialGuides] = useState(false)
   
+  // Custom paths state
+  const [configImportPath, setConfigImportPath] = useState('')
+  const [configExportPath, setConfigExportPath] = useState('')
+
   // Tauri API state
   const [tauriApi, setTauriApi] = useState<{
     invoke: any;
@@ -78,7 +85,6 @@ export default function HoMTreeEditor() {
 
   useEffect(() => {
     const checkTauri = async () => {
-      // Check if we are running inside Tauri 2.0
       const isRunningInTauri = typeof window !== 'undefined' && 
         (!!(window as any).__TAURI_INTERNALS__ || !!(window as any).__TAURI__);
       
@@ -89,13 +95,18 @@ export default function HoMTreeEditor() {
           const fs = await import('@tauri-apps/plugin-fs');
           
           setTauriApi({ invoke, dialog, fs });
-          console.log("Tauri environment detected and core linked.");
         } catch (e) {
           console.error("Failed to load Tauri core:", e);
         }
       }
     };
     checkTauri();
+
+    // Load custom paths
+    const savedImport = localStorage.getItem('hom-config-import-path')
+    const savedExport = localStorage.getItem('hom-config-export-path')
+    if (savedImport) setConfigImportPath(savedImport)
+    if (savedExport) setConfigExportPath(savedExport)
   }, []);
 
   const migrateGrimoireData = useCallback((data: any) => {
@@ -184,8 +195,7 @@ export default function HoMTreeEditor() {
     }
     
     try {
-      // Resolve the initial directory dynamically from the backend
-      const defaultPath = await tauriApi.invoke('get_grimoire_path');
+      const defaultPath = await tauriApi.invoke('get_grimoire_path', { customPath: configImportPath });
       
       const selected = await tauriApi.dialog.open({
         multiple: false,
@@ -212,15 +222,15 @@ export default function HoMTreeEditor() {
 
     if (tauriApi) {
       try {
-        // Use the custom native Rust command to save directly to the install directory
         const savedPath = await tauriApi.invoke('save_grimoire_to_disk', { 
           jsonContent: jsonString, 
-          fileName: fileName 
+          fileName: fileName,
+          customPath: configExportPath
         });
         
         toast({ 
           title: "Grimoire Sealed", 
-          description: `Spell tree saved successfully to the 'exports' folder in your install location.` 
+          description: `Spell tree saved successfully to your export directory.` 
         });
         return;
       } catch (e) {
@@ -233,7 +243,6 @@ export default function HoMTreeEditor() {
       }
     }
 
-    // Fallback for browser or if Tauri fails
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(jsonString)
     const downloadAnchorNode = document.createElement('a')
     downloadAnchorNode.setAttribute("href", dataStr)
@@ -450,6 +459,15 @@ export default function HoMTreeEditor() {
       <Toaster />
       <JSONImporter isOpen={isImportOpen} onOpenChange={setIsImportOpen} onImport={handleImport} />
       <AddNodeDialog isOpen={isAddNodeOpen} onOpenChange={setIsAddNodeOpen} onConfirm={handleConfirmAddNode} />
+      <SettingsDialog 
+        isOpen={isSettingsOpen} 
+        onOpenChange={setIsSettingsOpen}
+        importPath={configImportPath}
+        exportPath={configExportPath}
+        onImportPathChange={setConfigImportPath}
+        onExportPathChange={setConfigExportPath}
+        tauriApi={tauriApi}
+      />
 
       <aside className={cn("flex flex-col border-r border-border bg-card/50 transition-all relative z-30", isSidebarCollapsed ? "w-16" : "w-72")}>
         <div className="p-4 border-b border-border flex items-center justify-between">
@@ -509,7 +527,10 @@ export default function HoMTreeEditor() {
             <div className="mt-auto p-4 border-t border-border space-y-2">
               <Button variant="outline" className="w-full justify-start gap-2 text-xs" onClick={handleUndo} disabled={history.length === 0}><Undo2 className="w-3.5 h-3.5" /> Undo Action</Button>
               {isTauri ? (
-                <Button variant="outline" className="w-full justify-start gap-2 text-xs" onClick={handleNativeImport}><FolderOpen className="w-3.5 h-3.5" /> Open From Grimoire</Button>
+                <>
+                  <Button variant="outline" className="w-full justify-start gap-2 text-xs" onClick={handleNativeImport}><FolderOpen className="w-3.5 h-3.5" /> Open From Grimoire</Button>
+                  <Button variant="outline" className="w-full justify-start gap-2 text-xs" onClick={() => setIsSettingsOpen(true)}><Settings className="w-3.5 h-3.5" /> Grimoire Settings</Button>
+                </>
               ) : (
                 <Button variant="outline" className="w-full justify-start gap-2 text-xs" onClick={() => setIsImportOpen(true)}><Code className="w-3.5 h-3.5" /> Import JSON</Button>
               )}

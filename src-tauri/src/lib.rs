@@ -5,17 +5,24 @@ use std::env;
 use std::path::PathBuf;
 
 #[tauri::command]
-async fn save_grimoire_to_disk(json_content: String, file_name: String) -> Result<String, String> {
-    // Get the directory where the executable is located
-    let exe_path = env::current_exe().map_err(|e| e.to_string())?;
-    let install_dir = exe_path.parent().ok_or("Failed to get executable directory")?;
+async fn save_grimoire_to_disk(json_content: String, file_name: String, custom_path: Option<String>) -> Result<String, String> {
+    let base_dir = if let Some(ref path) = custom_path {
+        if path.is_empty() {
+            let exe_path = env::current_exe().map_err(|e| e.to_string())?;
+            exe_path.parent().ok_or("Failed to get executable directory")?.join("exports")
+        } else {
+            PathBuf::from(path)
+        }
+    } else {
+        let exe_path = env::current_exe().map_err(|e| e.to_string())?;
+        exe_path.parent().ok_or("Failed to get executable directory")?.join("exports")
+    };
     
-    // Ensure the exports folder exists
-    let export_dir = install_dir.join("exports");
-    fs::create_dir_all(&export_dir).map_err(|e| e.to_string())?;
+    // Ensure the target folder exists
+    fs::create_dir_all(&base_dir).map_err(|e| e.to_string())?;
     
     // Create the full file path
-    let file_path = export_dir.join(&file_name);
+    let file_path = base_dir.join(&file_name);
     
     // Write the file
     fs::write(&file_path, json_content).map_err(|e| e.to_string())?;
@@ -24,7 +31,12 @@ async fn save_grimoire_to_disk(json_content: String, file_name: String) -> Resul
 }
 
 #[tauri::command]
-async fn get_grimoire_path() -> Result<String, String> {
+async fn get_grimoire_path(custom_path: Option<String>) -> Result<String, String> {
+    if let Some(ref path) = custom_path {
+        if !path.is_empty() {
+             return Ok(path.clone());
+        }
+    }
     let exe_path = env::current_exe().map_err(|e| e.to_string())?;
     let install_dir = exe_path.parent().ok_or("Failed to get executable directory")?;
     let import_dir = install_dir.join("imports");
@@ -46,11 +58,13 @@ pub fn run() {
         )?;
       }
 
-      // Pre-create folders on startup
-      let exe_path = env::current_exe().expect("Failed to get current exe path");
-      let install_dir = exe_path.parent().expect("Failed to get executable directory");
-      fs::create_dir_all(install_dir.join("imports")).ok();
-      fs::create_dir_all(install_dir.join("exports")).ok();
+      // Pre-create default folders on startup if they don't exist
+      if let Ok(exe_path) = env::current_exe() {
+          if let Some(install_dir) = exe_path.parent() {
+              fs::create_dir_all(install_dir.join("imports")).ok();
+              fs::create_dir_all(install_dir.join("exports")).ok();
+          }
+      }
 
       Ok(())
     })
