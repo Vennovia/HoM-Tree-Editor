@@ -73,35 +73,34 @@ export default function HoMTreeEditor() {
   const [configExportPath, setConfigExportPath] = useState('')
 
   // Tauri API state
-  const [tauriApi, setTauriApi] = useState<{
-    invoke: any;
-    dialog: any;
+  const [tauri, setTauri] = useState<{
     fs: any;
+    dialog: any;
+    path: any;
+    core: any;
   } | null>(null);
 
-  const isTauri = !!tauriApi;
+  const isTauri = !!tauri;
   const selectedNodeId = selectedNodeIds.length > 0 ? selectedNodeIds[0] : null;
 
   useEffect(() => {
-    const checkTauri = async () => {
-      // Robust check for Tauri environment to avoid Next.js build errors
-      const isRunningInTauri = typeof window !== 'undefined' && 
-        ((window as any).__TAURI_INTERNALS__ || (window as any).__TAURI__);
-      
-      if (isRunningInTauri) {
-        try {
-          // Dynamic imports hide these from the Next.js static optimizer during build
-          const { invoke } = await import('@tauri-apps/api/core');
-          const dialog = await import('@tauri-apps/plugin-dialog');
-          const fs = await import('@tauri-apps/plugin-fs');
-          
-          setTauriApi({ invoke, dialog, fs });
-        } catch (e) {
-          console.error("Failed to load Tauri plugins:", e);
-        }
-      }
-    };
-    checkTauri();
+    // Robust check for Tauri environment to avoid Next.js build errors
+    const isRunningInTauri = typeof window !== 'undefined' && 
+      ((window as any).__TAURI_INTERNALS__ || (window as any).__TAURI__);
+    
+    if (isRunningInTauri) {
+      // Dynamic imports to prevent Next.js from failing during static build
+      Promise.all([
+        import('@tauri-apps/plugin-fs'),
+        import('@tauri-apps/plugin-dialog'),
+        import('@tauri-apps/api/path'),
+        import('@tauri-apps/api/core')
+      ]).then(([fs, dialog, path, core]) => {
+        setTauri({ fs, dialog, path, core });
+      }).catch(err => {
+        console.error("Failed to load Tauri modules:", err);
+      });
+    }
 
     // Load custom paths from local storage
     const savedImport = localStorage.getItem('hom-config-import-path')
@@ -190,13 +189,20 @@ export default function HoMTreeEditor() {
   }
 
   const handleNativeImport = async () => {
-    if (!tauriApi) return;
+    if (!tauri) return;
     
     try {
-      // Get the grimoire path from Rust (handles defaults or custom paths)
-      const defaultPath = await tauriApi.invoke('get_grimoire_path', { customPath: configImportPath });
+      let defaultPath = configImportPath;
+      if (!defaultPath) {
+        const exePath = await tauri.path.executableDir();
+        defaultPath = await tauri.path.join(exePath, 'imports');
+        // Ensure folder exists
+        if (!(await tauri.fs.exists(defaultPath))) {
+          await tauri.fs.mkdir(defaultPath);
+        }
+      }
       
-      const selected = await tauriApi.dialog.open({
+      const selected = await tauri.dialog.open({
         multiple: false,
         directory: false,
         defaultPath: defaultPath,
@@ -204,7 +210,7 @@ export default function HoMTreeEditor() {
       });
 
       if (selected && typeof selected === 'string') {
-        const content = await tauriApi.fs.readTextFile(selected);
+        const content = await tauri.fs.readTextFile(selected);
         const parsed = JSON.parse(content);
         handleImport(parsed);
       }
@@ -219,18 +225,25 @@ export default function HoMTreeEditor() {
     const jsonString = JSON.stringify(treeData, null, 2);
     const fileName = `spell_tree_v${treeData.version || '1.0'}_${Date.now()}.json`;
 
-    if (tauriApi) {
+    if (tauri) {
       try {
-        // Use native Rust command to write directly to the local folder (bypass browser Downloads)
-        const savedPath = await tauriApi.invoke('save_grimoire_to_disk', { 
-          jsonContent: jsonString, 
-          fileName: fileName,
-          customPath: configExportPath
-        });
+        let exportDir = configExportPath;
+        if (!exportDir) {
+          const exePath = await tauri.path.executableDir();
+          exportDir = await tauri.path.join(exePath, 'exports');
+        }
+
+        // Ensure export folder exists
+        if (!(await tauri.fs.exists(exportDir))) {
+          await tauri.fs.mkdir(exportDir);
+        }
+
+        const fullPath = await tauri.path.join(exportDir, fileName);
+        await tauri.fs.writeTextFile(fullPath, jsonString);
         
         toast({ 
           title: "Grimoire Sealed", 
-          description: `Saved successfully to: ${savedPath}` 
+          description: `Saved successfully to: ${fullPath}` 
         });
         return;
       } catch (e) {
@@ -467,7 +480,7 @@ export default function HoMTreeEditor() {
         exportPath={configExportPath}
         onImportPathChange={setConfigImportPath}
         onExportPathChange={setConfigExportPath}
-        tauriApi={tauriApi}
+        tauriApi={tauri}
       />
 
       <aside className={cn("flex flex-col border-r border-border bg-card/50 transition-all relative z-30", isSidebarCollapsed ? "w-16" : "w-72")}>
