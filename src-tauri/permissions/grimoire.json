@@ -1,0 +1,8 @@
+{
+  "identifier": "allow-grimoire-commands",
+  "description": "Allows the custom commands for grimoire management.",
+  "commands": [
+    "save_grimoire_to_disk",
+    "get_grimoire_path"
+  ]
+}

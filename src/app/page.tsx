@@ -84,24 +84,26 @@ export default function HoMTreeEditor() {
 
   useEffect(() => {
     const checkTauri = async () => {
+      // Robust check for Tauri environment to avoid Next.js build errors
       const isRunningInTauri = typeof window !== 'undefined' && 
-        (!!(window as any).__TAURI_INTERNALS__ || !!(window as any).__TAURI__);
+        ((window as any).__TAURI_INTERNALS__ || (window as any).__TAURI__);
       
       if (isRunningInTauri) {
         try {
+          // Dynamic imports hide these from the Next.js static optimizer during build
           const { invoke } = await import('@tauri-apps/api/core');
           const dialog = await import('@tauri-apps/plugin-dialog');
           const fs = await import('@tauri-apps/plugin-fs');
           
           setTauriApi({ invoke, dialog, fs });
         } catch (e) {
-          console.error("Failed to load Tauri core:", e);
+          console.error("Failed to load Tauri plugins:", e);
         }
       }
     };
     checkTauri();
 
-    // Load custom paths from local storage if they exist
+    // Load custom paths from local storage
     const savedImport = localStorage.getItem('hom-config-import-path')
     const savedExport = localStorage.getItem('hom-config-export-path')
     if (savedImport) setConfigImportPath(savedImport)
@@ -188,13 +190,10 @@ export default function HoMTreeEditor() {
   }
 
   const handleNativeImport = async () => {
-    if (!tauriApi) {
-       toast({ variant: "destructive", title: "Native Import Unavailable", description: "Grimoire synchronization requires the standalone editor." });
-       return;
-    }
+    if (!tauriApi) return;
     
     try {
-      // Use custom path if set, otherwise default path handled by Rust
+      // Get the grimoire path from Rust (handles defaults or custom paths)
       const defaultPath = await tauriApi.invoke('get_grimoire_path', { customPath: configImportPath });
       
       const selected = await tauriApi.dialog.open({
@@ -222,7 +221,7 @@ export default function HoMTreeEditor() {
 
     if (tauriApi) {
       try {
-        // Use custom export path if provided, otherwise default to app install dir /exports
+        // Use native Rust command to write directly to the local folder (bypass browser Downloads)
         const savedPath = await tauriApi.invoke('save_grimoire_to_disk', { 
           jsonContent: jsonString, 
           fileName: fileName,
@@ -231,7 +230,7 @@ export default function HoMTreeEditor() {
         
         toast({ 
           title: "Grimoire Sealed", 
-          description: `Saved locally to: ${savedPath}` 
+          description: `Saved successfully to: ${savedPath}` 
         });
         return;
       } catch (e) {
@@ -244,7 +243,7 @@ export default function HoMTreeEditor() {
       }
     }
 
-    // Fallback for browser or if Tauri fails
+    // Fallback for browser environment
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(jsonString)
     const downloadAnchorNode = document.createElement('a')
     downloadAnchorNode.setAttribute("href", dataStr)
@@ -253,7 +252,7 @@ export default function HoMTreeEditor() {
     downloadAnchorNode.click()
     downloadAnchorNode.remove()
     
-    toast({ title: "Grimoire Downloaded", description: "Saved successfully to your Downloads folder." })
+    toast({ title: "Grimoire Downloaded", description: "Saved to your default Downloads folder." })
   }
 
   const findSchoolForNode = useCallback((nodeId: string): string | null => {
@@ -528,12 +527,13 @@ export default function HoMTreeEditor() {
             </div>
             <div className="mt-auto p-4 border-t border-border space-y-2">
               <Button variant="outline" className="w-full justify-start gap-2 text-xs" onClick={handleUndo} disabled={history.length === 0}><Undo2 className="w-3.5 h-3.5" /> Undo Action</Button>
-              {isTauri ? (
+              {isTauri && (
                 <>
                   <Button variant="outline" className="w-full justify-start gap-2 text-xs" onClick={handleNativeImport}><FolderOpen className="w-3.5 h-3.5" /> Open From Grimoire</Button>
                   <Button variant="outline" className="w-full justify-start gap-2 text-xs" onClick={() => setIsSettingsOpen(true)}><Settings className="w-3.5 h-3.5" /> Grimoire Settings</Button>
                 </>
-              ) : (
+              )}
+              {!isTauri && (
                 <Button variant="outline" className="w-full justify-start gap-2 text-xs" onClick={() => setIsImportOpen(true)}><Code className="w-3.5 h-3.5" /> Import JSON</Button>
               )}
               <Button className="w-full justify-start gap-2 text-xs" onClick={handleExport} disabled={!treeData}><Download className="w-3.5 h-3.5" /> Export Grimoire</Button>
