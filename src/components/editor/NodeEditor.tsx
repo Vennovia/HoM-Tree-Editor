@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useMemo } from 'react'
@@ -107,7 +108,7 @@ export function NodeEditor({
     )
   }
 
-  const isRootNode = (school.roots || []).includes(node.formId)
+  const isRootNode = node.isRoot || (school.roots || []).includes(node.formId);
 
   const validHardPrereqs = useMemo(() => {
     const pool = node.prerequisites || [];
@@ -140,14 +141,8 @@ export function NodeEditor({
   }, [school.nodes, node.formId, node.children, node.prerequisites]);
 
   const handleToggleRoot = (checked: boolean) => {
-    const currentRoots = school.roots || [];
-    let newRoots: string[];
-    if (checked) {
-      newRoots = [...new Set([...currentRoots, node.formId])];
-    } else {
-      newRoots = currentRoots.filter(id => id !== node.formId);
-    }
-    onUpdateSchool(schoolName, { roots: newRoots });
+    // Update the authoritative isRoot flag on the node
+    onUpdate(node.formId, { isRoot: checked });
   };
 
   const handleLockToggle = (checked: boolean) => {

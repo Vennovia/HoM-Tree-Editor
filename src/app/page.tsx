@@ -106,6 +106,12 @@ export default function HoMTreeEditor() {
         });
       }
       school.roots = Array.from(rootsSet);
+      // Ensure node isRoot flags match the roots list
+      if (Array.isArray(school.nodes)) {
+        school.nodes.forEach((node: any) => {
+          node.isRoot = school.roots.includes(node.formId);
+        });
+      }
     });
     return data;
   }, []);
@@ -266,8 +272,20 @@ export default function HoMTreeEditor() {
         const nodeIndex = school.nodes.findIndex(n => n.formId === nodeId)
         if (nodeIndex !== -1) {
           const newNodes = [...school.nodes]
-          newNodes[nodeIndex] = { ...newNodes[nodeIndex], ...updates }
-          newSchools[schoolName] = { ...school, nodes: newNodes }
+          const updatedNode = { ...newNodes[nodeIndex], ...updates }
+          newNodes[nodeIndex] = updatedNode
+          
+          // Authoritatively sync school.roots if isRoot changed
+          let newRoots = [...(school.roots || [])]
+          if (updates.isRoot !== undefined) {
+            if (updates.isRoot) {
+              if (!newRoots.includes(nodeId)) newRoots.push(nodeId)
+            } else {
+              newRoots = newRoots.filter(id => id !== nodeId)
+            }
+          }
+          
+          newSchools[schoolName] = { ...school, nodes: newNodes, roots: newRoots }
         }
       }
       return { ...prev, schools: newSchools }
@@ -279,6 +297,7 @@ export default function HoMTreeEditor() {
       if (!prev) return prev;
       pushHistory(prev);
       const newSchools = { ...prev.schools };
+      
       Object.entries(updates).forEach(([nodeId, nodeUpdates]) => {
         const schoolName = findSchoolForNode(nodeId);
         if (!schoolName) return;
@@ -286,7 +305,20 @@ export default function HoMTreeEditor() {
         const nodeIndex = school.nodes.findIndex(n => n.formId === nodeId);
         if (nodeIndex !== -1) {
           const newNodes = [...school.nodes];
-          newNodes[nodeIndex] = { ...newNodes[nodeIndex], ...nodeUpdates };
+          const updatedNode = { ...newNodes[nodeIndex], ...nodeUpdates };
+          newNodes[nodeIndex] = updatedNode;
+          
+          // Sync roots array
+          if (nodeUpdates.isRoot !== undefined) {
+            let newRoots = [...(school.roots || [])];
+            if (nodeUpdates.isRoot) {
+              if (!newRoots.includes(nodeId)) newRoots.push(nodeId);
+            } else {
+              newRoots = newRoots.filter(id => id !== nodeId);
+            }
+            school.roots = newRoots;
+          }
+          
           newSchools[schoolName] = { ...school, nodes: newNodes };
         }
       });
@@ -298,7 +330,18 @@ export default function HoMTreeEditor() {
     setTreeData(prev => {
       if (!prev || !prev.schools[schoolName]) return prev
       pushHistory(prev)
-      return { ...prev, schools: { ...prev.schools, [schoolName]: { ...prev.schools[schoolName], ...updates } } }
+      
+      const updatedSchool = { ...prev.schools[schoolName], ...updates };
+      
+      // If roots list was updated, sync isRoot flag on nodes
+      if (updates.roots) {
+        updatedSchool.nodes = updatedSchool.nodes.map(node => ({
+          ...node,
+          isRoot: updates.roots!.includes(node.formId)
+        }));
+      }
+      
+      return { ...prev, schools: { ...prev.schools, [schoolName]: updatedSchool } }
     })
   }, [pushHistory])
 
@@ -382,7 +425,11 @@ export default function HoMTreeEditor() {
       if (!prev) return prev
       pushHistory(prev)
       const newSchools = { ...prev.schools }
-      newSchools[schoolName] = { ...newSchools[schoolName], roots: (newSchools[schoolName].roots || []).filter(id => id !== nodeId), nodes: newSchools[schoolName].nodes.filter(n => n.formId !== nodeId) }
+      newSchools[schoolName] = { 
+        ...newSchools[schoolName], 
+        roots: (newSchools[schoolName].roots || []).filter(id => id !== nodeId), 
+        nodes: newSchools[schoolName].nodes.filter(n => n.formId !== nodeId) 
+      }
       Object.keys(newSchools).forEach(sName => {
         newSchools[sName] = {
           ...newSchools[sName],
@@ -540,10 +587,9 @@ export default function HoMTreeEditor() {
       targets.forEach((target, index) => {
         const row = Math.floor(index / cols);
         const col = index % cols;
-        const rows = Math.ceil(targets.length / cols);
 
         const targetX = Math.round(avgX + (col - (cols - 1) / 2) * spacing);
-        const targetY = Math.round(avgY + (row - (rows - 1) / 2) * spacing);
+        const targetY = Math.round(avgY + (row - (row - 1) / 2) * spacing);
 
         const nodeIdx = newSchools[target.school].nodes.findIndex(n => n.formId === target.node.formId);
         if (nodeIdx !== -1) {
@@ -572,8 +618,11 @@ export default function HoMTreeEditor() {
       const firstRoot = school.roots?.[0]
       const referenceNode = school.nodes.find(n => n.formId === firstRoot) || school.nodes[0]
       const newNodeId = details.formId || ("0x" + Math.random().toString(16).slice(2, 10).toUpperCase())
-      const newNode: SpellNode = { formId: newNodeId, name: details.name || "New Spell", theme: details.theme || "_misc", tier: details.tier || 1, skillLevel: details.skillLevel || "Novice", x: (referenceNode?.x || 0) + 100, y: (referenceNode?.y || 0) + 100, children: [], prerequisites: [], hardPrereqs: [], softPrereqs: [], softNeeded: 0 }
-      return { ...prev, schools: { ...prev.schools, [selectedSchool]: { ...school, nodes: [...school.nodes, newNode] } } }
+      const newNode: SpellNode = { formId: newNodeId, name: details.name || "New Spell", theme: details.theme || "_misc", tier: details.tier || 1, skillLevel: details.skillLevel || "Novice", x: (referenceNode?.x || 0) + 100, y: (referenceNode?.y || 0) + 100, children: [], prerequisites: [], hardPrereqs: [], softPrereqs: [], softNeeded: 0, isRoot: details.isRoot || false }
+      
+      const newRoots = details.isRoot ? [...(school.roots || []), newNodeId] : (school.roots || []);
+      
+      return { ...prev, schools: { ...prev.schools, [selectedSchool]: { ...school, nodes: [...school.nodes, newNode], roots: newRoots } } }
     })
     toast({ title: "Spell Manifested", description: `${details.name} has been added.` })
   }

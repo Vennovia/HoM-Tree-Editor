@@ -188,7 +188,6 @@ export function TreeCanvas({
         if (e.ctrlKey || e.metaKey) {
           const s = Math.max(1, gridSize || 25);
           
-          // 1. Grid Snapping
           if (snapToGrid) {
             if (showRadialGuides) {
               const r = Math.sqrt(x * x + y * y);
@@ -202,7 +201,6 @@ export function TreeCanvas({
             }
           }
 
-          // 2. Apply Angle Snapping to Core Spokes
           if (snapToCoreSpokes) {
             const r = Math.sqrt(x * x + y * y);
             const theta = Math.atan2(y, x);
@@ -212,14 +210,13 @@ export function TreeCanvas({
             y = Math.round(r * Math.sin(snappedTheta));
           }
 
-          // 3. Apply Relative Snapping to Node Spokes
           if (snapToNodeSpokes) {
             const guides = school.nodes.filter(n => n.showSpokes && !selectedNodeIds.includes(n.formId));
             for (const guide of guides) {
               const dx_rel = x - guide.x;
               const dy_rel = y - guide.y;
               const r_rel = Math.sqrt(dx_rel * dx_rel + dy_rel * dy_rel);
-              if (r_rel < 10) continue; // Skip if too close to center
+              if (r_rel < 10) continue;
 
               const theta_rel = Math.atan2(dy_rel, dx_rel);
               const snapAngle = (15 * Math.PI) / 180;
@@ -420,7 +417,6 @@ export function TreeCanvas({
       const x = draggingNodesPos[node.formId]?.x ?? node.x;
       const y = draggingNodesPos[node.formId]?.y ?? node.y;
 
-      // Render Spoke Guides for each node that has them enabled
       if (node.showSpokes) {
         for (let angle = 0; angle < 360; angle += 15) {
           const rad = (angle * Math.PI) / 180;
@@ -462,17 +458,19 @@ export function TreeCanvas({
           const x2 = tX - targetRadius * Math.cos(angle);
           const y2 = tY - targetRadius * Math.sin(angle);
 
-          connections.push(
-            <line
-              key={`${node.formId}-${childId}`}
-              x1={sX} y1={sY}
-              x2={x2} y2={y2}
-              stroke={isPrereqPath ? "#22c55e" : (isChildPath ? "#f97316" : "hsl(var(--primary))")}
-              strokeWidth={isHighlighted ? "2" : "1"}
-              strokeOpacity={isHighlighted ? "0.9" : "0.4"}
-              markerEnd={isPrereqPath ? "url(#arrow-prereq)" : (isChildPath ? "url(#arrow-child)" : "url(#arrow-default)")}
-            />
-          );
+          if (!isNaN(sX) && !isNaN(sY) && !isNaN(x2) && !isNaN(y2)) {
+            connections.push(
+              <line
+                key={`${node.formId}-${childId}`}
+                x1={sX} y1={sY}
+                x2={x2} y2={y2}
+                stroke={isPrereqPath ? "#22c55e" : (isChildPath ? "#f97316" : "hsl(var(--primary))")}
+                strokeWidth={isHighlighted ? "2" : "1"}
+                strokeOpacity={isHighlighted ? "0.9" : "0.4"}
+                markerEnd={isPrereqPath ? "url(#arrow-prereq)" : (isChildPath ? "url(#arrow-child)" : "url(#arrow-default)")}
+              />
+            );
+          }
         }
       });
 
