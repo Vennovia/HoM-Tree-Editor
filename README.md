@@ -1,11 +1,12 @@
 # Heart of Magic Tree Editor
 
+This is fully Coded by AI in FireBase Stuido - The idea was mine and something I wanted, but did not have the time or know how to make it myself if you want to fork it go for it.
+
 The Heart of Magic (HoM) Tree Editor is a specialized visual development tool designed for creating and managing complex spell structures. It allows users to design radial skill trees, manage prerequisites (hard and soft), and export structured grimoires for use in magic systems.
 
 ## Key Features
 - **Visual Node Editing**: Drag and drop spells in a radial or grid layout with coordinate snapping.
 - **Arcane Connections**: Manage hierarchical relationships with support for hard and soft prerequisites.
-- **Tree Generation**: Automatically manifest structured branching trees from raw arcane spell lists.
 - **Grimoire Management**: Seamlessly import and export spell data in a standardized JSON format.
 - **Responsive Canvas**: Pan, zoom, and multi-select tools optimized for massive magical datasets.
 
