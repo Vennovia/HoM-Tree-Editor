@@ -275,16 +275,8 @@ export default function HoMTreeEditor() {
           const updatedNode = { ...newNodes[nodeIndex], ...updates }
           newNodes[nodeIndex] = updatedNode
           
-          // Authoritatively sync school.roots if isRoot changed
-          let newRoots = [...(school.roots || [])]
-          if (updates.isRoot !== undefined) {
-            if (updates.isRoot) {
-              if (!newRoots.includes(nodeId)) newRoots.push(nodeId)
-            } else {
-              newRoots = newRoots.filter(id => id !== nodeId)
-            }
-          }
-          
+          // Authoritatively sync school.roots based on updated isRoot flags
+          const newRoots = newNodes.filter(n => n.isRoot).map(n => n.formId);
           newSchools[schoolName] = { ...school, nodes: newNodes, roots: newRoots }
         }
       }
@@ -305,21 +297,13 @@ export default function HoMTreeEditor() {
         const nodeIndex = school.nodes.findIndex(n => n.formId === nodeId);
         if (nodeIndex !== -1) {
           const newNodes = [...school.nodes];
-          const updatedNode = { ...newNodes[nodeIndex], ...nodeUpdates };
-          newNodes[nodeIndex] = updatedNode;
+          newNodes[nodeIndex] = { ...newNodes[nodeIndex], ...nodeUpdates };
+          school.nodes = newNodes;
           
-          // Sync roots array
+          // Recalculate school roots if isRoot was part of the batch update
           if (nodeUpdates.isRoot !== undefined) {
-            let newRoots = [...(school.roots || [])];
-            if (nodeUpdates.isRoot) {
-              if (!newRoots.includes(nodeId)) newRoots.push(nodeId);
-            } else {
-              newRoots = newRoots.filter(id => id !== nodeId);
-            }
-            school.roots = newRoots;
+            school.roots = newNodes.filter(n => n.isRoot).map(n => n.formId);
           }
-          
-          newSchools[schoolName] = { ...school, nodes: newNodes };
         }
       });
       return { ...prev, schools: newSchools };
@@ -374,8 +358,19 @@ export default function HoMTreeEditor() {
         if (!(t.children || []).includes(s.formId)) t.children = [...(t.children || []), s.formId]
       }
 
-      if (type === 'pool') ensurePoolLink(sourceNode, targetNode)
-      else if (type === 'hard') {
+      if (type === 'pool') {
+        const isPrereq = (sourceNode.prerequisites || []).includes(targetId);
+        if (isPrereq) {
+          // Remove link
+          sourceNode.prerequisites = (sourceNode.prerequisites || []).filter(id => id !== targetId);
+          sourceNode.hardPrereqs = (sourceNode.hardPrereqs || []).filter(id => id !== targetId);
+          sourceNode.softPrereqs = (sourceNode.softPrereqs || []).filter(id => id !== targetId);
+          targetNode.children = (targetNode.children || []).filter(id => id !== nodeId);
+        } else {
+          // Add link
+          ensurePoolLink(sourceNode, targetNode);
+        }
+      } else if (type === 'hard') {
         const exists = (sourceNode.hardPrereqs || []).includes(targetId)
         if (exists) sourceNode.hardPrereqs = (sourceNode.hardPrereqs || []).filter(id => id !== targetId)
         else {

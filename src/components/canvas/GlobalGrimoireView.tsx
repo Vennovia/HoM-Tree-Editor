@@ -128,6 +128,9 @@ export function GlobalGrimoireView({
       setDragMode('selection');
       setSelectionRect({ x1: canvasCoords.x, y1: canvasCoords.y, x2: canvasCoords.x, y2: canvasCoords.y });
     } else if (e.button === 0 || e.button === 1) {
+      if (!target.closest('.spell-path')) {
+        onSelectNodes([]);
+      }
       setDragMode('canvas');
       setDragStart({ x: e.clientX - transform.x, y: e.clientY - transform.y });
     }
@@ -364,7 +367,6 @@ export function GlobalGrimoireView({
       });
 
       school.nodes.forEach(node => {
-        const isRoot = schoolRoots.includes(node.formId);
         const x = draggingNodesPos[node.formId]?.x ?? node.x;
         const y = draggingNodesPos[node.formId]?.y ?? node.y;
 
@@ -411,28 +413,47 @@ export function GlobalGrimoireView({
             const dy = cY - nY;
             const angle = Math.atan2(dy, dx);
             
-            const isTargetRoot = (childNode && schools[sName].roots?.includes(childNode.formId));
+            const otherSchool = Object.values(schools).find(s => s.nodes.some(n => n.formId === childId));
+            const isTargetRoot = (childNode && otherSchool?.roots?.includes(childNode.formId));
             const targetRadius = (isTargetRoot ? 15 : 9) + 4;
             const x2 = cX - targetRadius * Math.cos(angle);
             const y2 = cY - targetRadius * Math.sin(angle);
 
-            connections.push(
-              <line
-                key={`${sName}-${node.formId}-${childId}`}
-                x1={nX} y1={nY}
-                x2={x2} y2={y2}
-                stroke={isPrereqPath ? "#22c55e" : (isChildPath ? "#f97316" : "hsl(var(--primary))")}
-                strokeWidth={isHighlighted ? "2" : "0.75"}
-                strokeOpacity={isHighlighted ? "0.8" : "0.2"}
-                markerEnd={isPrereqPath ? "url(#arrow-prereq)" : (isChildPath ? "url(#arrow-child)" : "url(#arrow-default)")}
-              />
-            );
+            if (!isNaN(nX) && !isNaN(nY) && !isNaN(x2) && !isNaN(y2)) {
+              connections.push(
+                <g key={`link-${sName}-${node.formId}-${childId}`} className="spell-path group cursor-pointer">
+                  {/* Wide hit detection area */}
+                  <line
+                    x1={nX} y1={nY}
+                    x2={x2} y2={y2}
+                    stroke="transparent"
+                    strokeWidth="20"
+                    className="pointer-events-auto"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onLinkNodes(node.formId, childId);
+                    }}
+                  />
+                  {/* Visible path line */}
+                  <line
+                    x1={nX} y1={nY}
+                    x2={x2} y2={y2}
+                    stroke={isPrereqPath ? "#22c55e" : (isChildPath ? "#f97316" : "hsl(var(--primary))")}
+                    strokeWidth={isHighlighted ? "2.5" : "1.5"}
+                    strokeOpacity={isHighlighted ? "0.8" : "0.2"}
+                    markerEnd={isPrereqPath ? "url(#arrow-prereq)" : (isChildPath ? "url(#arrow-child)" : "url(#arrow-default)")}
+                    className="pointer-events-none group-hover:stroke-accent group-hover:stroke-opacity-100"
+                  />
+                </g>
+              );
+            }
           }
         });
 
         const isSelected = selectedNodeIds.includes(node.formId);
         const isPrereq = prereqNodeIds.has(node.formId);
         const isChild = childNodeIds.has(node.formId);
+        const isRoot = schoolRoots.includes(node.formId);
         
         const isMatch = searchQuery.length > 1 && (
           node.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -475,7 +496,7 @@ export function GlobalGrimoireView({
     });
 
     return { nodes, connections, hubLines, radialGuides, spokes, nodeSpokes };
-  }, [schools, selectedNodeIds, searchQuery, showRadialGuides, draggingNodesPos, dragMode, gridSize]);
+  }, [schools, selectedNodeIds, searchQuery, showRadialGuides, draggingNodesPos, dragMode, gridSize, onLinkNodes]);
 
   const activeDragInfo = useMemo(() => {
     if (dragMode !== 'node' || !dragNodeId || !draggingNodesPos[dragNodeId]) return null;

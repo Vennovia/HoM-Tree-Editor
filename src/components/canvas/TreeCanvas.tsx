@@ -161,7 +161,11 @@ export function TreeCanvas({
       setDragMode('canvas');
       setDragStart({ x: e.clientX - transform.x, y: e.clientY - transform.y });
     } else {
-      onSelectNodes([]);
+      // Check if clicking link lines is handled elsewhere
+      // If we clicked empty background, clear selection
+      if (!target.closest('.spell-path')) {
+        onSelectNodes([]);
+      }
       setDragMode('canvas');
       setDragStart({ x: e.clientX - transform.x, y: e.clientY - transform.y });
     }
@@ -453,22 +457,37 @@ export function TreeCanvas({
           const dx = tX - sX;
           const dy = tY - sY;
           const angle = Math.atan2(dy, dx);
-          const isRoot = schoolRoots.includes(childNode.formId);
-          const targetRadius = (isRoot ? 15 : 9) + 4;
+          const isTargetRoot = schoolRoots.includes(childNode.formId);
+          const targetRadius = (isTargetRoot ? 15 : 9) + 4;
           const x2 = tX - targetRadius * Math.cos(angle);
           const y2 = tY - targetRadius * Math.sin(angle);
 
           if (!isNaN(sX) && !isNaN(sY) && !isNaN(x2) && !isNaN(y2)) {
             connections.push(
-              <line
-                key={`${node.formId}-${childId}`}
-                x1={sX} y1={sY}
-                x2={x2} y2={y2}
-                stroke={isPrereqPath ? "#22c55e" : (isChildPath ? "#f97316" : "hsl(var(--primary))")}
-                strokeWidth={isHighlighted ? "2" : "1"}
-                strokeOpacity={isHighlighted ? "0.9" : "0.4"}
-                markerEnd={isPrereqPath ? "url(#arrow-prereq)" : (isChildPath ? "url(#arrow-child)" : "url(#arrow-default)")}
-              />
+              <g key={`link-${node.formId}-${childId}`} className="spell-path group cursor-pointer">
+                {/* Hit area */}
+                <line
+                  x1={sX} y1={sY}
+                  x2={x2} y2={y2}
+                  stroke="transparent"
+                  strokeWidth="20"
+                  className="pointer-events-auto"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onLinkNodes(node.formId, childId); // Reusing LinkNodes logic to toggle
+                  }}
+                />
+                {/* Visible line */}
+                <line
+                  x1={sX} y1={sY}
+                  x2={x2} y2={y2}
+                  stroke={isPrereqPath ? "#22c55e" : (isChildPath ? "#f97316" : "hsl(var(--primary))")}
+                  strokeWidth={isHighlighted ? "2.5" : "1.5"}
+                  strokeOpacity={isHighlighted ? "0.9" : "0.4"}
+                  markerEnd={isPrereqPath ? "url(#arrow-prereq)" : (isChildPath ? "url(#arrow-child)" : "url(#arrow-default)")}
+                  className="pointer-events-none group-hover:stroke-accent group-hover:stroke-opacity-100"
+                />
+              </g>
             );
           }
         }
@@ -531,7 +550,7 @@ export function TreeCanvas({
     });
 
     return { nodes, connections, hubLines, radialGuides, spokes, nodeSpokes };
-  }, [allSchools, schoolName, school, selectedNodeIds, dragMode, searchQuery, showRadialGuides, draggingNodesPos, gridSize]);
+  }, [allSchools, schoolName, school, selectedNodeIds, dragMode, searchQuery, showRadialGuides, draggingNodesPos, gridSize, onLinkNodes]);
 
   const activeDragInfo = useMemo(() => {
     if (dragMode !== 'node' || !dragNodeId || !draggingNodesPos[dragNodeId]) return null;
