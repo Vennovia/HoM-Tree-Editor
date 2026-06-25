@@ -1,57 +1,47 @@
+# Heart of Magic Tree Editor
 
-# HoM Editor - Standalone Setup
+The Heart of Magic (HoM) Tree Editor is a specialized visual development tool designed for creating and managing complex spell structures. It allows users to design radial skill trees, manage prerequisites (hard and soft), and export structured grimoires for use in magic systems.
 
-This application is a specialized visual editor for Heart of Magic spell structures. It is optimized for performance and can be exported as a standalone desktop application.
+## Key Features
+- **Visual Node Editing**: Drag and drop spells in a radial or grid layout with coordinate snapping.
+- **Arcane Connections**: Manage hierarchical relationships with support for hard and soft prerequisites.
+- **Tree Generation**: Automatically manifest structured branching trees from raw arcane spell lists.
+- **Grimoire Management**: Seamlessly import and export spell data in a standardized JSON format.
+- **Responsive Canvas**: Pan, zoom, and multi-select tools optimized for massive magical datasets.
 
-## 📂 Project Structure & Data Locations
+## Building the Standalone Application (Tauri)
 
-### Managed Grimoire Folders (Standalone App Only)
-When running as a standalone app, the editor uses dedicated folders located **in the same folder as the program itself**:
+The editor can be compiled as a native desktop application for Windows, macOS, or Linux using [Tauri](https://tauri.app/).
 
-- **Location**: `[Install Directory]/exports` and `[Install Directory]/imports`
-- **Usage**: Use these folders to keep your spell data organized and portable. Perfect for keeping your grimoire with the application on a USB drive.
-
----
-
-## 💾 File Management (Export/Import)
-**Exporting**: Clicking the "Export" button in the standalone app saves the `.json` file directly to the **exports** folder next to your app executable.
-**Importing**: Use the "Import" button to select a `.json` file. The "Open From Grimoire" button specifically starts looking in your local **imports** folder.
-
----
-
-## 🚀 Local Development (Frontend Only)
-1.  Open your terminal in the project folder.
-2.  Install dependencies: `npm install`
-3.  Start the development server: `npm run dev`
-4.  Open your browser and navigate to: **[http://localhost:3000](http://localhost:3000)**
-
----
-
-## 📦 Building the Standalone App (Tauri)
 ### Prerequisites
-1.  **Rust**: [Install Rust here](https://www.rust-lang.org/tools/install).
-2.  **OS Dependencies**:
-    *   **Windows**: [WebView2](https://developer.microsoft.com/en-us/microsoft-edge/webview2/).
+
+1.  **Rust**: [Install the Rust toolchain](https://www.rust-lang.org/tools/install).
+2.  **Node.js**: [Install Node.js (LTS recommended)](https://nodejs.org/).
+3.  **OS Dependencies**:
+    *   **Windows**: [WebView2](https://developer.microsoft.com/en-us/microsoft-edge/webview2/) and C++ Build Tools.
     *   **macOS**: Xcode Command Line Tools.
+    *   **Linux (Ubuntu/Debian)**: 
+        ```bash
+        sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.0-dev libappindicator3-dev librsvg2-dev patchelf
+        ```
 
 ### Build Steps
-1.  `npm install`
-2.  `npm run tauri build`
+
+1.  **Install Dependencies**:
+    Open your terminal in the project root and run:
+    ```bash
+    npm install
+    ```
+
+2.  **Build the Standalone App**:
+    Generate the production-ready executable:
+    ```bash
+    npm run tauri build
+    ```
     *The standalone program will be found in `src-tauri/target/release/bundle/`.*
 
-### 🤖 GitHub Automated Builds (Recommended)
-Every time you push to GitHub, a build starts automatically:
-1.  Go to your GitHub repository **Actions** tab.
-2.  Download the latest artifacts for your OS.
-
----
-
-## 🛠 Git Troubleshooting
-
-### Error: `[rejected] (non-fast-forward)`
-1. `git pull origin standalone-build`
-2. `git push origin standalone-build`
-
-### Error: `You have not concluded your merge (MERGE_HEAD exists)`
-1. Run `git merge --abort`
-2. Run `git pull origin standalone-build` again.
+### Local Development
+To run the editor with hot-reloading in a desktop window:
+```bash
+npm run tauri dev
+```
