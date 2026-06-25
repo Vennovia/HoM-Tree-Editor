@@ -449,8 +449,8 @@ export function TreeCanvas({
           const isPrereqPath = selectedNodeIds.includes(childId);
           const isHighlighted = isChildPath || isPrereqPath;
 
-          const sX = draggingNodesPos[node.formId]?.x ?? node.x;
-          const sY = draggingNodesPos[node.formId]?.y ?? node.y;
+          const sX = x;
+          const sY = y;
           const tX = draggingNodesPos[childId]?.x ?? childNode.x;
           const tY = draggingNodesPos[childId]?.y ?? childNode.y;
 
@@ -465,7 +465,6 @@ export function TreeCanvas({
           if (!isNaN(sX) && !isNaN(sY) && !isNaN(x2) && !isNaN(y2)) {
             connections.push(
               <g key={`link-${node.formId}-${childId}`} className="spell-path group cursor-pointer">
-                {/* Hit area */}
                 <line
                   x1={sX} y1={sY}
                   x2={x2} y2={y2}
@@ -474,10 +473,9 @@ export function TreeCanvas({
                   className="pointer-events-auto"
                   onClick={(e) => {
                     e.stopPropagation();
-                    onLinkNodes(node.formId, childId); // Reusing LinkNodes logic to toggle
+                    onLinkNodes(node.formId, childId);
                   }}
                 />
-                {/* Visible line */}
                 <line
                   x1={sX} y1={sY}
                   x2={x2} y2={y2}

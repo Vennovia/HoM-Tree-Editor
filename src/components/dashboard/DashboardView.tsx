@@ -87,7 +87,7 @@ export function DashboardView({ data, onSelectSchool }: DashboardViewProps) {
                     <CardContent className="p-4 pt-0 flex justify-between items-center">
                       <div className="flex gap-2">
                         {Array.from(new Set(school.nodes.map(n => n.skillLevel))).slice(0, 3).map((lvl, idx) => (
-                          <span key={`${schoolName}-${lvl}-${idx}`} className="text-[9px] px-1.5 py-0.5 bg-secondary rounded text-muted-foreground">{lvl || 'Unknown'}</span>
+                          <span key={`${schoolName}-${lvl || 'unknown'}-${idx}`} className="text-[9px] px-1.5 py-0.5 bg-secondary rounded text-muted-foreground">{lvl || 'Unknown'}</span>
                         ))}
                       </div>
                       <Button variant="ghost" size="icon" className="group-hover:translate-x-1 transition-transform">

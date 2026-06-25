@@ -367,8 +367,11 @@ export default function HoMTreeEditor() {
           sourceNode.softPrereqs = (sourceNode.softPrereqs || []).filter(id => id !== targetId);
           targetNode.children = (targetNode.children || []).filter(id => id !== nodeId);
         } else {
-          // Add link
+          // Add link - DEFAULT TO SOFT PREREQ
           ensurePoolLink(sourceNode, targetNode);
+          if (!(sourceNode.softPrereqs || []).includes(targetId)) {
+            sourceNode.softPrereqs = [...(sourceNode.softPrereqs || []), targetId];
+          }
         }
       } else if (type === 'hard') {
         const exists = (sourceNode.hardPrereqs || []).includes(targetId)
@@ -396,6 +399,8 @@ export default function HoMTreeEditor() {
         } else {
           sourceNode.children = [...(sourceNode.children || []), targetId]
           if (!(targetNode.prerequisites || []).includes(nodeId)) targetNode.prerequisites = [...(targetNode.prerequisites || []), nodeId]
+          // Default child link to be soft on the target
+          if (!(targetNode.softPrereqs || []).includes(nodeId)) targetNode.softPrereqs = [...(targetNode.softPrereqs || []), nodeId]
         }
       }
 
