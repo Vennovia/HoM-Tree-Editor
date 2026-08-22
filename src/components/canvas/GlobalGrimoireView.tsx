@@ -460,6 +460,12 @@ export function GlobalGrimoireView({
           node.formId.toLowerCase().includes(searchQuery.toLowerCase())
         );
 
+        const nodeBorderColor = isSelected ? 'hsl(var(--accent))' :
+          isPrereq ? '#22c55e' :
+          isChild ? '#f97316' :
+          isMatch ? '#facc15' :
+          node.schoolColor || '#94a3b8';
+
         nodes.push(
           <div
             key={`${sName}-${node.formId}`}
@@ -467,10 +473,10 @@ export function GlobalGrimoireView({
             className={cn(
               "spell-node absolute flex items-center justify-center rounded-full border bg-card/90 transition-all cursor-grab pointer-events-auto select-none group",
               (dragMode === 'node' || Object.keys(draggingNodesPos).length > 0) && "transition-none",
-              isSelected ? "node-selected ring-2 ring-accent z-30 scale-110" : "border-border hover:border-accent/60",
-              isPrereq && !isSelected && "border-[#22c55e] ring-2 ring-[#22c55e] z-20 scale-105",
-              isChild && !isSelected && "border-[#f97316] ring-2 ring-[#f97316]/50 z-20 scale-105",
-              isRoot && "border-accent bg-accent/5 z-10 shadow-[0_0_15px_hsl(var(--accent)/0.2)]",
+              isSelected ? "node-selected ring-2 ring-accent z-30 scale-110" : undefined,
+              isPrereq && !isSelected && "ring-2 ring-[#22c55e] z-20 scale-105",
+              isChild && !isSelected && "ring-2 ring-[#f97316]/50 z-20 scale-105",
+              isRoot && "bg-accent/5 z-10 shadow-[0_0_15px_hsl(var(--accent)/0.2)]",
               isMatch && "ring-4 ring-yellow-400 scale-150 z-40",
               draggingNodesPos[node.formId] && "cursor-grabbing opacity-70 scale-105",
               node.isLocked && "cursor-default"
@@ -478,7 +484,8 @@ export function GlobalGrimoireView({
             style={{
               left: x, top: y,
               width: isRoot ? 30 : 18, height: isRoot ? 30 : 18,
-              transform: 'translate(-50%, -50%)'
+              transform: 'translate(-50%, -50%)',
+              borderColor: nodeBorderColor,
             }}
           >
             <span className={cn(

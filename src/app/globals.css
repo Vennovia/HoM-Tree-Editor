@@ -39,6 +39,16 @@
   body {
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
+    -webkit-user-select: none;
+    user-select: none;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid hsl(var(--border));
+  }
+  input,
+  textarea {
+    -webkit-user-select: text;
+    user-select: text;
   }
 }
 

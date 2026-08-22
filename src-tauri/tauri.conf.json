@@ -3,7 +3,7 @@
   "version": "0.1.71",
   "identifier": "com.hom.editor",
   "build": {
-    "beforeDevCommand": "npm run dev",
+      "beforeDevCommand": "npm run run",
     "devUrl": "http://localhost:3000",
     "beforeBuildCommand": "npm run build",
     "frontendDist": "../out"
@@ -15,7 +15,10 @@
         "width": 1920,
         "height": 1080,
         "resizable": true,
-        "fullscreen": false
+        "fullscreen": false,
+        "dragDropEnabled": false,
+        "decorations": false,
+        "transparent": true
       }
     ],
     "security": {

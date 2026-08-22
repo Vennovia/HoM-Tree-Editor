@@ -45,12 +45,101 @@ export function TreeCanvas({
   
   const [selectionRect, setSelectionRect] = useState<{ x1: number, y1: number, x2: number, y2: number } | null>(null);
   const [draggingNodesPos, setDraggingNodesPos] = useState<Record<string, { x: number, y: number }>>({});
+  const [dragFrame, setDragFrame] = useState(0);
 
   const [linkingSourceId, setLinkingSourceId] = useState<string | null>(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
 
   const lastCenteredId = useRef<string | null>(null);
   const currentSchoolName = useRef<string | null>(null);
+  const dragNodesPosRef = useRef<Record<string, { x: number, y: number }>>({});
+  const rafIdRef = useRef<number | null>(null);
+  const snapGuideNodesRef = useRef<Array<{ x: number, y: number }>>([]);
+
+  useEffect(() => {
+    return () => {
+      if (rafIdRef.current !== null) {
+        cancelAnimationFrame(rafIdRef.current);
+        rafIdRef.current = null;
+      }
+    };
+  }, []);
+
+  const updateDragPositionsDOM = () => {
+    if (!containerRef.current) return;
+    const positions = dragNodesPosRef.current;
+    const nodeIds = Object.keys(positions);
+    if (nodeIds.length === 0) return;
+
+    const container = containerRef.current;
+    
+    nodeIds.forEach(id => {
+      const pos = positions[id];
+      const el = container.querySelector(`[data-node-id="${id}"]`) as HTMLElement | null;
+      if (el) {
+        el.style.left = `${pos.x}px`;
+        el.style.top = `${pos.y}px`;
+      }
+    });
+
+    const svg = container.querySelector('svg');
+    if (!svg) return;
+
+    nodeIds.forEach(id => {
+      const pos = positions[id];
+      const baseNode = school.nodes.find(n => n.formId === id);
+      if (!baseNode) return;
+
+      const fromLines = svg.querySelectorAll(`line[data-from="${id}"]`);
+      const toLines = svg.querySelectorAll(`line[data-to="${id}"]`);
+      const spokeLines = svg.querySelectorAll(`line[data-node-id="${id}"]`);
+      const hubLines = svg.querySelectorAll(`line[data-root="${id}"]`);
+
+      fromLines.forEach((line) => {
+        const toId = line.getAttribute('data-to');
+        const toPos = toId ? positions[toId] : null;
+        if (toPos) {
+          (line as SVGLineElement).setAttribute('x1', String(pos.x));
+          (line as SVGLineElement).setAttribute('y1', String(pos.y));
+        }
+      });
+
+      toLines.forEach((line) => {
+        const fromId = line.getAttribute('data-from');
+        const fromPos = fromId ? positions[fromId] : null;
+        if (fromPos) {
+          (line as SVGLineElement).setAttribute('x2', String(pos.x));
+          (line as SVGLineElement).setAttribute('y2', String(pos.y));
+        }
+      });
+
+      spokeLines.forEach((line) => {
+        const baseX = baseNode.x;
+        const baseY = baseNode.y;
+        const dx = pos.x - baseX;
+        const dy = pos.y - baseY;
+        const currentX1 = parseFloat(line.getAttribute('x1') || '0');
+        const currentY1 = parseFloat(line.getAttribute('y1') || '0');
+        const currentX2 = parseFloat(line.getAttribute('x2') || '0');
+        const currentY2 = parseFloat(line.getAttribute('y2') || '0');
+        
+        const baseX1 = parseFloat(line.getAttribute('data-base-x1') || String(currentX1));
+        const baseY1 = parseFloat(line.getAttribute('data-base-y1') || String(currentY1));
+        const baseX2 = parseFloat(line.getAttribute('data-base-x2') || String(currentX2));
+        const baseY2 = parseFloat(line.getAttribute('data-base-y2') || String(currentY2));
+        
+        (line as SVGLineElement).setAttribute('x1', String(baseX1 + dx));
+        (line as SVGLineElement).setAttribute('y1', String(baseY1 + dy));
+        (line as SVGLineElement).setAttribute('x2', String(baseX2 + dx));
+        (line as SVGLineElement).setAttribute('y2', String(baseY2 + dy));
+      });
+
+      hubLines.forEach((line) => {
+        (line as SVGLineElement).setAttribute('x2', String(pos.x));
+        (line as SVGLineElement).setAttribute('y2', String(pos.y));
+      });
+    });
+  };
 
   const school = allSchools[schoolName];
 
@@ -148,6 +237,7 @@ export function TreeCanvas({
         });
         
         setDragNodesInitialPos(initialPositions);
+        dragNodesPosRef.current = initialPositions;
         setDragStart({ x: e.clientX, y: e.clientY });
         setDraggingNodesPos(initialPositions);
       }
@@ -215,7 +305,7 @@ export function TreeCanvas({
           }
 
           if (snapToNodeSpokes) {
-            const guides = school.nodes.filter(n => n.showSpokes && !selectedNodeIds.includes(n.formId));
+            const guides = snapGuideNodesRef.current;
             for (const guide of guides) {
               const dx_rel = x - guide.x;
               const dy_rel = y - guide.y;
@@ -238,7 +328,14 @@ export function TreeCanvas({
         updates[id] = { x, y };
       });
 
-      setDraggingNodesPos(updates);
+      dragNodesPosRef.current = updates;
+      if (rafIdRef.current === null) {
+        rafIdRef.current = requestAnimationFrame(() => {
+          rafIdRef.current = null;
+          updateDragPositionsDOM();
+          setDragFrame(f => f + 1);
+        });
+      }
     } else if (dragMode === 'linking') {
       const coords = getCanvasCoords(e.clientX, e.clientY);
       setMousePos(coords);
@@ -249,8 +346,11 @@ export function TreeCanvas({
   };
 
   const handleMouseUp = (e: React.MouseEvent) => {
-    if (dragMode === 'node' && Object.keys(draggingNodesPos).length > 0) {
-      onNodesMove(draggingNodesPos);
+    if (dragMode === 'node') {
+      const finalPos = dragNodesPosRef.current;
+      if (Object.keys(finalPos).length > 0) {
+        onNodesMove(finalPos);
+      }
     }
 
     if (dragMode === 'linking' && linkingSourceId) {
@@ -279,6 +379,7 @@ export function TreeCanvas({
     setDragMode(null);
     setDragNodeId(null);
     setLinkingSourceId(null);
+    dragNodesPosRef.current = {};
     setDraggingNodesPos({});
     setSelectionRect(null);
   };
@@ -303,6 +404,15 @@ export function TreeCanvas({
       y: mouseY - dy * newScale
     });
   };
+
+  const snapGuideNodes = useMemo(() => {
+    if (!school) return [];
+    return school.nodes.filter(n => n.showSpokes && !selectedNodeIds.includes(n.formId));
+  }, [school, selectedNodeIds]);
+
+  useEffect(() => {
+    snapGuideNodesRef.current = snapGuideNodes;
+  }, [snapGuideNodes]);
 
   const renderData = useMemo(() => {
     if (!school) return { nodes: [], connections: [], hubLines: [], radialGuides: [], spokes: [], nodeSpokes: [] };
@@ -372,11 +482,12 @@ export function TreeCanvas({
     schoolRoots.forEach(rootId => {
       const rootNode = school.nodes.find(n => n.formId === rootId);
       if (rootNode) {
-        const rootX = draggingNodesPos[rootId]?.x ?? rootNode.x;
-        const rootY = draggingNodesPos[rootId]?.y ?? rootNode.y;
+        const rootX = rootNode.x;
+        const rootY = rootNode.y;
 
         hubLines.push(
           <line
+            data-root={rootId}
             key={`hub-${rootId}`}
             x1={0} y1={0}
             x2={rootX} y2={rootY}
@@ -418,19 +529,25 @@ export function TreeCanvas({
     });
 
     school.nodes.forEach(node => {
-      const x = draggingNodesPos[node.formId]?.x ?? node.x;
-      const y = draggingNodesPos[node.formId]?.y ?? node.y;
+      const baseX = node.x;
+      const baseY = node.y;
+      const isDragging = dragMode === 'node' && dragNodesInitialPos[node.formId] !== undefined;
 
       if (node.showSpokes) {
         for (let angle = 0; angle < 360; angle += 15) {
           const rad = (angle * Math.PI) / 180;
           const length = 5000;
-          const x2 = x + Math.cos(rad) * length;
-          const y2 = y + Math.sin(rad) * length;
+          const x2 = baseX + Math.cos(rad) * length;
+          const y2 = baseY + Math.sin(rad) * length;
           nodeSpokes.push(
             <line
               key={`node-spoke-${node.formId}-${angle}`}
-              x1={x} y1={y}
+              data-node-id={node.formId}
+              data-base-x1={baseX}
+              data-base-y1={baseY}
+              data-base-x2={x2}
+              data-base-y2={y2}
+              x1={baseX} y1={baseY}
               x2={x2} y2={y2}
               stroke="#facc15"
               strokeWidth="1.5"
@@ -449,10 +566,10 @@ export function TreeCanvas({
           const isPrereqPath = selectedNodeIds.includes(childId);
           const isHighlighted = isChildPath || isPrereqPath;
 
-          const sX = x;
-          const sY = y;
-          const tX = draggingNodesPos[childId]?.x ?? childNode.x;
-          const tY = draggingNodesPos[childId]?.y ?? childNode.y;
+          const sX = baseX;
+          const sY = baseY;
+          const tX = childNode.x;
+          const tY = childNode.y;
 
           const dx = tX - sX;
           const dy = tY - sY;
@@ -466,6 +583,8 @@ export function TreeCanvas({
             connections.push(
               <g key={`link-${node.formId}-${childId}`} className="spell-path group cursor-pointer">
                 <line
+                  data-from={node.formId}
+                  data-to={childId}
                   x1={sX} y1={sY}
                   x2={x2} y2={y2}
                   stroke="transparent"
@@ -477,6 +596,8 @@ export function TreeCanvas({
                   }}
                 />
                 <line
+                  data-from={node.formId}
+                  data-to={childId}
                   x1={sX} y1={sY}
                   x2={x2} y2={y2}
                   stroke={isPrereqPath ? "#22c55e" : (isChildPath ? "#f97316" : "hsl(var(--primary))")}
@@ -501,28 +622,36 @@ export function TreeCanvas({
       const isPrereq = prereqNodeIds.has(node.formId);
       const isChild = childNodeIds.has(node.formId);
       
+      const nodeBorderColor = isSelected ? 'hsl(var(--accent))' :
+        isPrereq ? '#22c55e' :
+        isChild ? '#f97316' :
+        isMatch ? '#facc15' :
+        node.schoolColor || '#94a3b8';
+
       nodes.push(
         <div
           key={node.formId}
           data-node-id={node.formId}
           className={cn(
             "spell-node absolute flex items-center justify-center rounded-full border bg-card cursor-grab pointer-events-auto arcane-glow select-none group transition-all",
-            (dragMode === 'node' || Object.keys(draggingNodesPos).length > 0) && "transition-none",
+            "transition-all",
             node.isLocked && "cursor-default",
-            isSelected ? "node-selected ring-2 ring-accent ring-offset-1 ring-offset-background z-30 scale-110" : "border-primary/40",
-            isPrereq && !isSelected && "border-[#22c55e] ring-2 ring-[#22c55e]/50 z-20 scale-105",
-            isChild && !isSelected && "border-[#f97316] ring-2 ring-[#f97316]/50 z-20 scale-105",
-            isRoot && "border-accent shadow-[0_0_15px_hsl(var(--accent))] z-10",
+            isSelected ? "node-selected ring-2 ring-accent ring-offset-1 ring-offset-background z-30 scale-110" : undefined,
+            isPrereq && !isSelected && "ring-2 ring-[#22c55e]/50 z-20 scale-105",
+            isChild && !isSelected && "ring-2 ring-[#f97316]/50 z-20 scale-105",
+            isRoot && "shadow-[0_0_15px_hsl(var(--accent))] z-10",
             linkingSourceId === node.formId && "ring-2 ring-accent ring-offset-2 animate-pulse z-40",
             draggingNodesPos[node.formId] && "cursor-grabbing scale-110 opacity-80 z-50",
-            isMatch && "node-pulse ring-2 ring-yellow-400 border-yellow-400 z-50 scale-125 shadow-[0_0_20px_hsl(48_100%_50%)]"
+            isMatch && "node-pulse ring-2 ring-yellow-400 z-50 scale-125 shadow-[0_0_20px_hsl(48_100%_50%)]"
           )}
           style={{ 
-            left: x, 
-            top: y, 
+            left: baseX, 
+            top: baseY, 
             transform: 'translate(-50%, -50%)',
             width: isRoot ? 30 : 18,
             height: isRoot ? 30 : 18,
+            borderColor: nodeBorderColor,
+            visibility: isDragging ? 'hidden' : 'visible',
           }}
         >
           <span className={cn(
@@ -548,16 +677,16 @@ export function TreeCanvas({
     });
 
     return { nodes, connections, hubLines, radialGuides, spokes, nodeSpokes };
-  }, [allSchools, schoolName, school, selectedNodeIds, dragMode, searchQuery, showRadialGuides, draggingNodesPos, gridSize, onLinkNodes]);
+  }, [allSchools, schoolName, school, selectedNodeIds, dragMode, dragNodesInitialPos, searchQuery, showRadialGuides, gridSize, onLinkNodes]);
 
   const activeDragInfo = useMemo(() => {
-    if (dragMode !== 'node' || !dragNodeId || !draggingNodesPos[dragNodeId]) return null;
-    const { x, y } = draggingNodesPos[dragNodeId];
+    if (dragMode !== 'node' || !dragNodeId || !dragNodesPosRef.current[dragNodeId]) return null;
+    const { x, y } = dragNodesPosRef.current[dragNodeId];
     let deg = (Math.atan2(y, x) * (180 / Math.PI)) + 90;
     if (deg < 0) deg += 360;
     if (deg >= 360) deg -= 360;
     return { x, y, deg: Math.round(deg) };
-  }, [dragMode, dragNodeId, draggingNodesPos]);
+  }, [dragMode, dragNodeId, dragFrame]);
 
   return (
     <div 

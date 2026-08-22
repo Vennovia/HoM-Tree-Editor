@@ -9,7 +9,6 @@ import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
 import { Trash2, Link as LinkIcon, Lock, Unlock, MapPin, X, Star, StarOff, PlusCircle, Fingerprint, Layers, Scissors, Grid3X3, Compass, Crosshair } from 'lucide-react'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
 
@@ -77,13 +76,19 @@ export function NodeEditor({
     onUpdate(node.formId, { x: newX, y: newY });
   }
 
+  const nodeMap = useMemo(() => {
+    const map = new Map<string, SpellNode>()
+    school.nodes.forEach(n => map.set(n.formId, n))
+    return map
+  }, [school.nodes])
+
   const renderRelationList = (ids: string[], type: 'hard' | 'soft' | 'child') => {
     if (ids.length === 0) return <p className="text-[10px] text-muted-foreground italic">None</p>
 
     return (
       <div className="flex flex-wrap gap-1.5 mt-2">
         {ids.map(id => {
-          const targetNode = school.nodes.find(n => n.formId === id)
+          const targetNode = nodeMap.get(id)
           return (
             <div 
               key={id} 
@@ -208,7 +213,7 @@ export function NodeEditor({
         </Button>
       </div>
 
-      <ScrollArea className="flex-1">
+      <div className="flex-1 overflow-y-auto">
         <div className="p-6 space-y-6">
           <div className="space-y-4">
             <div className="space-y-2">
@@ -432,7 +437,7 @@ export function NodeEditor({
             </div>
           </div>
         </div>
-      </ScrollArea>
+      </div>
     </div>
   )
 }

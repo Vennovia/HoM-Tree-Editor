@@ -4,11 +4,14 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { SpellTreeData, SpellNode, SpellSchool } from '@/types/spell-tree'
 import { JSONImporter } from '@/components/editor/JSONImporter'
+import { TreeBuildRulesDialog } from '@/components/editor/TreeBuildRulesDialog'
 import { TreeCanvas } from '@/components/canvas/TreeCanvas'
 import { GlobalGrimoireView } from '@/components/canvas/GlobalGrimoireView'
 import { NodeEditor } from '@/components/editor/NodeEditor'
 import { AddNodeDialog } from '@/components/editor/AddNodeDialog'
 import { DashboardView } from '@/components/dashboard/DashboardView'
+import { TitleBar } from '@/components/TitleBar'
+import { buildTreeFromScan, rebuildTreeFromData, TreeBuildRules } from '@/lib/treeBuilder'
 import { Button } from '@/components/ui/button'
 import { 
   Plus, 
@@ -35,7 +38,8 @@ import {
   Magnet,
   Crosshair,
   Settings2,
-  Hash
+  Hash,
+  RefreshCw
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
@@ -77,6 +81,8 @@ export default function HoMTreeEditor() {
   const [isImportOpen, setIsImportOpen] = useState(false)
   const [isAddNodeOpen, setIsAddNodeOpen] = useState(false)
   const [isGlobalView, setIsGlobalView] = useState(false)
+  const [pendingScan, setPendingScan] = useState<any>(null)
+  const [isBuildRulesOpen, setIsBuildRulesOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [nodeSearchQuery, setNodeSearchQuery] = useState('')
   const [showRadialGuides, setShowRadialGuides] = useState(false)
@@ -94,7 +100,16 @@ export default function HoMTreeEditor() {
 
   const migrateGrimoireData = useCallback((data: any) => {
     if (!data.schools) return data;
-    Object.values(data.schools).forEach((school: any) => {
+    const schoolNames = Object.keys(data.schools);
+    const totalSchools = schoolNames.length || 1;
+    const schoolColors: Record<string, string> = {
+      Destruction: '#ef4444',
+      Conjuration: '#a855f7',
+      Illusion: '#3b82f6',
+      Restoration: '#eab308',
+      Alteration: '#f97316',
+    };
+    Object.entries(data.schools).forEach(([name, school]: [string, any], index: number) => {
       const rootsSet = new Set<string>();
       if (school.root) rootsSet.add(school.root);
       if (Array.isArray(school.roots)) {
@@ -103,14 +118,23 @@ export default function HoMTreeEditor() {
       if (Array.isArray(school.nodes)) {
         school.nodes.forEach((node: any) => {
           if (node.isRoot) rootsSet.add(node.formId);
+          node.schoolColor = schoolColors[name] || '#94a3b8';
         });
       }
       school.roots = Array.from(rootsSet);
-      // Ensure node isRoot flags match the roots list
       if (Array.isArray(school.nodes)) {
         school.nodes.forEach((node: any) => {
           node.isRoot = school.roots.includes(node.formId);
         });
+      }
+      if (school.startAngle === undefined || school.endAngle === undefined) {
+        const sectorDeg = 360 / totalSchools;
+        school.startAngle = index * sectorDeg;
+        school.endAngle = (index + 1) * sectorDeg;
+        school.rootDirection = school.startAngle + sectorDeg / 2;
+      }
+      if (school.spokeAngle === undefined) {
+        school.spokeAngle = (school.endAngle - school.startAngle) / Math.max(1, school.roots.length);
       }
     });
     return data;
@@ -209,6 +233,18 @@ export default function HoMTreeEditor() {
     toast({ title: "Knowledge Absorbed", description: "Successfully imported arcane data structures." })
   }
 
+  const handleBuilderScanParsed = (scan: any) => {
+    setPendingScan(scan)
+    setIsBuildRulesOpen(true)
+  }
+
+  const handleBuildRulesConfirm = (rules: TreeBuildRules) => {
+    if (!pendingScan) return
+    const built = buildTreeFromScan(pendingScan, rules)
+    handleImport(built)
+    setPendingScan(null)
+  }
+
   const handleExport = () => {
     if (!treeData) return
     const jsonString = JSON.stringify(treeData, null, 2);
@@ -225,6 +261,15 @@ export default function HoMTreeEditor() {
     URL.revokeObjectURL(url);
     
     toast({ title: "Grimoire Exported", description: "Saved to your system Downloads folder." })
+  }
+
+  const handleRebuildTree = () => {
+    if (!treeData) return
+    const seed = Math.floor(Math.random() * 2**32)
+    const rebuilt = rebuildTreeFromData(treeData, { seed })
+    setTreeData(rebuilt)
+    setHistory([])
+    toast({ title: "Tree Rebuilt", description: "Spell tree structure has been regenerated from current nodes." })
   }
 
   const findSchoolForNode = useCallback((nodeId: string): string | null => {
@@ -418,7 +463,7 @@ export default function HoMTreeEditor() {
 
   const handleLinkNodes = (sourceId: string, targetId: string) => handleToggleRelationship(targetId, sourceId, 'pool')
 
-  const handleDeleteNode = (nodeId: string) => {
+  const handleDeleteNode = useCallback((nodeId: string) => {
     const schoolName = findSchoolForNode(nodeId)
     if (!schoolName) return
     setTreeData(prev => {
@@ -445,7 +490,7 @@ export default function HoMTreeEditor() {
       return { ...prev, schools: newSchools }
     })
     setSelectedNodeIds(prev => prev.filter(id => id !== nodeId));
-  }
+  }, [findSchoolForNode, pushHistory]);
 
   const handleClearChildren = useCallback((nodeIds: string[]) => {
     setTreeData(prev => {
@@ -665,6 +710,15 @@ export default function HoMTreeEditor() {
     return null
   }, [treeData, selectedNodeId])
 
+  const selectedSchoolData = useMemo(() => {
+    if (!treeData || !selectedNode) return null
+    return treeData.schools[selectedNode.schoolName]
+  }, [treeData, selectedNode])
+
+  const handleSelectNode = useCallback((id: string) => {
+    setSelectedNodeIds([id])
+  }, [setSelectedNodeIds])
+
   const nodeSearchResults = useMemo(() => {
     if (!treeData || nodeSearchQuery.length < 2) return []
     const results: SpellNode[] = []
@@ -678,12 +732,10 @@ export default function HoMTreeEditor() {
   }, [treeData, selectedSchool, nodeSearchQuery])
 
   return (
-    <div className="flex h-screen w-full bg-background overflow-hidden text-foreground">
-      <Toaster />
-      <JSONImporter isOpen={isImportOpen} onOpenChange={setIsImportOpen} onImport={handleImport} />
-      <AddNodeDialog isOpen={isAddNodeOpen} onOpenChange={setIsAddNodeOpen} onConfirm={handleConfirmAddNode} />
-
-      <aside className={cn("flex flex-col border-r border-border bg-card/50 transition-all relative z-30", isSidebarCollapsed ? "w-16" : "w-72")}>
+    <div className="flex flex-col h-screen w-full bg-background overflow-hidden text-foreground">
+      <TitleBar />
+      <div className="flex flex-1 min-h-0">
+        <aside className={cn("flex flex-col border-r border-border bg-card/50 transition-all relative z-30", isSidebarCollapsed ? "w-16" : "w-72")}>
         <div className="p-4 border-b border-border flex items-center justify-between">
           {!isSidebarCollapsed && (
             <div className="flex items-center gap-2">
@@ -714,7 +766,7 @@ export default function HoMTreeEditor() {
               </div>
               <Accordion type="single" collapsible className="w-full">
                 <AccordionItem value="controls" className="border-none">
-                  <AccordionTrigger className="hover:no-underline py-2 px-0 text-[10px] uppercase text-muted-foreground px-2">Grimoire Controls</AccordionTrigger>
+                  <AccordionTrigger className="hover:no-underline py-2 px-2 text-[10px] uppercase text-muted-foreground">Grimoire Controls</AccordionTrigger>
                   <AccordionContent className="pt-2">
                     <div className="px-2 py-2 space-y-2.5 bg-secondary/20 rounded-lg border border-border/40">
                       <ControlHint icon={<MousePointer2 className="w-3 h-3" />} text="Select Spell" hint="Click" />
@@ -740,6 +792,7 @@ export default function HoMTreeEditor() {
             </div>
             <div className="mt-auto p-4 border-t border-border space-y-2">
               <Button variant="outline" className="w-full justify-start gap-2 text-xs" onClick={handleUndo} disabled={history.length === 0}><Undo2 className="w-3.5 h-3.5" /> Undo Action</Button>
+              <Button variant="outline" className="w-full justify-start gap-2 text-xs" onClick={handleRebuildTree} disabled={!treeData}><RefreshCw className="w-3.5 h-3.5" /> Rebuild Tree</Button>
               <Button variant="outline" className="w-full justify-start gap-2 text-xs" onClick={() => setIsImportOpen(true)}><Code className="w-3.5 h-3.5" /> Import JSON</Button>
               <Button className="w-full justify-start gap-2 text-xs" onClick={handleExport} disabled={!treeData}><Download className="w-3.5 h-3.5" /> Export Grimoire</Button>
             </div>
@@ -896,10 +949,10 @@ export default function HoMTreeEditor() {
       </main>
 
       {selectedNode && (
-        <aside className="w-96 border-l border-border bg-card/80 backdrop-blur-md z-30 overflow-y-auto">
+        <aside className="w-96 border-l border-border bg-card/80 z-30 overflow-y-auto">
           <NodeEditor 
             schoolName={selectedNode.schoolName} 
-            school={treeData!.schools[selectedNode.schoolName]} 
+            school={selectedSchoolData!}
             node={selectedNode.node} 
             selectedNodeIds={selectedNodeIds} 
             onUpdate={handleUpdateNode} 
@@ -907,7 +960,7 @@ export default function HoMTreeEditor() {
             onUpdateSchool={handleUpdateSchool} 
             onToggleRelationship={handleToggleRelationship} 
             onDelete={handleDeleteNode} 
-            onSelectNode={(id) => setSelectedNodeIds([id])} 
+            onSelectNode={handleSelectNode}
             onClearChildren={handleClearChildren}
             onClearHardPrereqs={handleClearHardPrereqs}
             onClearSoftPrereqs={handleClearSoftPrereqs}
@@ -915,6 +968,11 @@ export default function HoMTreeEditor() {
           />
         </aside>
       )}
+      </div>
+      <Toaster />
+      <JSONImporter isOpen={isImportOpen} onOpenChange={setIsImportOpen} onImport={handleImport} onBuilderScanParsed={handleBuilderScanParsed} />
+      <AddNodeDialog isOpen={isAddNodeOpen} onOpenChange={setIsAddNodeOpen} onConfirm={handleConfirmAddNode} />
+      <TreeBuildRulesDialog open={isBuildRulesOpen} onOpenChange={setIsBuildRulesOpen} onConfirm={handleBuildRulesConfirm} spellCount={pendingScan?.spells?.length || 0} />
     </div>
   )
 }

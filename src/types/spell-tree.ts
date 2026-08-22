@@ -21,6 +21,7 @@ export interface SpellNode {
   isRoot?: boolean;
   isLocked?: boolean;
   showSpokes?: boolean;
+  schoolColor?: string;
 }
 
 export interface SpellSchool {
