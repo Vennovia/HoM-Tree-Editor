@@ -1,3 +1,4 @@
+
 "use client"
 
 import React, { useMemo } from 'react'
@@ -71,22 +72,44 @@ export function DashboardView({ data, onSelectSchool }: DashboardViewProps) {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {Object.keys(data.schools).map(schoolName => {
                 const school = data.schools[schoolName];
+                const roots = school.roots || [];
+                const levelCounts: Record<string, number> = {};
+                school.nodes.forEach(n => {
+                  const lvl = n.skillLevel || 'Unknown';
+                  levelCounts[lvl] = (levelCounts[lvl] || 0) + 1;
+                });
+                const proficiencyOrder = ['Novice', 'Apprentice', 'Adept', 'Expert', 'Master'];
+                const tierOrder = [...proficiencyOrder].reverse();
+                const skillLevels = Object.entries(levelCounts).sort((a, b) => {
+                  const ia = tierOrder.indexOf(a[0]);
+                  const ib = tierOrder.indexOf(b[0]);
+                  const ra = ia === -1 ? tierOrder.length : ia;
+                  const rb = ib === -1 ? tierOrder.length : ib;
+                  return ra - rb;
+                });
+                const schoolColor = school.nodes[0]?.schoolColor || '#94a3b8';
+                const rootNames = roots.map(rootId => {
+                  const node = school.nodes.find(n => n.formId === rootId);
+                  return node?.name || rootId;
+                });
                 return (
-                  <Card key={schoolName} className="bg-card/40 border-border hover:border-accent/50 transition-colors group cursor-pointer" onClick={() => onSelectSchool(schoolName)}>
+                  <Card key={schoolName} className="bg-card/40 border-border hover:border-accent/50 transition-colors group cursor-pointer" style={{ borderLeft: `4px solid ${schoolColor}` }} onClick={() => onSelectSchool(schoolName)}>
                     <CardHeader className="p-4 pb-2">
                       <div className="flex justify-between items-start">
                         <CardTitle className="text-lg font-headline text-foreground group-hover:text-accent transition-colors">{schoolName}</CardTitle>
-                        <Badge variant="outline" className="text-[10px] uppercase">{school.nodes.length} Nodes</Badge>
+                        <Badge variant="outline" className="text-[10px] uppercase" style={{ borderColor: schoolColor, color: schoolColor }}>{school.nodes.length} Nodes</Badge>
                       </div>
-                      <CardDescription className="text-xs">Root: {school.root}</CardDescription>
+                      <CardDescription className="text-xs">
+                        Roots: {rootNames.length > 0 ? rootNames.join(', ') : 'None'}
+                      </CardDescription>
                     </CardHeader>
-                    <CardContent className="p-4 pt-0 flex justify-between items-center">
-                      <div className="flex gap-2">
-                        {Array.from(new Set(school.nodes.map(n => n.skillLevel))).slice(0, 3).map(lvl => (
-                          <span key={lvl} className="text-[9px] px-1.5 py-0.5 bg-secondary rounded text-muted-foreground">{lvl}</span>
-                        ))}
-                      </div>
-                      <Button variant="ghost" size="icon" className="group-hover:translate-x-1 transition-transform">
+                    <CardContent className="p-4 pt-0 flex flex-wrap items-center gap-2">
+                      {skillLevels.map(([lvl, count]) => (
+                        <span key={`${schoolName}-${lvl}`} className="text-[9px] px-1.5 py-0.5 bg-secondary rounded flex items-center gap-1">
+                          {lvl} <span className="font-bold" style={{ color: schoolColor }}>{count}</span>
+                        </span>
+                      ))}
+                      <Button variant="ghost" size="icon" className="group-hover:translate-x-1 transition-transform ml-auto">
                         <ChevronRight className="w-4 h-4" />
                       </Button>
                     </CardContent>
@@ -100,7 +123,15 @@ export function DashboardView({ data, onSelectSchool }: DashboardViewProps) {
             <h3 className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Skill Distribution</h3>
             <Card className="bg-card/40 border-border">
               <CardContent className="p-6 space-y-4">
-                {Object.entries(stats.skillLevelCounts).sort((a, b) => b[1] - a[1]).map(([level, count]) => (
+                {Object.entries(stats.skillLevelCounts).sort((a, b) => {
+                  const proficiencyOrder = ['Novice', 'Apprentice', 'Adept', 'Expert', 'Master'];
+                  const tierOrder = [...proficiencyOrder].reverse();
+                  const ia = tierOrder.indexOf(a[0]);
+                  const ib = tierOrder.indexOf(b[0]);
+                  const ra = ia === -1 ? tierOrder.length : ia;
+                  const rb = ib === -1 ? tierOrder.length : ib;
+                  return ra - rb;
+                }).map(([level, count]) => (
                   <div key={level} className="space-y-1">
                     <div className="flex justify-between text-xs">
                       <span className="text-muted-foreground">{level}</span>

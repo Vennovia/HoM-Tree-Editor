@@ -1,0 +1,26 @@
+# Tauri ignore file - excludes files from the app bundle
+.git/
+.github/
+.idx/
+.next/
+node_modules/
+out/
+src-tauri/
+docs/
+
+# Large data files
+spell_scan_output.json
+spell_tree.json
+SpellScannerScan.cpp
+project.tar.gz
+tsconfig.tsbuildinfo
+
+# Config / metadata noise
+apphosting.yaml
+.gitignore
+.modified
+components.json
+next-env.d.ts
+postcss.config.mjs
+README.md
+Tree Creation Rules.md

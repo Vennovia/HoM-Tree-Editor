@@ -1,14 +1,14 @@
+
 "use client"
 
-import React from 'react'
+import React, { useMemo } from 'react'
 import { SpellNode, SpellSchool } from '@/types/spell-tree'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
-import { Trash2, Link as LinkIcon, Lock, Unlock, MapPin, X, Star, StarOff } from 'lucide-react'
-import { ScrollArea } from '@/components/ui/scroll-area'
+import { Trash2, Link as LinkIcon, Lock, Unlock, MapPin, X, Star, StarOff, PlusCircle, Fingerprint, Layers, Scissors, Grid3X3, Compass, Crosshair } from 'lucide-react'
 import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
 
@@ -16,23 +16,52 @@ interface NodeEditorProps {
   schoolName: string;
   school: SpellSchool;
   node: SpellNode;
+  selectedNodeIds: string[];
   onUpdate: (nodeId: string, updates: Partial<SpellNode>) => void;
+  onUpdateNodes: (updates: Record<string, Partial<SpellNode>>) => void;
   onUpdateSchool: (schoolName: string, updates: Partial<SpellSchool>) => void;
-  onToggleRelationship: (nodeId: string, targetId: string, type: 'hard' | 'soft' | 'child') => void;
+  onToggleRelationship: (nodeId: string, targetId: string, type: 'hard' | 'soft' | 'child' | 'pool') => void;
   onDelete: (nodeId: string) => void;
   onSelectNode: (nodeId: string) => void;
+  onClearChildren: (nodeIds: string[]) => void;
+  onClearHardPrereqs: (nodeIds: string[]) => void;
+  onClearSoftPrereqs: (nodeIds: string[]) => void;
+  onCondense: (nodeIds: string[]) => void;
 }
 
 export function NodeEditor({ 
   schoolName, 
   school, 
   node, 
+  selectedNodeIds,
   onUpdate, 
+  onUpdateNodes,
   onUpdateSchool,
   onToggleRelationship, 
   onDelete, 
-  onSelectNode 
+  onSelectNode,
+  onClearChildren,
+  onClearHardPrereqs,
+  onClearSoftPrereqs,
+  onCondense
 }: NodeEditorProps) {
+
+  const selectedCount = selectedNodeIds.length
+
+  const nodeMap = useMemo(() => {
+    const map: Record<string, SpellNode> = {}
+    school.nodes.forEach(n => { map[n.formId] = n })
+    return map
+  }, [school.nodes])
+
+  const currentDegrees = useMemo(() => {
+    const { x, y } = node;
+    if (x === 0 && y === 0) return 0;
+    let deg = (Math.atan2(y, x) * (180 / Math.PI)) + 90;
+    if (deg < 0) deg += 360;
+    if (deg >= 360) deg -= 360;
+    return Math.round(deg);
+  }, [node.x, node.y]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
@@ -43,13 +72,23 @@ export function NodeEditor({
     }
   }
 
+  const handleAngleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newDeg = Number(e.target.value);
+    const r = Math.sqrt(node.x * node.x + node.y * node.y);
+    if (r === 0) return;
+    const rad = (newDeg - 90) * (Math.PI / 180);
+    const newX = Math.round(r * Math.cos(rad));
+    const newY = Math.round(r * Math.sin(rad));
+    onUpdate(node.formId, { x: newX, y: newY });
+  }
+
   const renderRelationList = (ids: string[], type: 'hard' | 'soft' | 'child') => {
     if (ids.length === 0) return <p className="text-[10px] text-muted-foreground italic">None</p>
 
     return (
       <div className="flex flex-wrap gap-1.5 mt-2">
         {ids.map(id => {
-          const targetNode = school.nodes.find(n => n.formId === id)
+          const targetNode = nodeMap[id]
           return (
             <div 
               key={id} 
@@ -74,76 +113,128 @@ export function NodeEditor({
     )
   }
 
-  const availableNodes = school.nodes.filter(n => n.formId !== node.formId)
-  const isRootNode = school.root === node.formId
+  const isRootNode = node.isRoot || (school.roots || []).includes(node.formId);
+
+  const validHardPrereqs = useMemo(() => {
+    const pool = node.prerequisites || [];
+    const hard = node.hardPrereqs || [];
+    return school.nodes.filter(n => pool.includes(n.formId) && !hard.includes(n.formId));
+  }, [school.nodes, node.prerequisites, node.hardPrereqs]);
+
+  const validSoftPrereqs = useMemo(() => {
+    const pool = node.prerequisites || [];
+    const soft = node.softPrereqs || [];
+    return school.nodes.filter(n => pool.includes(n.formId) && !soft.includes(n.formId));
+  }, [school.nodes, node.prerequisites, node.softPrereqs]);
+
+  const availableToLink = useMemo(() => {
+    const existingIds = new Set([
+      node.formId,
+      ...(node.prerequisites || []),
+      ...(node.children || [])
+    ]);
+    return school.nodes.filter(n => !existingIds.has(n.formId));
+  }, [school.nodes, node.formId, node.prerequisites, node.children]);
+
+  const validChildren = useMemo(() => {
+    const existingIds = new Set([
+      node.formId,
+      ...(node.children || []),
+      ...(node.prerequisites || []) 
+    ]);
+    return school.nodes.filter(n => !existingIds.has(n.formId));
+  }, [school.nodes, node.formId, node.children, node.prerequisites]);
+
+  const handleToggleRoot = (checked: boolean) => {
+    // Update the authoritative isRoot flag on the node
+    onUpdate(node.formId, { isRoot: checked });
+  };
+
+  const handleLockToggle = (checked: boolean) => {
+    if (selectedCount > 1) {
+      const updates: Record<string, Partial<SpellNode>> = {}
+      selectedNodeIds.forEach(id => {
+        updates[id] = { isLocked: checked }
+      })
+      onUpdateNodes(updates)
+    } else {
+      onUpdate(node.formId, { isLocked: checked })
+    }
+  }
+
+  const handleSpokesToggle = (checked: boolean) => {
+    if (selectedCount > 1) {
+      const updates: Record<string, Partial<SpellNode>> = {}
+      selectedNodeIds.forEach(id => {
+        updates[id] = { showSpokes: checked }
+      })
+      onUpdateNodes(updates)
+    } else {
+      onUpdate(node.formId, { showSpokes: checked })
+    }
+  }
+
+  const selectedNodesWithChildren = useMemo(() => {
+    return school.nodes.filter(n => selectedNodeIds.includes(n.formId) && n.children && n.children.length > 0)
+  }, [school.nodes, selectedNodeIds])
+
+  const selectedNodesWithHardPrereqs = useMemo(() => {
+    return school.nodes.filter(n => selectedNodeIds.includes(n.formId) && n.hardPrereqs && n.hardPrereqs.length > 0)
+  }, [school.nodes, selectedNodeIds])
+
+  const selectedNodesWithSoftPrereqs = useMemo(() => {
+    return school.nodes.filter(n => selectedNodeIds.includes(n.formId) && n.softPrereqs && n.softPrereqs.length > 0)
+  }, [school.nodes, selectedNodeIds])
+
+  const canClearChildren = selectedNodesWithChildren.length > 0
+  const canClearHardPrereqs = selectedNodesWithHardPrereqs.length > 0
+  const canClearSoftPrereqs = selectedNodesWithSoftPrereqs.length > 0
+
+  const hardPrereqList = useMemo(() => renderRelationList(node.hardPrereqs || [], 'hard'), [node.hardPrereqs, nodeMap, onSelectNode, onToggleRelationship, node.formId])
+  const softPrereqList = useMemo(() => renderRelationList(node.softPrereqs || [], 'soft'), [node.softPrereqs, nodeMap, onSelectNode, onToggleRelationship, node.formId])
+  const childrenList = useMemo(() => renderRelationList(node.children || [], 'child'), [node.children, nodeMap, onSelectNode, onToggleRelationship, node.formId])
 
   return (
     <div className="flex flex-col h-full bg-card">
       <div className="p-6 border-b border-border flex justify-between items-center bg-primary/20">
         <div>
           <h2 className="text-xl font-headline font-bold text-accent">Node Editor</h2>
-          <p className="text-xs text-muted-foreground font-mono">{node.formId}</p>
+          <div className="flex items-center gap-2 mt-1">
+            <div className="flex items-center gap-1.5 opacity-60">
+              <Fingerprint className="w-3 h-3" />
+              <span className="text-[10px] font-mono tracking-tighter uppercase">Reference Data</span>
+            </div>
+            {selectedCount > 1 && (
+              <div className="flex items-center gap-1.5 px-2 py-0.5 bg-accent/20 rounded-full border border-accent/30 text-accent animate-pulse">
+                <Layers className="w-2.5 h-2.5" />
+                <span className="text-[9px] font-bold uppercase">{selectedCount} Selected</span>
+              </div>
+            )}
+          </div>
         </div>
         <Button variant="destructive" size="icon" onClick={() => onDelete(node.formId)}>
           <Trash2 className="w-4 h-4" />
         </Button>
       </div>
 
-      <ScrollArea className="flex-1">
+      <div className="flex-1 overflow-y-auto">
         <div className="p-6 space-y-6">
-          {/* School Status */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between p-3 bg-accent/5 rounded-lg border border-accent/20">
-              <div className="flex items-center gap-2">
-                {isRootNode ? <Star className="w-3.5 h-3.5 text-yellow-500 fill-yellow-500" /> : <StarOff className="w-3.5 h-3.5 text-muted-foreground" />}
-                <Label htmlFor="root-toggle" className="text-xs font-bold uppercase tracking-wider">School Root</Label>
-              </div>
-              <Switch 
-                id="root-toggle" 
-                checked={isRootNode} 
-                onCheckedChange={(checked) => onUpdateSchool(schoolName, { root: checked ? node.formId : "" })}
-              />
-            </div>
-
-            <div className="flex items-center justify-between p-3 bg-secondary/30 rounded-lg border border-border">
-              <div className="flex items-center gap-2">
-                {node.isLocked ? <Lock className="w-3.5 h-3.5 text-accent" /> : <Unlock className="w-3.5 h-3.5 text-muted-foreground" />}
-                <Label htmlFor="lock-toggle" className="text-xs font-bold uppercase tracking-wider">Lock Position</Label>
-              </div>
-              <Switch 
-                id="lock-toggle" 
-                checked={node.isLocked || false} 
-                onCheckedChange={(checked) => onUpdate(node.formId, { isLocked: checked })}
-              />
-            </div>
-          </div>
-
-          {/* Basic Info */}
           <div className="space-y-4">
             <div className="space-y-2">
               <Label className="text-xs uppercase text-muted-foreground tracking-widest font-bold">Display Name</Label>
-              <Input name="name" value={node.name} onChange={handleChange} className="bg-background border-border" />
+              <Input name="name" value={node.name} onChange={handleChange} className="bg-background border-border focus:ring-accent" />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="text-xs uppercase text-muted-foreground tracking-widest font-bold">Skill Level</Label>
-                <Select value={node.skillLevel} onValueChange={(val) => onUpdate(node.formId, { skillLevel: val })}>
-                  <SelectTrigger className="bg-background border-border">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Novice">Novice</SelectItem>
-                    <SelectItem value="Apprentice">Apprentice</SelectItem>
-                    <SelectItem value="Adept">Adept</SelectItem>
-                    <SelectItem value="Expert">Expert</SelectItem>
-                    <SelectItem value="Master">Master</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label className="text-xs uppercase text-muted-foreground tracking-widest font-bold">Tier</Label>
-                <Input type="number" name="tier" value={node.tier} onChange={handleChange} className="bg-background border-border" />
+            <div className="space-y-2">
+              <Label className="text-xs uppercase text-muted-foreground tracking-widest font-bold">Form ID</Label>
+              <Input name="formId" value={node.formId} onChange={handleChange} className="bg-background border-border font-mono text-xs focus:ring-accent" />
+              <p className="text-[9px] text-muted-foreground opacity-60 leading-tight">Changing this will update all arcane references throughout the grimoire.</p>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-xs uppercase text-muted-foreground tracking-widest font-bold">Skill Level</Label>
+              <div className="h-10 px-3 py-2 bg-background border border-border rounded-md text-xs flex items-center">
+                {node.skillLevel}
               </div>
             </div>
 
@@ -155,135 +246,189 @@ export function NodeEditor({
 
           <Separator className="bg-border" />
 
-          {/* Positioning */}
-          <div className="space-y-4">
-            <h3 className="text-sm font-semibold flex items-center gap-2">
-              <MapPin className="w-4 h-4 text-accent" />
-              Coordinates
-            </h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="text-xs text-muted-foreground">X Axis</Label>
-                <Input 
-                  type="number" 
-                  name="x" 
-                  value={node.x} 
-                  onChange={handleChange} 
-                  disabled={node.isLocked}
-                  className="bg-background border-border" 
-                />
+          <div className="space-y-3">
+            <div className="flex items-center justify-between p-3 bg-secondary/10 rounded-lg border border-border/40">
+              <div className="flex items-center gap-2">
+                {isRootNode ? <Star className="w-3.5 h-3.5 text-yellow-500 fill-yellow-500" /> : <StarOff className="w-3.5 h-3.5 text-muted-foreground" />}
+                <Label htmlFor="root-toggle" className="text-xs font-bold uppercase tracking-wider">School Root</Label>
               </div>
-              <div className="space-y-2">
-                <Label className="text-xs text-muted-foreground">Y Axis</Label>
-                <Input 
-                  type="number" 
-                  name="y" 
-                  value={node.y} 
-                  onChange={handleChange} 
-                  disabled={node.isLocked}
-                  className="bg-background border-border" 
-                />
+              <Switch id="root-toggle" checked={isRootNode} onCheckedChange={handleToggleRoot} />
+            </div>
+
+            <div className="flex items-center justify-between p-3 bg-secondary/10 rounded-lg border border-border/40">
+              <div className="flex items-center gap-2">
+                {node.isLocked ? <Lock className="w-3.5 h-3.5 text-accent" /> : <Unlock className="w-3.5 h-3.5 text-muted-foreground" />}
+                <Label htmlFor="lock-toggle" className="text-xs font-bold uppercase tracking-wider">Lock Position</Label>
               </div>
+              <Switch id="lock-toggle" checked={node.isLocked || false} onCheckedChange={handleLockToggle} />
+            </div>
+
+            <div className="flex items-center justify-between p-3 bg-yellow-400/5 rounded-lg border border-yellow-400/20">
+              <div className="flex items-center gap-2">
+                <Crosshair className={cn("w-3.5 h-3.5", node.showSpokes ? "text-yellow-400" : "text-muted-foreground")} />
+                <Label htmlFor="spokes-toggle" className="text-xs font-bold uppercase tracking-wider">Alignment Spokes</Label>
+              </div>
+              <Switch id="spokes-toggle" checked={node.showSpokes || false} onCheckedChange={handleSpokesToggle} />
             </div>
           </div>
 
           <Separator className="bg-border" />
 
-          {/* Logic & Requirements */}
+          <div className="space-y-4">
+            <h3 className="text-sm font-semibold flex items-center gap-2">
+              <MapPin className="w-4 h-4 text-accent" /> Coordinates
+            </h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground">X Axis</Label>
+                <Input type="number" name="x" value={node.x} onChange={handleChange} disabled={node.isLocked} className="bg-background border-border" />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground">Y Axis</Label>
+                <Input type="number" name="y" value={node.y} onChange={handleChange} disabled={node.isLocked} className="bg-background border-border" />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Compass className="w-3.5 h-3.5 text-accent" />
+                <Label className="text-xs text-muted-foreground uppercase tracking-widest font-bold">Compass Angle</Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <Input 
+                  type="number" 
+                  value={currentDegrees} 
+                  onChange={handleAngleChange} 
+                  disabled={node.isLocked} 
+                  className="bg-background border-border h-8 text-xs" 
+                />
+                <span className="text-xs text-muted-foreground">°</span>
+              </div>
+              <p className="text-[9px] text-muted-foreground opacity-60 italic">Adjusts polar orientation around Core Magic (0° is Up).</p>
+            </div>
+            
+            {selectedCount > 1 && (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="w-full flex items-center gap-2 text-[10px] uppercase tracking-widest h-9 bg-accent/5 hover:bg-accent/10 text-accent font-bold transition-all border-accent/20"
+                onClick={() => onCondense(selectedNodeIds)}
+              >
+                <Grid3X3 className="w-3.5 h-3.5" />
+                Condense into Grid
+              </Button>
+            )}
+          </div>
+
+          <Separator className="bg-border" />
+
           <div className="space-y-6">
             <h3 className="text-sm font-semibold flex items-center gap-2">
-              <LinkIcon className="w-4 h-4 text-accent" />
-              Logic & Requirements
+              <LinkIcon className="w-4 h-4 text-accent" /> Arcane Connections
             </h3>
 
-            {/* Hard Prereqs */}
+            <div className="flex flex-col gap-2">
+              {canClearChildren && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="w-full flex items-center gap-2 text-[10px] uppercase tracking-widest h-8 border-destructive/30 hover:bg-destructive/10 hover:text-destructive text-muted-foreground font-bold transition-all"
+                  onClick={() => onClearChildren(selectedNodeIds)}
+                >
+                  <Scissors className="w-3.5 h-3.5" />
+                  Sever All Child Links
+                </Button>
+              )}
+
+              {canClearHardPrereqs && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="w-full flex items-center gap-2 text-[10px] uppercase tracking-widest h-8 border-destructive/30 hover:bg-destructive/10 hover:text-destructive text-muted-foreground font-bold transition-all"
+                  onClick={() => onClearHardPrereqs(selectedNodeIds)}
+                >
+                  <Scissors className="w-3.5 h-3.5" />
+                  Sever All Hard Prereqs
+                </Button>
+              )}
+
+              {canClearSoftPrereqs && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="w-full flex items-center gap-2 text-[10px] uppercase tracking-widest h-8 border-destructive/30 hover:bg-destructive/10 hover:text-destructive text-muted-foreground font-bold transition-all"
+                  onClick={() => onClearSoftPrereqs(selectedNodeIds)}
+                >
+                  <Scissors className="w-3.5 h-3.5" />
+                  Sever All Soft Prereqs
+                </Button>
+              )}
+            </div>
+
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <Label className="text-[10px] uppercase text-muted-foreground tracking-widest font-bold">Hard Prerequisites</Label>
                 <Select onValueChange={(val) => onToggleRelationship(node.formId, val, 'hard')}>
-                  <SelectTrigger className="w-32 h-7 text-[9px] bg-secondary/50">
-                    <SelectValue placeholder="Add Prereq" />
-                  </SelectTrigger>
+                  <SelectTrigger className="w-32 h-7 text-[9px] bg-secondary/50"><SelectValue placeholder="Assign Linked" /></SelectTrigger>
                   <SelectContent>
-                    {availableNodes.map(n => (
-                      <SelectItem key={n.formId} value={n.formId}>{n.name}</SelectItem>
-                    ))}
+                    {validHardPrereqs.length === 0 ? <div className="p-2 text-[9px] text-muted-foreground text-center italic">No unassigned links</div> : validHardPrereqs.map(n => <SelectItem key={n.formId} value={n.formId}>{n.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
-              {renderRelationList(node.hardPrereqs || [], 'hard')}
+              {hardPrereqList}
             </div>
 
-            {/* Soft Prereqs */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <Label className="text-[10px] uppercase text-muted-foreground tracking-widest font-bold">Soft Prerequisites</Label>
                 <Select onValueChange={(val) => onToggleRelationship(node.formId, val, 'soft')}>
-                  <SelectTrigger className="w-32 h-7 text-[9px] bg-secondary/50">
-                    <SelectValue placeholder="Add Prereq" />
-                  </SelectTrigger>
+                  <SelectTrigger className="w-32 h-7 text-[9px] bg-secondary/50"><SelectValue placeholder="Assign Linked" /></SelectTrigger>
                   <SelectContent>
-                    {availableNodes.map(n => (
-                      <SelectItem key={n.formId} value={n.formId}>{n.name}</SelectItem>
-                    ))}
+                    {validSoftPrereqs.length === 0 ? <div className="p-2 text-[9px] text-muted-foreground text-center italic">No unassigned links</div> : validSoftPrereqs.map(n => <SelectItem key={n.formId} value={n.formId}>{n.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
                   <Label className="text-[10px] text-muted-foreground shrink-0">Required Count:</Label>
-                  <Input 
-                    type="number" 
-                    name="softNeeded" 
-                    value={node.softNeeded} 
-                    onChange={handleChange} 
-                    className="h-6 w-16 text-[10px] bg-background" 
-                  />
+                  <Input type="number" name="softNeeded" value={node.softNeeded} onChange={handleChange} className="h-6 w-16 text-[10px] bg-background" />
                 </div>
-                {renderRelationList(node.softPrereqs || [], 'soft')}
+                {softPrereqList}
               </div>
             </div>
 
-            {/* Children */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <Label className="text-[10px] uppercase text-muted-foreground tracking-widest font-bold">Children (Unlocks)</Label>
                 <Select onValueChange={(val) => onToggleRelationship(node.formId, val, 'child')}>
-                  <SelectTrigger className="w-32 h-7 text-[9px] bg-secondary/50">
-                    <SelectValue placeholder="Add Child" />
-                  </SelectTrigger>
+                  <SelectTrigger className="w-32 h-7 text-[9px] bg-secondary/50"><SelectValue placeholder="Add Child" /></SelectTrigger>
                   <SelectContent>
-                    {availableNodes.map(n => (
-                      <SelectItem key={n.formId} value={n.formId}>{n.name}</SelectItem>
-                    ))}
+                    {validChildren.length === 0 ? <div className="p-2 text-[9px] text-muted-foreground text-center italic">No valid spells</div> : validChildren.map(n => <SelectItem key={n.formId} value={n.formId}>{n.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
-              {renderRelationList(node.children || [], 'child')}
+              {childrenList}
+            </div>
+
+            <Separator className="bg-border/50" />
+
+            <div className="p-3 bg-accent/5 rounded-lg border border-accent/10 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 text-accent">
+                  <PlusCircle className="w-3.5 h-3.5" />
+                  <span className="text-[10px] font-bold uppercase tracking-tight">Establish New Link</span>
+                </div>
+                <Select onValueChange={(val) => onToggleRelationship(node.formId, val, 'pool')}>
+                  <SelectTrigger className="w-32 h-7 text-[9px] bg-background border-accent/20"><SelectValue placeholder="Pick a Spell" /></SelectTrigger>
+                  <SelectContent>
+                    {availableToLink.length === 0 ? <div className="p-2 text-[9px] text-muted-foreground text-center italic">All spells linked</div> : availableToLink.map(n => <SelectItem key={n.formId} value={n.formId}>{n.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
-
-          {node.locks && node.locks.length > 0 && (
-            <>
-              <Separator className="bg-border" />
-              <div className="space-y-4 pb-8">
-                <h3 className="text-sm font-semibold flex items-center gap-2">
-                  <Lock className="w-4 h-4 text-accent" />
-                  Locks
-                </h3>
-                {node.locks.map((lock, idx) => (
-                  <div key={idx} className="p-3 bg-secondary/50 rounded border border-border space-y-2">
-                    <div className="flex justify-between items-center">
-                      <span className="text-[10px] font-mono">{lock.nodeId}</span>
-                      <span className="text-[10px] font-bold text-accent">Score: {lock.score}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
         </div>
-      </ScrollArea>
+      </div>
     </div>
   )
 }

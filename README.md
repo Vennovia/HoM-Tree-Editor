@@ -1,38 +1,48 @@
-# HoM Tree Editor - Standalone Setup
+# Heart of Magic Tree Editor
 
-This application is a specialized visual editor for Heart of Magic spell structures. It is optimized for performance and can be exported as a standalone desktop application.
+This is fully Coded by AI in FireBase Stuido - The idea was mine and something I wanted, but did not have the time or know how to make it myself if you want to fork it go for it.
 
-## How to "Export" as a Program
+The Heart of Magic (HoM) Tree Editor is a specialized visual development tool designed for creating and managing complex spell structures. It allows users to design radial skill trees, manage prerequisites (hard and soft), and export structured grimoires for use in magic systems.
 
-The most reliable way to use this as a standalone application is to install it as a **Progressive Web App (PWA)**. This creates a dedicated window and desktop shortcut, effectively turning the web code into a local program.
+## Key Features
+- **Visual Node Editing**: Drag and drop spells in a radial or grid layout with coordinate snapping.
+- **Arcane Connections**: Manage hierarchical relationships with support for hard and soft prerequisites.
+- **Grimoire Management**: Seamlessly import and export spell data in a standardized JSON format.
+- **Responsive Canvas**: Pan, zoom, and multi-select tools optimized for massive magical datasets.
 
-### 1. Local Build (VS Code)
-1.  Open the project folder in VS Code.
-2.  Open the terminal and install dependencies:
+## Building the Standalone Application (Tauri)
+
+The editor can be compiled as a native desktop application for Windows, macOS, or Linux using [Tauri](https://tauri.app/).
+
+### Prerequisites
+
+1.  **Rust**: [Install the Rust toolchain](https://www.rust-lang.org/tools/install).
+2.  **Node.js**: [Install Node.js (LTS recommended)](https://nodejs.org/).
+3.  **OS Dependencies**:
+    *   **Windows**: [WebView2](https://developer.microsoft.com/en-us/microsoft-edge/webview2/) and C++ Build Tools.
+    *   **macOS**: Xcode Command Line Tools.
+    *   **Linux (Ubuntu/Debian)**: 
+        ```bash
+        sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.0-dev libappindicator3-dev librsvg2-dev patchelf
+        ```
+
+### Build Steps
+
+1.  **Install Dependencies**:
+    Open your terminal in the project root and run:
     ```bash
     npm install
     ```
-3.  Build the static application:
+
+2.  **Build the Standalone App**:
+    Generate the production-ready executable:
     ```bash
-    npm run build
+    npm run tauri build
     ```
-    *This generates an `out` folder containing your standalone program files.*
+    *The standalone program will be found in `src-tauri/target/release/bundle/`.*
 
-### 2. Run and Install
-1.  Start the local server:
-    ```bash
-    npm run dev
-    ```
-2.  Open `http://localhost:3000` in a Chromium-based browser (Chrome, Edge, Brave).
-3.  Click the **Install Icon** (monitor icon) on the right side of the address bar.
-4.  The editor will now open in its own window. You can now pin it to your Taskbar or Start Menu.
-
-## Saving Your Work
-- **Auto-Save**: The app automatically saves your grimoire to your browser's local storage. Even if you close the window, your work will be there when you return.
-- **Manual Backup**: Use the **"Grimoire Seal" (Export)** button in the sidebar to download a `.json` file. This is the best way to move your data between different computers.
-
-## Project Structure
-- `src/app/page.tsx`: Main application entry and state management.
-- `src/components/canvas`: Visual editors for global and school-specific views (High-performance Canvas).
-- `src/components/editor`: Node-level property editors and logic.
-- `src/types`: TypeScript definitions for the spell tree data structure.
+### Local Development
+To run the editor with hot-reloading in a desktop window:
+```bash
+npm run tauri dev
+```
