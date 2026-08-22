@@ -146,8 +146,9 @@ export function NodeEditor({
   }, [school.nodes, node.formId, node.children, node.prerequisites]);
 
   const handleToggleRoot = (checked: boolean) => {
-    // Update the authoritative isRoot flag on the node
-    onUpdate(node.formId, { isRoot: checked });
+    const currentRootCount = (school.roots || []).length
+    if (checked && currentRootCount >= 3) return
+    onUpdate(node.formId, { isRoot: checked })
   };
 
   const handleLockToggle = (checked: boolean) => {
@@ -252,7 +253,7 @@ export function NodeEditor({
                 {isRootNode ? <Star className="w-3.5 h-3.5 text-yellow-500 fill-yellow-500" /> : <StarOff className="w-3.5 h-3.5 text-muted-foreground" />}
                 <Label htmlFor="root-toggle" className="text-xs font-bold uppercase tracking-wider">School Root</Label>
               </div>
-              <Switch id="root-toggle" checked={isRootNode} onCheckedChange={handleToggleRoot} />
+              <Switch id="root-toggle" checked={isRootNode} onCheckedChange={handleToggleRoot} disabled={!isRootNode && (school.roots || []).length >= 3} />
             </div>
 
             <div className="flex items-center justify-between p-3 bg-secondary/10 rounded-lg border border-border/40">

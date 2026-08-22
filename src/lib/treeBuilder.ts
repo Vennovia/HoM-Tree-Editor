@@ -108,54 +108,84 @@ export const MIN_RING_GAP = 35
 export const MAX_RING_GAP = 80
 export const MIN_CORE_GAP = 100
 
-function layoutRadial(nodesById: Record<string, SpellNode>, rootId: string, a0: number, a1: number) {
+function layoutRadial(nodesById: Record<string, SpellNode>, rootIds: string[], a0: number, a1: number) {
+  const numRoots = Math.min(rootIds.length, 3)
+  if (numRoots === 0) return
+
   const sectorWidth = a1 - a0
 
-  const depthOf: Record<string, number> = { [rootId]: 0 }
-  const order: string[] = []
-  const queue = [rootId]
-  while (queue.length) {
-    const id = queue.shift() as string
-    order.push(id)
-    const d = depthOf[id]
-    for (const c of nodesById[id].children) {
-      depthOf[c] = d + 1
-      queue.push(c)
-    }
-  }
+  const subtreeIndex: Record<string, number> = {}
+  const depthOf: Record<string, number> = {}
+  const nodesInSubtree: Record<number, string[]> = {}
+  const tierNodesInSubtree: Record<number, Record<number, string[]>> = {}
+  const tierOrderInSubtree: Record<number, number[]> = {}
 
-  const tierOrder: number[] = []
-  const tierNodes: Record<number, string[]> = {}
-  for (const id of order) {
-    const t = nodesById[id].tier
-    if (!tierNodes[t]) {
-      tierNodes[t] = []
-      tierOrder.push(t)
-    }
-    tierNodes[t].push(id)
-  }
+  for (let r = 0; r < numRoots; r++) {
+    const rootId = rootIds[r]
+    if (!nodesById[rootId]) continue
 
-  tierOrder.sort((a, b) => a - b)
+    const queue: string[] = [rootId]
+    subtreeIndex[rootId] = r
+    depthOf[rootId] = 0
+    nodesInSubtree[r] = [rootId]
+    tierNodesInSubtree[r] = { 0: [rootId] }
+    tierOrderInSubtree[r] = [0]
 
-  let currentRadius = 0
-  let isFirstTier = true
-  for (const tier of tierOrder) {
-    const ids = tierNodes[tier]
-    let ringRadius = isFirstTier ? MIN_CORE_GAP : currentRadius + MIN_RING_GAP
-    let idx = 0
-    while (idx < ids.length) {
-      const capacity = Math.max(1, Math.floor((ringRadius * sectorWidth) / NODE_SPACING))
-      const count = Math.min(capacity, ids.length - idx)
-      for (let i = 0; i < count; i++) {
-        const a = a0 + ((i + 0.5) / count) * sectorWidth
-        nodesById[ids[idx]].x = Math.round(ringRadius * Math.cos(a))
-        nodesById[ids[idx]].y = Math.round(ringRadius * Math.sin(a))
-        idx++
+    let qi = 0
+    while (qi < queue.length) {
+      const id = queue[qi++]
+      const d = depthOf[id]
+      const children = nodesById[id].children
+      for (const c of children) {
+        if (subtreeIndex[c] === undefined) {
+          subtreeIndex[c] = r
+          depthOf[c] = d + 1
+          queue.push(c)
+          nodesInSubtree[r].push(c)
+
+          const childDepth = d + 1
+          if (!tierNodesInSubtree[r][childDepth]) {
+            tierNodesInSubtree[r][childDepth] = []
+            tierOrderInSubtree[r].push(childDepth)
+          }
+          tierNodesInSubtree[r][childDepth].push(c)
+        }
       }
-      ringRadius += MIN_RING_GAP
     }
-    currentRadius = ringRadius - MIN_RING_GAP + MAX_RING_GAP
-    isFirstTier = false
+
+    tierOrderInSubtree[r].sort((a, b) => a - b)
+  }
+
+  for (let r = 0; r < numRoots; r++) {
+    const nodes = nodesInSubtree[r]
+    if (!nodes || nodes.length === 0) continue
+
+    const subA0 = a0 + (r / numRoots) * sectorWidth
+    const subA1 = a0 + ((r + 1) / numRoots) * sectorWidth
+    const subWidth = subA1 - subA0
+
+    let currentRadius = 0
+    let isFirstTier = true
+    const tierOrder = tierOrderInSubtree[r]
+
+    for (const tier of tierOrder) {
+      const ids = tierNodesInSubtree[r][tier]
+      let ringRadius = isFirstTier ? MIN_CORE_GAP : currentRadius + MIN_RING_GAP
+      let idx = 0
+      while (idx < ids.length) {
+        const capacity = Math.max(1, Math.floor((ringRadius * subWidth) / NODE_SPACING))
+        const count = Math.min(capacity, ids.length - idx)
+        for (let i = 0; i < count; i++) {
+          const angle = subA0 + ((i + 0.5) / count) * subWidth
+          nodesById[ids[idx]].x = Math.round(ringRadius * Math.cos(angle))
+          nodesById[ids[idx]].y = Math.round(ringRadius * Math.sin(angle))
+          idx++
+        }
+        ringRadius += MIN_RING_GAP
+      }
+      currentRadius = ringRadius - MIN_RING_GAP + MAX_RING_GAP
+      isFirstTier = false
+    }
   }
 }
 
@@ -189,17 +219,17 @@ export function relayoutTree(data: SpellTreeData): SpellTreeData {
       nodesById[node.formId] = { ...node, schoolColor: node.schoolColor || schoolColor(schoolName) }
     }
 
-    const rootId = (school.roots && school.roots[0]) || school.nodes[0].formId
+    const rootIds = (school.roots && school.roots.length > 0 ? school.roots : [school.nodes[0].formId]).slice(0, 3)
     const { a0, a1 } = sectorOf[schoolName]
 
-    layoutRadial(nodesById, rootId, a0, a1)
+    layoutRadial(nodesById, rootIds, a0, a1)
 
     const deg = (rad: number) => (rad * 180) / Math.PI
     schools[schoolName] = {
-      roots: [rootId],
+      roots: rootIds,
       layoutStyle: 'tier_first',
       nodes: Object.values(nodesById),
-      spokeAngle: deg(a1 - a0) / Math.max(1, nodesById[rootId].children.length),
+      spokeAngle: deg(a1 - a0) / Math.max(1, rootIds.length),
       startAngle: deg(a0),
       endAngle: deg(a1),
       rootDirection: deg((a0 + a1) / 2),
@@ -245,22 +275,24 @@ export function rebuildTree(data: SpellTreeData, randomize: boolean): SpellTreeD
       }
     }
 
-    let rootId = school.roots?.[0]
-    if (!rootId || !nodesById[rootId]) {
+    let rootIds = (school.roots || []).filter(id => nodesById[id]).slice(0, 3)
+    if (rootIds.length === 0) {
       const ranked = [...nodes].sort((a, b) => {
         const ra = (SKILL_RANK[a.skillLevel] || 99) - (SKILL_RANK[b.skillLevel] || 99)
         if (ra !== 0) return ra
         return (isVanilla(a.formId) ? 0 : 1) - (isVanilla(b.formId) ? 0 : 1)
       })
-      rootId = ranked[0]?.formId
+      rootIds = ranked.slice(0, 3).map(n => n.formId)
     }
 
-    if (!rootId || !nodesById[rootId]) continue
+    if (rootIds.length === 0) continue
 
-    nodesById[rootId].isRoot = true
+    for (const rootId of rootIds) {
+      nodesById[rootId].isRoot = true
+    }
 
-    const placed: string[] = [rootId]
-    const unplaced = nodes.filter(n => n.formId !== rootId)
+    const placed: string[] = [...rootIds]
+    const unplaced = nodes.filter(n => !rootIds.includes(n.formId))
 
     for (const u of unplaced) {
       const uNode = nodesById[u.formId]
@@ -292,7 +324,7 @@ export function rebuildTree(data: SpellTreeData, randomize: boolean): SpellTreeD
         }
 
         if (candidates.length === 0) {
-          parent = nodesById[rootId]
+          parent = nodesById[rootIds[0]]
         } else {
           const totalWeight = candidates.reduce((sum, c) => sum + c.weight, 0)
           let r = Math.random() * totalWeight
@@ -313,7 +345,7 @@ export function rebuildTree(data: SpellTreeData, randomize: boolean): SpellTreeD
           if (ra !== 0) return ra
           return a.formId.localeCompare(b.formId)
         })
-        parent = sorted[0] ?? eligible[0] ?? placed.map(id => nodesById[id]).find(n => n.children.length < 3) ?? nodesById[rootId]
+        parent = sorted[0] ?? eligible[0] ?? placed.map(id => nodesById[id]).find(n => n.children.length < 3) ?? nodesById[rootIds[0]]
       }
 
       parent.children.push(u.formId)
@@ -326,7 +358,7 @@ export function rebuildTree(data: SpellTreeData, randomize: boolean): SpellTreeD
     schools[schoolName] = {
       ...school,
       nodes: Object.values(nodesById),
-      roots: [rootId],
+      roots: rootIds,
     }
   }
 
@@ -362,7 +394,6 @@ export function buildTreeFromScan(scan: SpellScanOutput): SpellTreeData {
 
   for (const schoolName of Object.keys(schoolsMap)) {
     const spells = schoolsMap[schoolName]
-    // Sort by rank asc, vanilla preferred, then formId — first entry becomes root.
     const sorted = [...spells].sort((a, b) => {
       const r = rankOf(a) - rankOf(b)
       if (r !== 0) return r
@@ -371,7 +402,6 @@ export function buildTreeFromScan(scan: SpellScanOutput): SpellTreeData {
       return a.formId.localeCompare(b.formId)
     })
 
-    const root = sorted[0]
     const nodesById: Record<string, SpellNode> = {}
     for (const s of sorted) {
       nodesById[s.formId] = {
@@ -387,25 +417,37 @@ export function buildTreeFromScan(scan: SpellScanOutput): SpellTreeData {
         hardPrereqs: [],
         softPrereqs: [],
         softNeeded: 0,
-        isRoot: s.formId === root.formId,
+        isRoot: false,
         schoolColor: schoolColor(schoolName),
       }
     }
 
-    const placed: ScanSpell[] = [root]
-    const unplaced = sorted.filter(s => s.formId !== root.formId)
+    const ranked = [...sorted].sort((a, b) => {
+      const ra = rankOf(a) - rankOf(b)
+      if (ra !== 0) return ra
+      return (isVanilla(a.formId) ? 0 : 1) - (isVanilla(b.formId) ? 0 : 1)
+    })
+    const rootIds = ranked.slice(0, 3).map(s => s.formId)
+
+    for (const rootId of rootIds) {
+      nodesById[rootId].isRoot = true
+    }
+
+    const placed: ScanSpell[] = [...rootIds.map(id => sorted.find(s => s.formId === id)!).filter(Boolean)]
+    const unplaced = sorted.filter(s => !rootIds.includes(s.formId))
 
     for (const u of unplaced) {
       const node = nodesById[u.formId]
-      // Eligible parents: already placed, not above this spell's rank, under 3 children.
-      const eligible = placed.filter(
-        p => rankOf(p) <= rankOf(u) && nodesById[p.formId].children.length < 3
-      )
+      const eligible = placed
+        .map(p => nodesById[p.formId])
+        .filter(n => n.children.length < 3)
+        .filter(n => rankOf(n) <= rankOf(u))
+
       const parent =
         eligible.find(p => classifyTheme(p) === classifyTheme(u)) ??
         eligible[0] ??
         placed.find(p => nodesById[p.formId].children.length < 3) ??
-        root
+        nodesById[rootIds[0]]
 
       const pNode = nodesById[parent.formId]
       pNode.children.push(u.formId)
@@ -415,15 +457,15 @@ export function buildTreeFromScan(scan: SpellScanOutput): SpellTreeData {
       placed.push(u)
     }
 
-    layoutRadial(nodesById, root.formId, sectorOf[schoolName].a0, sectorOf[schoolName].a1)
+    layoutRadial(nodesById, rootIds, sectorOf[schoolName].a0, sectorOf[schoolName].a1)
 
     const { a0, a1 } = sectorOf[schoolName]
     const deg = (rad: number) => (rad * 180) / Math.PI
     schoolsOut[schoolName] = {
-      roots: [root.formId],
+      roots: rootIds,
       layoutStyle: 'tier_first',
       nodes: Object.values(nodesById),
-      spokeAngle: deg(a1 - a0) / Math.max(1, nodesById[root.formId].children.length),
+      spokeAngle: deg(a1 - a0) / Math.max(1, rootIds.length),
       startAngle: deg(a0),
       endAngle: deg(a1),
       rootDirection: deg((a0 + a1) / 2),

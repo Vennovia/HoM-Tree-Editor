@@ -267,7 +267,7 @@ export default function HoMTreeEditor() {
           const updatedNode = { ...newNodes[nodeIndex], ...updates }
           newNodes[nodeIndex] = updatedNode
           
-          const newRoots = newNodes.filter(n => n.isRoot).map(n => n.formId);
+          const newRoots = newNodes.filter(n => n.isRoot).map(n => n.formId).slice(0, 3);
           newSchools[schoolName] = { ...school, nodes: newNodes, roots: newRoots }
         }
       }
@@ -322,7 +322,7 @@ export default function HoMTreeEditor() {
           school.nodes = newNodes;
           
           if (nodeUpdates.isRoot !== undefined) {
-            school.roots = newNodes.filter(n => n.isRoot).map(n => n.formId);
+            school.roots = newNodes.filter(n => n.isRoot).map(n => n.formId).slice(0, 3);
           }
         }
       });
@@ -645,7 +645,7 @@ export default function HoMTreeEditor() {
       const referenceNode = school.nodes.find(n => n.formId === firstRoot) || school.nodes[0]
       const newNode: SpellNode = { formId: newNodeId, name: details.name || "New Spell", theme: details.theme || "_misc", tier: details.tier || 1, skillLevel: details.skillLevel || "Novice", x: (referenceNode?.x || 0) + 100, y: (referenceNode?.y || 0) + 100, children: [], prerequisites: [], hardPrereqs: [], softPrereqs: [], softNeeded: 0, isRoot: details.isRoot || false }
       
-      const newRoots = details.isRoot ? [...(school.roots || []), newNodeId] : (school.roots || []);
+      const newRoots = details.isRoot ? [...(school.roots || []), newNodeId].slice(0, 3) : (school.roots || []);
       
       return { ...prev, schools: { ...prev.schools, [selectedSchool]: { ...school, nodes: [...school.nodes, newNode], roots: newRoots } } }
     })
